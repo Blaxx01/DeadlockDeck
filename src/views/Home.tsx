@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { db, getMeta, getSettings } from '../data/db'
+import { db, getMeta, getQuizHighscore, getSettings } from '../data/db'
 import { computeStreak, localDate } from '../srs/srs'
 
 interface Props {
   onLearn: (extraNew?: number) => void
+  onQuiz: () => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -56,11 +57,12 @@ function useHomeStats() {
       reviewedToday: today?.reviewed ?? 0,
       streak: computeStreak(days, settings.dailyGoal),
       lastSync: await getMeta<number>('lastSync', 0),
+      quizHighscore: await getQuizHighscore(),
     }
   }, [tick])
 }
 
-export function Home({ onLearn, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -119,6 +121,15 @@ export function Home({ onLearn, onSettings, syncing, syncError, imageProgress, o
             {s.fresh > 0 && <button onClick={() => onLearn(10)}>10 weitere neue Karten</button>}
           </>
         )}
+      </div>
+
+      <div className="panel deck">
+        <div className="row">
+          <h2>Quiz</h2>
+          <span className="muted small">Highscore {s.quizHighscore}</span>
+        </div>
+        <p className="muted small">10 Fragen: Bild, Effekt, Zahlen und Build-Pfad – schnell antworten gibt Bonus.</p>
+        <button onClick={onQuiz}>Quiz starten</button>
       </div>
 
       <footer className="muted small sync-info">

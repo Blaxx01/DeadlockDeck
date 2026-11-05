@@ -3,9 +3,10 @@ import { db, getMeta, setMeta } from './data/db'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { Home } from './views/Home'
 import { Learn } from './views/Learn'
+import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
 
-type View = { name: 'home' } | { name: 'learn'; extraNew?: number } | { name: 'settings' }
+type View = { name: 'home' } | { name: 'learn'; extraNew?: number } | { name: 'quiz' } | { name: 'settings' }
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' })
@@ -71,6 +72,7 @@ export default function App() {
       {view.name === 'home' && (
         <Home
           onLearn={extraNew => setView({ name: 'learn', extraNew })}
+          onQuiz={() => setView({ name: 'quiz' })}
           onSettings={() => setView({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
@@ -79,6 +81,7 @@ export default function App() {
         />
       )}
       {view.name === 'learn' && <Learn onExit={goHome} extraNew={view.extraNew} />}
+      {view.name === 'quiz' && <Quiz onExit={goHome} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goHome} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}

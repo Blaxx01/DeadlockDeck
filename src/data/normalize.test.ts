@@ -29,8 +29,8 @@ describe('buildItemCards', () => {
   it('zieht Cooldown/Dauer nach oben und blendet 0-Werte aus', () => {
     const rite = byClass.get('upgrade_healing_rite')!
     expect(rite.timings).toEqual([
-      { label: 'Abklingzeit', value: '60s' },
-      { label: 'Duration', value: '17s' },
+      { label: 'Abklingzeit', value: '60s', kind: 'cooldown' },
+      { label: 'Duration', value: '17s', kind: 'duration' },
     ])
     expect(rite.sections[0].stats.map(s => s.label)).toEqual(['Gesamtheilung', 'Move Speed'])
     expect(rite.sections[0].stats[1].negative).toBe(true)

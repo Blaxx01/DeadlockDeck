@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
-import type { ItemCard, SlotType } from './model'
+import { QUIZ_KINDS, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -23,12 +23,15 @@ export interface Settings {
   dailyGoal: number
   newPerDay: number
   slots: SlotType[]
+  /** Fragetypen, die im Quiz vorkommen */
+  quizKinds: QuizKind[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   dailyGoal: 20,
   newPerDay: 10,
   slots: ['weapon', 'vitality', 'spirit'],
+  quizKinds: [...QUIZ_KINDS],
 }
 
 export class DeckDB extends Dexie {
@@ -65,4 +68,18 @@ export async function getSettings(database: DeckDB = db): Promise<Settings> {
 
 export async function saveSettings(settings: Settings, database: DeckDB = db): Promise<void> {
   await setMeta('settings', settings, database)
+}
+
+export async function getQuizHighscore(database: DeckDB = db): Promise<number> {
+  return getMeta<number>('quizHighscore', 0, database)
+}
+
+/** Speichert den Punktestand, wenn er ein neuer Highscore ist. Gibt true zurück, wenn ja. */
+export async function submitQuizScore(score: number, database: DeckDB = db): Promise<boolean> {
+  return database.transaction('rw', database.meta, async () => {
+    const best = await getQuizHighscore(database)
+    if (score <= best) return false
+    await setMeta('quizHighscore', score, database)
+    return true
+  })
 }

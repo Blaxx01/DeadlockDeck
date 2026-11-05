@@ -1,12 +1,12 @@
 import type { ApiItem, ApiItemProperty, ApiTooltipSection } from './apiTypes'
-import type { CardSection, ItemCard, SectionType, Stat } from './model'
+import type { CardSection, ItemCard, SectionType, Stat, Timing, TimingKind } from './model'
 
 /** Zeit-/Reichweiten-Werte, die oben auf der Karte stehen statt in den Abschnitten. */
-const TIMING_KEYS: { key: string; fallback: string }[] = [
-  { key: 'AbilityCooldown', fallback: 'Cooldown' },
-  { key: 'ProcCooldown', fallback: 'Cooldown' },
-  { key: 'AbilityDuration', fallback: 'Dauer' },
-  { key: 'AbilityCastRange', fallback: 'Reichweite' },
+const TIMING_KEYS: { key: string; kind: TimingKind; fallback: string }[] = [
+  { key: 'AbilityCooldown', kind: 'cooldown', fallback: 'Cooldown' },
+  { key: 'ProcCooldown', kind: 'cooldown', fallback: 'Cooldown' },
+  { key: 'AbilityDuration', kind: 'duration', fallback: 'Dauer' },
+  { key: 'AbilityCastRange', kind: 'range', fallback: 'Reichweite' },
 ]
 const TIMING_KEY_SET = new Set(['AbilityChargeUpTime', 'AbilityCooldownBetweenCharge', ...TIMING_KEYS.map(t => t.key)])
 
@@ -94,15 +94,15 @@ function buildSection(type: SectionType, section: ApiTooltipSection, props: Reco
   return [{ type, html: htmlParts.join('<br>') || undefined, stats }]
 }
 
-function buildTimings(item: ApiItem): Stat[] {
+function buildTimings(item: ApiItem): Timing[] {
   const props = item.properties ?? {}
-  const result: Stat[] = []
-  const usedLabels = new Set<string>()
-  for (const { key, fallback } of TIMING_KEYS) {
+  const result: Timing[] = []
+  const usedKinds = new Set<TimingKind>()
+  for (const { key, kind, fallback } of TIMING_KEYS) {
     const prop = props[key]
-    if (!isPropertyVisible(prop) || usedLabels.has(fallback)) continue
-    usedLabels.add(fallback)
-    result.push(toStat(key, prop, fallback))
+    if (!isPropertyVisible(prop) || usedKinds.has(kind)) continue
+    usedKinds.add(kind)
+    result.push({ ...toStat(key, prop, fallback), kind })
   }
   return result
 }

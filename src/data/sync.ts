@@ -3,6 +3,12 @@ import { db, getMeta, setMeta, type DeckDB } from './db'
 import { buildItemCards } from './normalize'
 
 export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
+/**
+ * Version des gespeicherten Kartenformats. Erhöhen, wenn sich ItemCard ändert:
+ * dann werden die Daten beim nächsten Start mit Netz neu aufgebaut.
+ * 2: Timings haben ein `kind` (für Cooldown-Fragen im Quiz)
+ */
+export const DATA_VERSION = 2
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 
@@ -34,11 +40,13 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
     await database.items.clear()
     await database.items.bulkPut(cards)
     await setMeta('lastSync', Date.now(), database)
+    await setMeta('dataVersion', DATA_VERSION, database)
   })
   return { itemCount: cards.length }
 }
 
 export async function needsAutoSync(database: DeckDB = db): Promise<boolean> {
+  if ((await getMeta<number>('dataVersion', 1, database)) !== DATA_VERSION) return true
   const last = await getMeta<number>('lastSync', 0, database)
   return Date.now() - last > AUTO_SYNC_AFTER_HOURS * 3600_000
 }

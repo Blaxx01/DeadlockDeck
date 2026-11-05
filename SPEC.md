@@ -36,10 +36,16 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
   **zurückgesetzt** (kommt sofort wieder dran) und bekommt das Badge **„Geändert im Patch“**
 
 ## Quiz
-- Fragetypen: **Bild → Name**, **Beschreibung → Item**, **Zahlen** (Kosten, Cooldown, Tier),
-  **Build-Pfad** („In was upgradet X?“)
-- Multiple Choice mit 4 Antworten; falsche Antworten bevorzugt **ähnlich** (gleiche Kategorie/Tier, ähnliche Kosten)
-- Runden à 10 Fragen mit Punktestand und Highscore
+- Fragetypen: **Bild → Name**, **Beschreibung → Item** (Item-Name im Text geschwärzt),
+  **Zahlen** (Cooldown, Kosten, Tier), **Build-Pfad** („In welches Item upgradet X?“ / „Auf welchem Item baut X auf?“)
+  - Kosten folgen direkt aus dem Tier → Cooldown-Fragen kommen so oft wie Kosten- und Tier-Fragen zusammen
+- Multiple Choice mit 4 Antworten; falsche Antworten bevorzugt **ähnlich** (gleiche Kategorie/Tier, ähnliche Kosten),
+  nie eine zweite richtige Antwort (z. B. anderes gültiges Upgrade, identischer Effekttext)
+- Runden à 10 Fragen, Typen gemischt, jedes Item höchstens einmal pro Runde
+- Punkte: **100 pro richtiger Antwort + bis zu 50 Zeitbonus** (linear fallend über 15 s); Highscore wird gespeichert
+- Nach jeder Frage Auflösung mit Item-Infos; am Ende Liste **„Zum Merken“** mit allen Fehlern
+- Fragetypen in den Einstellungen wählbar; der Kategorie-Filter gilt auch fürs Quiz
+- Tastatur (Desktop): 1–4 antworten, Enter weiter, Esc beenden
 
 ## Hero erraten
 - Bildquellen: offizielle Assets und **eigene Ingame-Screenshots**
@@ -58,8 +64,8 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
 
 ## Reihenfolge
-1. **MVP:** Item-Karten + SRS + Offline + Export/Import + Deploy
-2. Quiz
+1. ✅ **MVP:** Item-Karten + SRS + Offline + Export/Import + Deploy
+2. ✅ Quiz
 3. Hero-Decks (Abilities, Übersicht)
 4. Hero erraten (offizielle Assets)
 5. Eigene Screenshots

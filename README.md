@@ -4,6 +4,9 @@ Karteikarten-App fürs Handy zum Lernen der **Deadlock**-Items, auch offline unt
 Vorne das Item-Bild, hinten Kosten, Kategorie, Tier, Stats, Aktiv-/Passiv-Effekt, Cooldown und Build-Pfad.
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
 
+Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad),
+Punkten mit Zeitbonus und Highscore.
+
 Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
 
 ## Aufs Handy
@@ -33,6 +36,8 @@ Aufbau:
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
+| `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
+| `src/views/Quiz.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis |
 | `src/components/FlashCard.tsx` | Karte mit Umdrehen + Swipe |
 
 ## Deploy (GitHub Pages)

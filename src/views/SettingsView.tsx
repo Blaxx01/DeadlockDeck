@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
 import { db, getSettings, saveSettings, type Settings } from '../data/db'
-import { SLOT_LABEL, type SlotType } from '../data/model'
+import { QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type QuizKind, type SlotType } from '../data/model'
 
 interface Props {
   onBack: () => void
@@ -24,6 +24,14 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
     const next = { ...settings, ...patch }
     setSettings(next)
     await saveSettings(next)
+  }
+
+  function toggleQuizKind(kind: QuizKind) {
+    if (!settings) return
+    const has = settings.quizKinds.includes(kind)
+    const quizKinds = has ? settings.quizKinds.filter(k => k !== kind) : QUIZ_KINDS.filter(k => k === kind || settings.quizKinds.includes(k))
+    if (quizKinds.length === 0) return
+    update({ quizKinds })
   }
 
   function toggleSlot(slot: SlotType) {
@@ -88,6 +96,22 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="panel">
+        <h2>Quiz</h2>
+        <div className="field">
+          <span>Fragetypen</span>
+        </div>
+        <div className="chips">
+          {QUIZ_KINDS.map(kind => (
+            <button key={kind} className={`chip toggle${settings.quizKinds.includes(kind) ? ' on' : ''}`}
+              onClick={() => toggleQuizKind(kind)} aria-pressed={settings.quizKinds.includes(kind)}>
+              {QUIZ_KIND_LABEL[kind]}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Die Kategorien von oben gelten auch fürs Quiz.</p>
       </div>
 
       <div className="panel">

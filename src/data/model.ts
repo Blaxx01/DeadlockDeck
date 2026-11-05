@@ -9,6 +9,12 @@ export interface Stat {
   conditional?: boolean
 }
 
+export type TimingKind = 'cooldown' | 'duration' | 'range'
+
+export interface Timing extends Stat {
+  kind: TimingKind
+}
+
 export type SectionType = 'innate' | 'active' | 'passive'
 
 export interface CardSection {
@@ -30,7 +36,7 @@ export interface ItemCard {
   isActive: boolean
   image?: string
   /** Cooldown, Dauer, Reichweite */
-  timings: Stat[]
+  timings: Timing[]
   sections: CardSection[]
   /** Englische Namen der Komponenten */
   buildsFrom: string[]
@@ -44,6 +50,17 @@ export const SLOT_LABEL: Record<SlotType, string> = {
   weapon: 'Weapon',
   vitality: 'Vitality',
   spirit: 'Spirit',
+}
+
+export type QuizKind = 'image' | 'description' | 'number' | 'build'
+
+export const QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build']
+
+export const QUIZ_KIND_LABEL: Record<QuizKind, string> = {
+  image: 'Bild → Name',
+  description: 'Beschreibung → Item',
+  number: 'Zahlen',
+  build: 'Build-Pfad',
 }
 
 export const SECTION_LABEL: Record<SectionType, string> = {

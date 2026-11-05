@@ -1,4 +1,4 @@
-import { db, getSettings, saveSettings, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
+import { db, getMeta, getSettings, saveSettings, setMeta, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
 
 export interface BackupFile {
   app: 'deadlockdeck'
@@ -7,6 +7,7 @@ export interface BackupFile {
   settings: Settings
   reviews: ReviewRecord[]
   days: DayRecord[]
+  quizHighscore?: number
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -17,6 +18,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     settings: await getSettings(database),
     reviews: await database.reviews.toArray(),
     days: await database.days.toArray(),
+    quizHighscore: await getMeta<number>('quizHighscore', 0, database),
   }
 }
 
@@ -56,6 +58,7 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     await database.reviews.bulkPut(backup.reviews)
     await database.days.bulkPut(backup.days)
     if (backup.settings) await saveSettings(backup.settings, database)
+    if (typeof backup.quizHighscore === 'number') await setMeta('quizHighscore', backup.quizHighscore, database)
   })
 }
 
