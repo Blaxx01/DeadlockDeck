@@ -1,5 +1,5 @@
-import type { ApiItem, ApiItemProperty, ApiTooltipSection } from './apiTypes'
-import type { CardSection, ItemCard, SectionType, Stat, Timing, TimingKind } from './model'
+import type { ApiCorruptedInfo, ApiGenericData, ApiItem, ApiItemProperty, ApiTooltipSection } from './apiTypes'
+import type { CardSection, CorruptedInfo, CorruptedStat, ItemCard, SectionType, Stat, Timing, TimingKind } from './model'
 
 /** Zeit-/Reichweiten-Werte, die oben auf der Karte stehen statt in den Abschnitten. */
 const TIMING_KEYS: { key: string; kind: TimingKind; fallback: string }[] = [
@@ -107,6 +107,88 @@ function buildTimings(item: ApiItem): Timing[] {
   return result
 }
 
+/** Deutsche Namen der Broker-Nachteile (die API liefert nur englische/interne Bezeichnungen) */
+const PENALTY_LABEL_DE: Record<string, string> = {
+  TechCooldown: 'Fähigkeiten-Abklingzeit',
+  TechRange: 'Fähigkeiten-Reichweite',
+  TechDuration: 'Fähigkeiten-Dauer',
+  TechPower: 'Spirit-Kraft',
+  TechResist: 'Spirit-Resistenz',
+  Stamina: 'Ausdauer',
+  MoveSpeed: 'Lauftempo',
+  FireRate: 'Feuerrate',
+  WeaponDamage: 'Waffenschaden',
+  Health: 'Lebenspunkte',
+  BulletResist: 'Kugelresistenz',
+}
+
+function toNumber(value: unknown): number | null {
+  const n = Number.parseFloat(String(value ?? ''))
+  return Number.isFinite(n) ? n : null
+}
+
+/** Rundet wie die Ingame-Tooltips: ab 20 ganze Zahlen, darunter höchstens 2 Nachkommastellen. */
+export function roundForDisplay(n: number): number {
+  const clean = Math.round(n * 1e4) / 1e4
+  return Math.abs(clean) >= 20 ? Math.round(clean) : Math.round(clean * 100) / 100
+}
+
+/**
+ * Broker-Variante: verbesserte Werte und mögliche Nachteile für das Tier des Items.
+ * Nachteile fallen weg, wenn das Item sie ausschließt, sie im Tier keinen Wert haben
+ * oder einen Wert betreffen, den das Item selbst liefert (wie im Spiel).
+ */
+export function buildCorrupted(
+  item: ApiItem,
+  info: ApiCorruptedInfo,
+  tier: number,
+  generic?: ApiGenericData,
+): CorruptedInfo | undefined {
+  const props = item.properties ?? {}
+  const bonuses: CorruptedStat[] = []
+  for (const upgrade of info.property_upgrades ?? []) {
+    const prop = props[upgrade.name]
+    const base = toNumber(prop?.value)
+    const bonus = toNumber(upgrade.bonus)
+    if (!prop || base === null || bonus === null) continue
+    const raw = upgrade.round_corrupted_bonus ? Math.round(base + bonus) : base + bonus
+    bonuses.push({
+      label: prop.label?.trim() || humanizeKey(upgrade.name),
+      base: formatPropertyValue(prop),
+      value: formatPropertyValue({ ...prop, value: String(roundForDisplay(raw)) }),
+      varies: !upgrade.fixed_corrupted_bonus,
+    })
+  }
+
+  const excluded = new Set(info.excluded_penalties ?? [])
+  const provided = new Set(
+    Object.values(props)
+      .filter(p => p?.provided_property_type && toNumber(p.value))
+      .map(p => p.provided_property_type as string),
+  )
+  const penalties: Stat[] = []
+  for (const penalty of generic?.corrupted_penalties ?? []) {
+    if (excluded.has(penalty.name)) continue
+    if (penalty.effects.some(e => provided.has(e.modifier_value))) continue
+    const effects = penalty.effects.filter(e => e.display !== false && (e.bonus_per_tier?.[tier] ?? 0) !== 0)
+    if (!effects.length) continue
+    const value = effects
+      .map(e => {
+        const v = roundForDisplay(e.bonus_per_tier[tier])
+        return `${v > 0 ? '+' : ''}${v}${e.postfix ?? ''}`
+      })
+      .join(' / ')
+    const label = effects.length === 1 && PENALTY_LABEL_DE[penalty.name]
+      ? PENALTY_LABEL_DE[penalty.name]
+      : effects.map(e => e.label?.trim() || e.modifier_value).join(' / ')
+    penalties.push({ label, value, negative: true })
+  }
+
+  if (!bonuses.length && !penalties.length) return undefined
+  const price = generic?.item_corruption_price_per_tier?.[tier]
+  return { price: price && price > 0 ? price : undefined, bonuses, penalties }
+}
+
 function imageOf(item: ApiItem): string | undefined {
   return item.shop_image_webp || item.shop_image || item.image_webp || item.image || undefined
 }
@@ -133,8 +215,9 @@ export function isLearnableItem(item: ApiItem): boolean {
 /**
  * Baut die Item-Karten. Namen kommen aus der englischen Liste,
  * Beschreibungen/Stats aus der deutschen (Fallback: englisch).
+ * `generic` liefert Broker-Nachteile und Corrupted-Preise (optional).
  */
-export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[]): ItemCard[] {
+export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[], generic?: ApiGenericData): ItemCard[] {
   const germanById = new Map(germanItems.map(i => [i.id, i]))
   const learnable = englishItems.filter(isLearnableItem)
   const nameByClass = new Map(englishItems.map(i => [i.class_name, i.name]))
@@ -167,6 +250,11 @@ export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[]):
         .map(c => nameByClass.get(c)!)
         .filter(Boolean),
       upgradesTo: (parents.get(en.class_name) ?? []).sort(),
+    }
+    const corruptedInfo = en.corrupted_info ?? text.corrupted_info
+    if (corruptedInfo) {
+      const corrupted = buildCorrupted(text, corruptedInfo, en.item_tier!, generic)
+      if (corrupted) card.corrupted = corrupted
     }
     const { image: _image, ...content } = card
     return { ...card, hash: hashString(JSON.stringify(content)) }

@@ -1,4 +1,4 @@
-import type { ApiItem } from './apiTypes'
+import type { ApiGenericData, ApiItem } from './apiTypes'
 import { db, getMeta, setMeta, type DeckDB } from './db'
 import { buildItemCards } from './normalize'
 
@@ -7,8 +7,9 @@ export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
  * Version des gespeicherten Kartenformats. Erhöhen, wenn sich ItemCard ändert:
  * dann werden die Daten beim nächsten Start mit Netz neu aufgebaut.
  * 2: Timings haben ein `kind` (für Cooldown-Fragen im Quiz)
+ * 3: Broker-Variante (`corrupted`) für den Shop
  */
-export const DATA_VERSION = 2
+export const DATA_VERSION = 3
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 
@@ -30,11 +31,13 @@ export interface SyncResult {
 
 /** Lädt alle Items (englisch + deutsch) und speichert die Karten in IndexedDB. */
 export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
-  const [english, german] = await Promise.all([
+  const [english, german, generic] = await Promise.all([
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=english`),
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=german`).catch(() => [] as ApiItem[]),
+    // Broker-Nachteile und Corrupted-Preise – ohne sie fehlen nur diese Angaben
+    fetchJson<ApiGenericData>(`${API_BASE}/generic-data`).catch(() => undefined),
   ])
-  const cards = buildItemCards(english, german)
+  const cards = buildItemCards(english, german, generic)
   if (cards.length === 0) throw new Error('Die API hat keine Items geliefert.')
   await database.transaction('rw', database.items, database.meta, async () => {
     await database.items.clear()

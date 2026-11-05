@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db, getMeta, setMeta } from './data/db'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
+import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
 import { Learn } from './views/Learn'
 import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
-
-type View = { name: 'home' } | { name: 'learn'; extraNew?: number } | { name: 'quiz' } | { name: 'settings' }
+import { Shop } from './views/Shop'
 
 export default function App() {
-  const [view, setView] = useState<View>({ name: 'home' })
+  // Nach einem Neuladen (z. B. App-Update) in derselben Ansicht weitermachen
+  const [view, setView] = useState<View>(() => viewOf(currentNav()))
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [imageProgress, setImageProgress] = useState<{ done: number; total: number } | null>(null)
@@ -65,25 +66,42 @@ export default function App() {
     return () => window.removeEventListener('online', maybeSync)
   }, [sync, cacheImages])
 
-  const goHome = useCallback(() => setView({ name: 'home' }), [])
+  const navigate = useCallback((next: View) => {
+    pushNav({ view: next })
+    setView(next)
+  }, [])
+
+  /** Einen Schritt zurück im Verlauf – wie die Zurück-Geste */
+  const goBack = useCallback(() => {
+    if (currentNav().view) window.history.back()
+    else setView({ name: 'home' })
+  }, [])
+
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => setView(viewOf(e.state as NavState | null))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   return (
     <main className="app">
       {view.name === 'home' && (
         <Home
-          onLearn={extraNew => setView({ name: 'learn', extraNew })}
-          onQuiz={() => setView({ name: 'quiz' })}
-          onSettings={() => setView({ name: 'settings' })}
+          onLearn={extraNew => navigate({ name: 'learn', extraNew })}
+          onQuiz={() => navigate({ name: 'quiz' })}
+          onShop={() => navigate({ name: 'shop' })}
+          onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
           imageProgress={imageProgress}
           onSync={sync}
         />
       )}
-      {view.name === 'learn' && <Learn onExit={goHome} extraNew={view.extraNew} />}
-      {view.name === 'quiz' && <Quiz onExit={goHome} />}
+      {view.name === 'learn' && <Learn onExit={goBack} extraNew={view.extraNew} />}
+      {view.name === 'quiz' && <Quiz onExit={goBack} />}
+      {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'settings' && (
-        <SettingsView onBack={goHome} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
+        <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}
     </main>
   )

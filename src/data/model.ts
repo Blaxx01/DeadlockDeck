@@ -24,6 +24,26 @@ export interface CardSection {
   stats: Stat[]
 }
 
+/** Ein Wert der Broker-Variante: normal → corrupted */
+export interface CorruptedStat {
+  label: string
+  base: string
+  value: string
+  /** schwankt pro Match um ±CORRUPTED_VARIANCE_PERCENT */
+  varies: boolean
+}
+
+export interface CorruptedInfo {
+  /** Preis der Corrupted-Variante (falls bekannt) */
+  price?: number
+  bonuses: CorruptedStat[]
+  /** Mögliche Nachteile – einer davon wird pro Kauf zufällig gewürfelt */
+  penalties: Stat[]
+}
+
+/** Standard-Schwankung der Broker-Werte je Match (Spiel-Convars, Stand der API-Bibliothek) */
+export const CORRUPTED_VARIANCE_PERCENT = 15
+
 export interface ItemCard {
   /** Stabile Karten-ID, z. B. "item:upgrade_headshot_booster" */
   id: string
@@ -42,6 +62,8 @@ export interface ItemCard {
   buildsFrom: string[]
   /** Englische Namen der Items, in die dieses Item upgradet */
   upgradesTo: string[]
+  /** Broker-Variante (nur Tier 3/4) */
+  corrupted?: CorruptedInfo
   /** Hash des Inhalts, um Patch-Änderungen zu erkennen */
   hash: string
 }

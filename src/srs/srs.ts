@@ -65,7 +65,10 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     const wasNew = !existing || existing.state === State.New
     const base: Card = existing ?? createEmptyCard(now)
     const updated = nextCard(base, known, now)
-    await database.reviews.put({ ...updated, id })
+    // Nur die FSRS-Felder übernehmen – eine Vormerkung ist mit der Bewertung erledigt
+    const record: ReviewRecord = { ...updated, id }
+    delete record.requested
+    await database.reviews.put(record)
 
     const date = localDate(now)
     const day = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
@@ -87,4 +90,50 @@ export function computeStreak(days: DayRecord[], goal: number, today: Date = new
     cursor.setDate(cursor.getDate() - 1)
   }
   return streak
+}
+
+/**
+ * „Jetzt lernen“: Karte wird sofort fällig und kommt in die nächste Session.
+ * Zählt nicht gegen das Neu-Limit; der bisherige Lernverlauf bleibt erhalten.
+ */
+export async function requestLearn(id: string, now = new Date(), database: DeckDB = db): Promise<void> {
+  await database.transaction('rw', database.reviews, async () => {
+    const existing = await database.reviews.get(id)
+    const base: Card = existing ?? createEmptyCard(now)
+    await database.reviews.put({ ...base, id, due: now, requested: true })
+  })
+}
+
+/** Gehört die Karte in Lern-Sessions? Kategorie-Filter, außer sie wurde ausdrücklich vorgemerkt. */
+export function isInLearnScope(slotEnabled: boolean, review?: Pick<ReviewRecord, 'requested'>): boolean {
+  return slotEnabled || !!review?.requested
+}
+
+export interface LearnState {
+  label: string
+  /** z. B. „nächste Wiederholung in 3 Tagen“ */
+  detail?: string
+}
+
+/** Lernstand einer Karte für die Anzeige. */
+export function describeLearnState(review: ReviewRecord | undefined, now = new Date()): LearnState {
+  if (review?.requested) return { label: 'Vorgemerkt', detail: 'kommt in der nächsten Lern-Session dran' }
+  if (!review || review.state === State.New) return { label: 'Neu', detail: 'noch nicht gelernt' }
+  const reps = `${review.reps}× wiederholt`
+  const due = review.due.getTime() <= now.getTime() ? 'jetzt fällig' : `nächste Wiederholung ${formatRelative(review.due, now)}`
+  if (review.state === State.Review) return { label: 'Gelernt', detail: `${due} · ${reps}` }
+  return { label: 'Wird gelernt', detail: `${due} · ${reps}` }
+}
+
+/** „in 10 Min.“, „in 3 Std.“, „morgen“, „in 5 Tagen“, „in 3 Wochen“, „in 2 Monaten“ */
+export function formatRelative(date: Date, now = new Date()): string {
+  const minutes = Math.round((date.getTime() - now.getTime()) / 60_000)
+  if (minutes < 60) return `in ${Math.max(1, minutes)} Min.`
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000)
+  if (days === 0) return `in ${Math.round(minutes / 60)} Std.`
+  if (days === 1) return 'morgen'
+  if (days < 14) return `in ${days} Tagen`
+  if (days < 60) return `in ${Math.round(days / 7)} Wochen`
+  return `in ${Math.round(days / 30)} Monaten`
 }

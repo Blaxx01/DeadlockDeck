@@ -1,0 +1,100 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo, useState } from 'react'
+import { ItemBack } from '../components/ItemBack'
+import { db } from '../data/db'
+import { CORRUPTED_VARIANCE_PERCENT, type CorruptedInfo, type ItemCard } from '../data/model'
+import { describeLearnState, requestLearn } from '../srs/srs'
+
+interface Props {
+  card: ItemCard
+  cards: readonly ItemCard[]
+  onBack: () => void
+  onOpen: (id: string) => void
+}
+
+function BrokerSection({ info }: { info: CorruptedInfo }) {
+  return (
+    <section className="sec broker">
+      <h3>Broker (Corrupted)</h3>
+      {info.price && <p>Preis: <b className="souls">{info.price.toLocaleString('de-DE')} Souls</b></p>}
+      {info.bonuses.length > 0 && (
+        <ul className="stats">
+          {info.bonuses.map((b, i) => (
+            <li key={i}>
+              <span className="stat-value">{b.value}</span>
+              <span className="stat-label">
+                {b.label} <span className="small">(statt {b.base}{b.varies ? '' : ', fest'})</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {info.penalties.length > 0 && (
+        <>
+          <p className="muted small">Dazu kommt <b>einer</b> dieser Nachteile, zufällig gewürfelt:</p>
+          <ul className="stats">
+            {info.penalties.map((p, i) => (
+              <li key={i} className="neg">
+                <span className="stat-value">{p.value}</span>
+                <span className="stat-label">{p.label}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="muted small">Die Werte schwanken je Match um ±{CORRUPTED_VARIANCE_PERCENT} %.</p>
+    </section>
+  )
+}
+
+export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
+  // { review } statt review, damit „lädt noch“ (undefined) von „keine Karte“ unterscheidbar ist
+  const loaded = useLiveQuery(async () => ({ review: await db.reviews.get(card.id) }), [card.id])
+  const [justRequested, setJustRequested] = useState(false)
+  const byName = useMemo(() => new Map(cards.map(c => [c.name, c])), [cards])
+  const state = loaded ? describeLearnState(loaded.review) : undefined
+
+  function openByName(name: string) {
+    const target = byName.get(name)
+    if (target) onOpen(target.id)
+  }
+
+  async function learnNow() {
+    await requestLearn(card.id)
+    setJustRequested(true)
+  }
+
+  return (
+    <div className="detail-page" role="dialog" aria-label={card.name}>
+      <div className="detail-inner">
+        <header className="home-head">
+          <button className="icon-btn" onClick={onBack} aria-label="Zurück">←</button>
+          <span className="muted small">Shop</span>
+          <span className="icon-btn" aria-hidden="true" />
+        </header>
+
+        <div className={`detail-hero slot-bg-${card.slot}`}>
+          {card.image && <img src={card.image} alt="" draggable={false} />}
+        </div>
+
+        <ItemBack card={card} onItemClick={openByName} />
+
+        <section className="sec learn-state">
+          <h3>Lernstand</h3>
+          {state && (
+            <p>
+              <b>{state.label}</b>
+              {state.detail && <span className="muted"> – {state.detail}</span>}
+            </p>
+          )}
+          {loaded && !loaded.review?.requested && (
+            <button onClick={learnNow}>Jetzt lernen</button>
+          )}
+          {justRequested && <p className="good small">Kommt in deiner nächsten Lern-Session dran.</p>}
+        </section>
+
+        {card.corrupted && <BrokerSection info={card.corrupted} />}
+      </div>
+    </div>
+  )
+}

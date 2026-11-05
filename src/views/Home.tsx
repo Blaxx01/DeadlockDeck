@@ -1,11 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
+import { State } from 'ts-fsrs'
 import { db, getMeta, getQuizHighscore, getSettings } from '../data/db'
-import { computeStreak, localDate } from '../srs/srs'
+import { computeStreak, isInLearnScope, localDate } from '../srs/srs'
 
 interface Props {
   onLearn: (extraNew?: number) => void
   onQuiz: () => void
+  onShop: () => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -33,15 +35,18 @@ function useHomeStats() {
   const tick = useClockTick()
   return useLiveQuery(async () => {
     const settings = await getSettings()
-    const items = (await db.items.toArray()).filter(i => settings.slots.includes(i.slot))
     const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
+    const items = (await db.items.toArray()).filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id)))
     const now = Date.now()
     let due = 0
     let fresh = 0
+    let learned = 0
     for (const i of items) {
       const r = reviews.get(i.id)
       if (!r) fresh++
       else if (r.due.getTime() <= now) due++
+      // Per „Jetzt lernen“ vorgemerkte neue Karten sind fällig, aber noch nicht gelernt
+      if (r && r.state !== State.New) learned++
     }
     const days = await db.days.toArray()
     const today = days.find(d => d.date === localDate())
@@ -50,7 +55,7 @@ function useHomeStats() {
       settings,
       total: items.length,
       totalAll: await db.items.count(),
-      learned: items.length - fresh,
+      learned,
       due,
       fresh,
       newLeft,
@@ -62,7 +67,7 @@ function useHomeStats() {
   }, [tick])
 }
 
-export function Home({ onLearn, onQuiz, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -130,6 +135,12 @@ export function Home({ onLearn, onQuiz, onSettings, syncing, syncError, imagePro
         </div>
         <p className="muted small">10 Fragen: Bild, Effekt, Zahlen und Build-Pfad – schnell antworten gibt Bonus.</p>
         <button onClick={onQuiz}>Quiz starten</button>
+      </div>
+
+      <div className="panel deck">
+        <h2>Shop</h2>
+        <p className="muted small">Alle Items wie im Ingame-Shop zum Nachschlagen – mit Suche nach Name oder Effekt.</p>
+        <button onClick={onShop}>Shop öffnen</button>
       </div>
 
       <footer className="muted small sync-info">

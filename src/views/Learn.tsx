@@ -4,7 +4,7 @@ import { FlashCard, type FlashCardHandle } from '../components/FlashCard'
 import { ItemBack } from '../components/ItemBack'
 import { db, getSettings, type Settings } from '../data/db'
 import type { ItemCard } from '../data/model'
-import { buildQueue, localDate, rateCard, requeue } from '../srs/srs'
+import { buildQueue, isInLearnScope, localDate, rateCard, requeue } from '../srs/srs'
 
 interface Props {
   onExit: () => void
@@ -41,8 +41,8 @@ export function Learn({ onExit, extraNew = 0 }: Props) {
     let cancelled = false
     ;(async () => {
       const s = await getSettings()
-      const items = (await db.items.toArray()).filter(i => s.slots.includes(i.slot))
       const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
+      const items = (await db.items.toArray()).filter(i => isInLearnScope(s.slots.includes(i.slot), reviews.get(i.id)))
       const day = await db.days.get(localDate())
       const newLimit = extraNew > 0 ? extraNew : s.newPerDay - (day?.newIntroduced ?? 0)
       const q = buildQueue({ cards: items, reviews, now: new Date(), newLimit })

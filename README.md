@@ -5,7 +5,8 @@ Vorne das Item-Bild, hinten Kosten, Kategorie, Tier, Stats, Aktiv-/Passiv-Effekt
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
 
 Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad),
-Punkten mit Zeitbonus und Highscore.
+Punkten mit Zeitbonus und Highscore, und einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
+Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“.
 
 Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
 
@@ -38,6 +39,9 @@ Aufbau:
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
 | `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
 | `src/views/Quiz.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis |
+| `src/views/Shop.tsx`, `src/views/ItemDetail.tsx` | Shop (Tabs, Tiers, Suche) und Item-Detailseite |
+| `src/shop/search.ts` | Shop-Aufbau und Suche (Name + Effekttext) |
+| `src/nav.ts` | Navigation über den Browser-Verlauf (Zurück-Geste) |
 | `src/components/FlashCard.tsx` | Karte mit Umdrehen + Swipe |
 
 ## Deploy (GitHub Pages)

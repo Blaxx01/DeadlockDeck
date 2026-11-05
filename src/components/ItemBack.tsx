@@ -30,7 +30,28 @@ function Section({ section }: { section: CardSection }) {
   )
 }
 
-export function ItemBack({ card }: { card: ItemCard }) {
+/** Namen als Text – oder als antippbare Links, wenn `onClick` gesetzt ist */
+function NameList({ names, onClick }: { names: string[]; onClick?: (name: string) => void }) {
+  if (!onClick) return <>{names.join(', ')}</>
+  return (
+    <>
+      {names.map((name, i) => (
+        <span key={name}>
+          {i > 0 && ', '}
+          <button className="link" onClick={() => onClick(name)}>{name}</button>
+        </span>
+      ))}
+    </>
+  )
+}
+
+interface Props {
+  card: ItemCard
+  /** Build-Pfad-Namen antippbar machen (Shop-Detailseite) */
+  onItemClick?: (name: string) => void
+}
+
+export function ItemBack({ card, onItemClick }: Props) {
   return (
     <div className="back-content">
       <header className="back-head">
@@ -59,8 +80,8 @@ export function ItemBack({ card }: { card: ItemCard }) {
       {(card.buildsFrom.length > 0 || card.upgradesTo.length > 0) && (
         <section className="sec build">
           <h3>Build-Pfad</h3>
-          {card.buildsFrom.length > 0 && <p><span className="muted">Baut auf:</span> {card.buildsFrom.join(', ')}</p>}
-          {card.upgradesTo.length > 0 && <p><span className="muted">Upgradet zu:</span> {card.upgradesTo.join(', ')}</p>}
+          {card.buildsFrom.length > 0 && <p><span className="muted">Baut auf:</span> <NameList names={card.buildsFrom} onClick={onItemClick} /></p>}
+          {card.upgradesTo.length > 0 && <p><span className="muted">Upgradet zu:</span> <NameList names={card.upgradesTo} onClick={onItemClick} /></p>}
         </section>
       )}
     </div>

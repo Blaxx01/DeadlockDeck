@@ -11,6 +11,8 @@ export interface ApiItemProperty {
   postfix?: string | null
   negative_attribute?: boolean | null
   conditional?: string | null
+  /** Welchen Wert das Item liefert, z. B. MODIFIER_VALUE_FIRE_RATE (für Broker-Nachteile) */
+  provided_property_type?: string | null
 }
 
 export interface ApiTooltipSectionAttribute {
@@ -45,4 +47,40 @@ export interface ApiItem {
   properties?: Record<string, ApiItemProperty> | null
   tooltip_sections?: ApiTooltipSection[] | null
   component_items?: string[] | null
+  corrupted_info?: ApiCorruptedInfo | null
+}
+
+/** Broker-Variante eines Tier-3/4-Items */
+export interface ApiCorruptedInfo {
+  property_upgrades: {
+    name: string
+    bonus: string | number
+    /** Bonus schwankt nicht pro Match */
+    fixed_corrupted_bonus?: boolean | null
+    /** Ergebnis wird auf ganze Zahl gerundet */
+    round_corrupted_bonus?: boolean | null
+  }[]
+  excluded_penalties: string[]
+}
+
+export interface ApiPenaltyEffect {
+  modifier_value: string
+  /** Wert je Tier (Index 3 = T3, 4 = T4) */
+  bonus_per_tier: number[]
+  display: boolean
+  label?: string | null
+  postfix?: string | null
+}
+
+export interface ApiPenalty {
+  name: string
+  roll_weight?: number | null
+  effects: ApiPenaltyEffect[]
+}
+
+/** Teilmenge von /v1/assets/generic-data */
+export interface ApiGenericData {
+  item_price_per_tier?: number[]
+  item_corruption_price_per_tier?: number[]
+  corrupted_penalties?: ApiPenalty[]
 }

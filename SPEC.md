@@ -47,6 +47,22 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
 - Fragetypen in den Einstellungen wählbar; der Kategorie-Filter gilt auch fürs Quiz
 - Tastatur (Desktop): 1–4 antworten, Enter weiter, Esc beenden
 
+## Shop (Nachschlagen)
+- Feld **„Shop“** auf der Startseite; reines Nachschlagewerk (kein Build-Planer)
+- Aufbau wie ingame: Tabs **Weapon / Vitality / Spirit**, darunter **Tier 1–4 mit Preis**,
+  Items als **Icon-Raster mit Namen**, innerhalb eines Tiers **alphabetisch** (die API liefert keine Ingame-Position)
+- Im Raster markiert: nur **Aktiv-Items**
+- Zeigt immer alle Items (der Kategorie-Filter gilt nur fürs Lernen/Quiz)
+- **Suche** nach Name **und** deutschem Effekttext/Stat-Namen, über alle Kategorien, Umlaute optional
+- Antippen öffnet eine **eigene Detailseite** (Tab und Scrollposition bleiben beim Zurück erhalten):
+  - Inhalt der Kartenrückseite, **Build-Pfad antippbar** (springt zum Item)
+  - **Lernstand** (Neu / Wird gelernt / Gelernt / Vorgemerkt + nächste Wiederholung)
+  - **„Jetzt lernen“**: Item wird sofort fällig und kommt in die nächste Session; zählt nicht gegen
+    das Neu-Limit, Lernverlauf bleibt, gilt auch für ausgeblendete Kategorien
+  - **Broker (Corrupted)** bei Tier 3/4: Preis, verbesserte Werte (statt …, fest/±15 % je Match)
+    und alle möglichen Nachteile (ohne ausgeschlossene und solche, die das Item selbst liefert)
+- Navigation über den Browser-Verlauf: **Zurück (auch Android-Geste)** führt überall einen Schritt zurück
+
 ## Hero erraten
 - Bildquellen: offizielle Assets und **eigene Ingame-Screenshots**
 - Varianten: **Silhouette**, **Zoom-Ausschnitt**, **Unscharf → scharf**, **Ability-Icon → Hero**
@@ -66,10 +82,11 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
 ## Reihenfolge
 1. ✅ **MVP:** Item-Karten + SRS + Offline + Export/Import + Deploy
 2. ✅ Quiz
-3. Hero-Decks (Abilities, Übersicht)
-4. Hero erraten (offizielle Assets)
-5. Eigene Screenshots
-6. Patch-Erkennung (Reset + Badge)
+3. ✅ Shop (Nachschlagen)
+4. Hero-Decks (Abilities, Übersicht)
+5. Hero erraten (offizielle Assets)
+6. Eigene Screenshots
+7. Patch-Erkennung (Reset + Badge)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

@@ -5,6 +5,8 @@ import { QUIZ_KINDS, type ItemCard, type QuizKind, type SlotType } from './model
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
   id: string
+  /** Per „Jetzt lernen“ vorgemerkt: kommt in die nächste Session, auch wenn die Kategorie ausgeblendet ist */
+  requested?: boolean
 }
 
 export interface DayRecord {
