@@ -43,3 +43,8 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Der allererste Deploy einer neuen Pages-Seite kann länger als die
+          # Standard-10-Minuten dauern. Hinweis: Ein Re-Run desselben Commits
+          # hängt bei GitHub ("Current status:" leer) – dann neu committen.
+          timeout: 1200000
