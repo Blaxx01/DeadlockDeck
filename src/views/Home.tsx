@@ -1,11 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
-import { db, getMeta, getQuizHighscore, getSettings } from '../data/db'
+import { db, getMeta, getQuizHighscore, getSettings, type ReviewRecord } from '../data/db'
+import { DECKS, newIntroducedToday, type DeckId } from '../decks'
 import { computeStreak, isInLearnScope, localDate } from '../srs/srs'
 
 interface Props {
-  onLearn: (extraNew?: number) => void
+  onLearn: (deck: DeckId, extraNew?: number) => void
   onQuiz: () => void
   onShop: () => void
   onSettings: () => void
@@ -31,40 +32,82 @@ function useClockTick(): number {
   return tick
 }
 
+interface DeckStats {
+  id: DeckId
+  label: string
+  total: number
+  due: number
+  fresh: number
+  newLeft: number
+  learned: number
+}
+
+function countDeck(ids: string[], reviews: Map<string, ReviewRecord>, now: number, newAllowed: number): Omit<DeckStats, 'id' | 'label'> {
+  let due = 0
+  let fresh = 0
+  let learned = 0
+  for (const id of ids) {
+    const r = reviews.get(id)
+    if (!r) fresh++
+    else if (r.due.getTime() <= now) due++
+    // Per „Jetzt lernen“ vorgemerkte neue Karten sind fällig, aber noch nicht gelernt
+    if (r && r.state !== State.New) learned++
+  }
+  return { total: ids.length, due, fresh, learned, newLeft: Math.max(0, Math.min(fresh, newAllowed)) }
+}
+
 function useHomeStats() {
   const tick = useClockTick()
   return useLiveQuery(async () => {
     const settings = await getSettings()
     const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
     const items = (await db.items.toArray()).filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id)))
-    const now = Date.now()
-    let due = 0
-    let fresh = 0
-    let learned = 0
-    for (const i of items) {
-      const r = reviews.get(i.id)
-      if (!r) fresh++
-      else if (r.due.getTime() <= now) due++
-      // Per „Jetzt lernen“ vorgemerkte neue Karten sind fällig, aber noch nicht gelernt
-      if (r && r.state !== State.New) learned++
+    const ids: Record<DeckId, string[]> = {
+      items: items.map(i => i.id),
+      abilities: (await db.abilities.toCollection().primaryKeys()) as string[],
+      heroes: (await db.heroes.toCollection().primaryKeys()) as string[],
     }
+    const now = Date.now()
     const days = await db.days.toArray()
     const today = days.find(d => d.date === localDate())
-    const newLeft = Math.max(0, Math.min(fresh, settings.newPerDay - (today?.newIntroduced ?? 0)))
+    const decks: DeckStats[] = DECKS.map(d => ({
+      id: d.id,
+      label: d.label,
+      ...countDeck(ids[d.id], reviews, now, settings.newPerDay - newIntroducedToday(today, d.id)),
+    }))
     return {
       settings,
-      total: items.length,
+      decks,
       totalAll: await db.items.count(),
-      learned,
-      due,
-      fresh,
-      newLeft,
       reviewedToday: today?.reviewed ?? 0,
       streak: computeStreak(days, settings.dailyGoal),
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
     }
   }, [tick])
+}
+
+function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn'] }) {
+  const toLearn = deck.due + deck.newLeft
+  return (
+    <div className="deck-row">
+      <div className="deck-info">
+        <div className="deck-name">{deck.label}</div>
+        <div className="muted small">
+          {deck.total === 0
+            ? 'Noch keine Daten – einmal mit Internet öffnen'
+            : `${deck.due} fällig · ${deck.newLeft} neu · ${deck.learned}/${deck.total} gelernt`}
+        </div>
+      </div>
+      {toLearn > 0 ? (
+        <button className="primary" onClick={() => onLearn(deck.id)}>Lernen ({toLearn})</button>
+      ) : deck.fresh > 0 ? (
+        <button onClick={() => onLearn(deck.id, 10)} title="10 weitere neue Karten">+10 neue</button>
+      ) : deck.total > 0 ? (
+        <span className="good small">Erledigt</span>
+      ) : null}
+    </div>
+  )
 }
 
 export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
@@ -88,7 +131,6 @@ export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, 
   }
 
   const goalPct = Math.min(100, Math.round((s.reviewedToday / s.settings.dailyGoal) * 100))
-  const toLearn = s.due + s.newLeft
 
   return (
     <div className="home">
@@ -111,21 +153,9 @@ export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, 
         <div className="goal-bar"><div style={{ width: `${goalPct}%` }} /></div>
       </div>
 
-      <div className="panel deck">
-        <h2>Items</h2>
-        <div className="counts">
-          <div><span className="big">{s.due}</span><span className="muted small">fällig</span></div>
-          <div><span className="big">{s.newLeft}</span><span className="muted small">neu heute</span></div>
-          <div><span className="big">{s.learned}</span><span className="muted small">von {s.total} gelernt</span></div>
-        </div>
-        {toLearn > 0 ? (
-          <button className="primary" onClick={() => onLearn()}>Lernen ({toLearn})</button>
-        ) : (
-          <>
-            <p className="good">Für heute alles erledigt.</p>
-            {s.fresh > 0 && <button onClick={() => onLearn(10)}>10 weitere neue Karten</button>}
-          </>
-        )}
+      <div className="panel">
+        <h2>Karteikarten</h2>
+        {s.decks.map(d => <DeckRow key={d.id} deck={d} onLearn={onLearn} />)}
       </div>
 
       <div className="panel deck">

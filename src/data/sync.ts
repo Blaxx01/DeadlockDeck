@@ -1,5 +1,6 @@
-import type { ApiGenericData, ApiItem } from './apiTypes'
+import type { ApiGenericData, ApiHero, ApiItem } from './apiTypes'
 import { db, getMeta, setMeta, type DeckDB } from './db'
+import { buildHeroDecks } from './heroes'
 import { buildItemCards } from './normalize'
 
 export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
@@ -8,8 +9,9 @@ export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
  * dann werden die Daten beim nächsten Start mit Netz neu aufgebaut.
  * 2: Timings haben ein `kind` (für Cooldown-Fragen im Quiz)
  * 3: Broker-Variante (`corrupted`) für den Shop
+ * 4: Hero-Decks (heroes, abilities) + Einheiten-Korrekturen
  */
-export const DATA_VERSION = 3
+export const DATA_VERSION = 4
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 
@@ -27,25 +29,34 @@ async function fetchJson<T>(url: string, timeoutMs = 20000): Promise<T> {
 
 export interface SyncResult {
   itemCount: number
+  heroCount: number
+  abilityCount: number
 }
 
 /** Lädt alle Items (englisch + deutsch) und speichert die Karten in IndexedDB. */
 export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
-  const [english, german, generic] = await Promise.all([
+  const [english, german, generic, heroesEn, heroesDe] = await Promise.all([
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=english`),
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=german`).catch(() => [] as ApiItem[]),
     // Broker-Nachteile und Corrupted-Preise – ohne sie fehlen nur diese Angaben
     fetchJson<ApiGenericData>(`${API_BASE}/generic-data`).catch(() => undefined),
+    fetchJson<ApiHero[]>(`${API_BASE}/heroes?language=english`),
+    fetchJson<ApiHero[]>(`${API_BASE}/heroes?language=german`).catch(() => [] as ApiHero[]),
   ])
   const cards = buildItemCards(english, german, generic)
   if (cards.length === 0) throw new Error('Die API hat keine Items geliefert.')
-  await database.transaction('rw', database.items, database.meta, async () => {
+  const { heroes, abilities } = buildHeroDecks(heroesEn, heroesDe, english, german)
+  await database.transaction('rw', [database.items, database.heroes, database.abilities, database.meta], async () => {
     await database.items.clear()
     await database.items.bulkPut(cards)
+    await database.heroes.clear()
+    await database.heroes.bulkPut(heroes)
+    await database.abilities.clear()
+    await database.abilities.bulkPut(abilities)
     await setMeta('lastSync', Date.now(), database)
     await setMeta('dataVersion', DATA_VERSION, database)
   })
-  return { itemCount: cards.length }
+  return { itemCount: cards.length, heroCount: heroes.length, abilityCount: abilities.length }
 }
 
 export async function needsAutoSync(database: DeckDB = db): Promise<boolean> {

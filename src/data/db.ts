@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
-import { QUIZ_KINDS, type ItemCard, type QuizKind, type SlotType } from './model'
+import type { DeckId } from '../decks'
+import { QUIZ_KINDS, type AbilityCard, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -13,7 +14,10 @@ export interface DayRecord {
   /** Lokales Datum YYYY-MM-DD */
   date: string
   reviewed: number
+  /** Neue Karten insgesamt */
   newIntroduced: number
+  /** Neue Karten je Deck (für das Neu-Limit je Deck); fehlt bei Tagen von vor den Hero-Decks */
+  newByDeck?: Partial<Record<DeckId, number>>
 }
 
 export interface MetaRecord {
@@ -38,6 +42,8 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export class DeckDB extends Dexie {
   items!: EntityTable<ItemCard, 'id'>
+  heroes!: EntityTable<HeroCard, 'id'>
+  abilities!: EntityTable<AbilityCard, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
   days!: EntityTable<DayRecord, 'date'>
   meta!: EntityTable<MetaRecord, 'key'>
@@ -49,6 +55,11 @@ export class DeckDB extends Dexie {
       reviews: 'id, due, state',
       days: 'date',
       meta: 'key',
+    })
+    // Hero-Decks
+    this.version(2).stores({
+      heroes: 'id',
+      abilities: 'id, heroId',
     })
   }
 }

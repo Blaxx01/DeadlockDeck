@@ -1,30 +1,11 @@
-import { useMemo } from 'react'
-import { SECTION_LABEL, SLOT_LABEL, type CardSection, type ItemCard, type Stat } from '../data/model'
-import { sanitizeHtml } from '../data/sanitize'
-
-function StatList({ stats }: { stats: Stat[] }) {
-  if (!stats.length) return null
-  return (
-    <ul className="stats">
-      {stats.map((s, i) => (
-        <li key={i} className={s.negative ? 'neg' : undefined}>
-          <span className="stat-value">{s.value}</span>
-          <span className="stat-label">
-            {s.label}
-            {s.conditional && <em className="cond"> (bedingt)</em>}
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
+import { SECTION_LABEL, SLOT_LABEL, type CardSection, type ItemCard } from '../data/model'
+import { SafeHtml, StatList, TimingTiles } from './CardParts'
 
 function Section({ section }: { section: CardSection }) {
-  const html = useMemo(() => (section.html ? sanitizeHtml(section.html) : ''), [section.html])
   return (
     <section className={`sec sec-${section.type}`}>
       <h3>{SECTION_LABEL[section.type]}</h3>
-      {html && <p className="desc" dangerouslySetInnerHTML={{ __html: html }} />}
+      <SafeHtml html={section.html} />
       <StatList stats={section.stats} />
     </section>
   )
@@ -64,16 +45,7 @@ export function ItemBack({ card, onItemClick }: Props) {
         </div>
       </header>
 
-      {card.timings.length > 0 && (
-        <div className="timings">
-          {card.timings.map((t, i) => (
-            <div key={i} className="timing">
-              <span className="stat-value">{t.value}</span>
-              <span className="stat-label">{t.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <TimingTiles timings={card.timings} />
 
       {card.sections.map((s, i) => <Section key={i} section={s} />)}
 

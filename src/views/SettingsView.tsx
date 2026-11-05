@@ -81,12 +81,12 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             onChange={e => update({ dailyGoal: Math.max(1, Number(e.target.value) || 1) })} />
         </label>
         <label className="field">
-          <span>Neue Karten pro Tag</span>
+          <span>Neue Karten pro Tag (je Deck)</span>
           <input type="number" min={0} max={200} value={settings.newPerDay}
             onChange={e => update({ newPerDay: Math.max(0, Number(e.target.value) || 0) })} />
         </label>
         <div className="field">
-          <span>Kategorien</span>
+          <span>Item-Kategorien</span>
           <div className="chips">
             {SLOTS.map(slot => (
               <button key={slot} className={`chip toggle slot-${slot}${settings.slots.includes(slot) ? ' on' : ''}`}

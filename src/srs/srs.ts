@@ -1,5 +1,6 @@
 import { createEmptyCard, fsrs, Rating, State, type Card } from 'ts-fsrs'
 import { db, type DayRecord, type DeckDB, type ReviewRecord } from '../data/db'
+import { deckOfCardId } from '../decks'
 
 export const scheduler = fsrs({ enable_fuzz: true, request_retention: 0.9 })
 
@@ -12,15 +13,15 @@ export function localDate(d: Date = new Date()): string {
 }
 
 export interface QueueInput {
-  /** Kandidaten (bereits nach Filter), sortiert nach gewünschter Reihenfolge für neue Karten */
-  cards: { id: string; tier: number }[]
+  /** Kandidaten (bereits gefiltert); `order` bestimmt die Reihenfolge neuer Karten (z. B. Tier) */
+  cards: { id: string; order: number }[]
   reviews: Map<string, Pick<ReviewRecord, 'due'>>
   now: Date
   newLimit: number
   rng?: () => number
 }
 
-/** Fällige Karten (älteste zuerst), danach neue Karten bis zum Limit (niedrige Tiers zuerst, sonst gemischt). */
+/** Fällige Karten (älteste zuerst), danach neue Karten bis zum Limit (kleine `order` zuerst, sonst gemischt). */
 export function buildQueue({ cards, reviews, now, newLimit, rng = Math.random }: QueueInput): string[] {
   const due = cards
     .filter(c => {
@@ -33,7 +34,7 @@ export function buildQueue({ cards, reviews, now, newLimit, rng = Math.random }:
   const fresh = cards
     .filter(c => !reviews.has(c.id))
     .map(c => ({ ...c, r: rng() }))
-    .sort((a, b) => a.tier - b.tier || a.r - b.r)
+    .sort((a, b) => a.order - b.order || a.r - b.r)
     .slice(0, Math.max(0, newLimit))
     .map(c => c.id)
 
@@ -71,9 +72,16 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     await database.reviews.put(record)
 
     const date = localDate(now)
-    const day = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
+    const day: DayRecord = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
     day.reviewed += 1
-    if (!existing) day.newIntroduced += 1
+    if (!existing) {
+      // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
+      const byDeck = day.newByDeck ?? { items: day.newIntroduced }
+      const deck = deckOfCardId(id)
+      byDeck[deck] = (byDeck[deck] ?? 0) + 1
+      day.newByDeck = byDeck
+      day.newIntroduced += 1
+    }
     await database.days.put(day)
     return { wasNew, due: updated.due }
   })

@@ -3,9 +3,12 @@
  * Verlaufseintrag. So führt „Zurück“ – auch die Android-Geste – einen Schritt zurück,
  * statt die App zu schließen.
  */
+import type { DeckId } from './decks'
+
 export type View =
   | { name: 'home' }
-  | { name: 'learn'; extraNew?: number }
+  /** deck fehlt bei Verlaufseinträgen von vor den Hero-Decks → Items */
+  | { name: 'learn'; deck?: DeckId; extraNew?: number }
   | { name: 'quiz' }
   | { name: 'shop' }
   | { name: 'settings' }

@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
+import { deckOfCardId, newIntroducedToday } from '../decks'
 import { buildQueue, computeStreak, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
 
 const now = new Date('2026-11-05T12:00:00')
@@ -10,8 +11,8 @@ const future = new Date('2026-11-09T12:00:00')
 
 describe('buildQueue', () => {
   const cards = [
-    { id: 'a', tier: 2 }, { id: 'b', tier: 1 }, { id: 'c', tier: 1 },
-    { id: 'd', tier: 3 }, { id: 'e', tier: 1 },
+    { id: 'a', order: 2 }, { id: 'b', order: 1 }, { id: 'c', order: 1 },
+    { id: 'd', order: 3 }, { id: 'e', order: 1 },
   ]
   const reviews = new Map([
     ['d', { due: new Date('2026-11-05T08:00:00') }],
@@ -90,7 +91,7 @@ describe('Jetzt lernen', () => {
     expect(rec?.due.getTime()).toBe(now.getTime())
 
     // erscheint bei den fälligen Karten, nicht bei den neuen
-    const q = buildQueue({ cards: [{ id: 'item:new', tier: 1 }], reviews: new Map([['item:new', rec!]]), now, newLimit: 0 })
+    const q = buildQueue({ cards: [{ id: 'item:new', order: 1 }], reviews: new Map([['item:new', rec!]]), now, newLimit: 0 })
     expect(q).toEqual(['item:new'])
 
     await rateCard('item:new', true, now, database)
@@ -139,5 +140,30 @@ describe('Lernstand-Text', () => {
     expect(formatRelative(at(5 * 86_400_000), now)).toBe('in 5 Tagen')
     expect(formatRelative(at(21 * 86_400_000), now)).toBe('in 3 Wochen')
     expect(formatRelative(at(90 * 86_400_000), now)).toBe('in 3 Monaten')
+  })
+})
+
+describe('Decks', () => {
+  it('ordnet Karten-IDs ihrem Deck zu', () => {
+    expect(deckOfCardId('item:upgrade_x')).toBe('items')
+    expect(deckOfCardId('ability:ability_sleep_dagger')).toBe('abilities')
+    expect(deckOfCardId('hero:hero_haze')).toBe('heroes')
+  })
+
+  it('zählt neue Karten je Deck – auch an Tagen von vor den Hero-Decks', async () => {
+    const database = new DeckDB(`d-${Math.random()}`)
+    // Tag von vor dem Update: 3 neue Items, noch ohne newByDeck
+    await database.days.put({ date: localDate(now), reviewed: 3, newIntroduced: 3 })
+    expect(newIntroducedToday(await database.days.get(localDate(now)), 'items')).toBe(3)
+    expect(newIntroducedToday(await database.days.get(localDate(now)), 'heroes')).toBe(0)
+
+    await rateCard('hero:hero_haze', true, now, database)
+    await rateCard('ability:ability_a', false, now, database)
+    await rateCard('ability:ability_b', true, now, database)
+    await rateCard('ability:ability_a', true, now, database) // keine neue Karte mehr
+    const day = await database.days.get(localDate(now))
+    expect(day).toMatchObject({ reviewed: 7, newIntroduced: 6, newByDeck: { items: 3, heroes: 1, abilities: 2 } })
+    expect(newIntroducedToday(day, 'abilities')).toBe(2)
+    expect(newIntroducedToday(undefined, 'items')).toBe(0)
   })
 })

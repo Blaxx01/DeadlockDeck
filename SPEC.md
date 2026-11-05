@@ -22,14 +22,23 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
    - Stats (Boni) und Aktiv-/Passiv-Text
    - Cooldown, Dauer, Reichweite (wenn vorhanden)
    - Build-Pfad: „Baut auf“ (Komponenten) und „Upgradet zu“
-2. **Hero-Abilities**: vorne Ability-Icon, hinten Hero und Effekt
-3. **Hero-Übersicht**: vorne Hero-Porträt, hinten Rolle, Stats, Abilities
+2. **Fähigkeiten** (die 4 Abilities jedes spielbaren Heroes): vorne Ability-Icon in Hero-Farbe, hinten:
+   - Name (englisch), Hero, Slot (Fähigkeit 1–3 / Ultimate), Kurzsatz
+   - Cooldown, Dauer, Reichweite, Aufladungen; Effekttext und Werte
+   - Upgrades mit Kosten **1 / 2 / 5 AP** (Texte der API, sonst aus den Upgrade-Werten gebaut)
+   - Neue Karten kommen Hero für Hero (alphabetisch), damit ein Kit zusammen gelernt wird
+3. **Heroes**: vorne Hero-Porträt, hinten:
+   - Name, Tags (z. B. Tank, Raufbold), Waffentyp, Komplexität (1–4), Rolle, Spielstil
+   - die 4 Fähigkeiten mit Icons, Startwerte (Leben, Lauftempo, Ausdauer, Nahkampf …), Waffe (Kugelschaden, Magazin, Nachladen)
+   - Rolle/Spielstil fehlen in der API bei neueren Heroes – dann nur Tags und Werte
+
+Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · gelernt“ und eigenem Lernen-Button.
 
 ### Lernmodus
 - Spaced Repetition (FSRS). Antippen = umdrehen. **Swipe rechts = gewusst, links = nicht gewusst**
 - Nicht gewusste Karten kommen in derselben Session nochmal
 - **Tagesziel** (z. B. 20 Karten) mit **Streak**-Zähler, jederzeit abbrechbar ohne Verlust
-- Limit für neue Karten pro Tag
+- Limit für neue Karten pro Tag, **je Deck**; Tagesziel und Streak zählen alle Decks zusammen
 
 ### Patches
 - Jede Karte speichert einen Hash ihres Inhalts. Ändert ein Patch den Inhalt, wird die Karte
@@ -83,12 +92,14 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
 1. ✅ **MVP:** Item-Karten + SRS + Offline + Export/Import + Deploy
 2. ✅ Quiz
 3. ✅ Shop (Nachschlagen)
-4. Hero-Decks (Abilities, Übersicht)
+4. ✅ Hero-Decks (Fähigkeiten, Heroes)
 5. Hero erraten (offizielle Assets)
 6. Eigene Screenshots
 7. Patch-Erkennung (Reset + Badge)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.
+- AP-Kosten der Ability-Upgrades (1/2/5) sind Spielwissen, nicht aus der API.
+- Broker: Die API liefert aktuell keine Corrupted-Preise (alle 0) – die Preiszeile entfällt dann.
 - Bilder vom CDN werden als „opaque“ gecacht, falls das CDN kein CORS sendet; Chrome rechnet
   diese mit Puffer aufs Speicherkontingent an. Bei Problemen: Bilder als Blobs in IndexedDB speichern.

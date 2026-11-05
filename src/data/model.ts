@@ -9,7 +9,7 @@ export interface Stat {
   conditional?: boolean
 }
 
-export type TimingKind = 'cooldown' | 'duration' | 'range'
+export type TimingKind = 'cooldown' | 'duration' | 'range' | 'charges'
 
 export interface Timing extends Stat {
   kind: TimingKind
@@ -89,4 +89,75 @@ export const SECTION_LABEL: Record<SectionType, string> = {
   innate: 'Boni',
   passive: 'Passiv',
   active: 'Aktiv',
+}
+
+/** Ability-Slot: 1–3 normale Fähigkeiten, 4 = Ultimate */
+export function abilitySlotLabel(slot: number): string {
+  return slot === 4 ? 'Ultimate' : `Fähigkeit ${slot}`
+}
+
+export interface AbilityRef {
+  id: string
+  name: string
+  image?: string
+  slot: number
+}
+
+export interface HeroCard {
+  /** z. B. "hero:hero_haze" */
+  id: string
+  heroId: number
+  className: string
+  /** Englischer Name */
+  name: string
+  /** Reihenfolge neuer Karten (alphabetisch) */
+  order: number
+  image?: string
+  smallImage?: string
+  /** Akzentfarbe des Heroes (#RRGGBB) */
+  color?: string
+  /** Deutsch: Kurzbeschreibung der Rolle */
+  role?: string
+  /** Deutsch: Spielstil (HTML) */
+  playstyle?: string
+  /** Deutsche Tags, z. B. Assassine, Schattenhaft */
+  tags: string[]
+  /** Deutsch: Waffentyp, z. B. Schnellfeuer */
+  gunTag?: string
+  /** 1–4 */
+  complexity?: number
+  stats: Stat[]
+  weapon?: { name: string; stats: Stat[] }
+  abilities: AbilityRef[]
+  hash: string
+}
+
+export interface AbilityUpgrade {
+  /** Kosten in Ability-Punkten (1, 2, 5) */
+  cost: number
+  /** Deutsch (HTML) */
+  html: string
+}
+
+export interface AbilityCard {
+  /** z. B. "ability:ability_sleep_dagger" */
+  id: string
+  className: string
+  /** Englischer Name */
+  name: string
+  heroId: number
+  heroName: string
+  heroImage?: string
+  heroColor?: string
+  slot: number
+  order: number
+  image?: string
+  /** Deutsch: Kurzsatz, z. B. „Lässt einen Gegner einschlafen“ */
+  quip?: string
+  /** Deutsch: Effekttext (HTML) */
+  html?: string
+  timings: Timing[]
+  stats: Stat[]
+  upgrades: AbilityUpgrade[]
+  hash: string
 }

@@ -25,7 +25,12 @@ export default function App() {
     try {
       if (!(await waitForServiceWorker())) return
       const lastSync = await getMeta<number>('lastSync', 0)
-      const urls = (await db.items.toArray()).map(i => i.image).filter((u): u is string => !!u)
+      const [items, heroes, abilities] = await Promise.all([db.items.toArray(), db.heroes.toArray(), db.abilities.toArray()])
+      const urls = [
+        ...items.map(i => i.image),
+        ...heroes.flatMap(h => [h.image, h.smallImage]),
+        ...abilities.map(a => a.image),
+      ].filter((u): u is string => !!u)
       setImageProgress({ done: 0, total: urls.length })
       const { failed } = await prewarmImages(urls, (done, total) => setImageProgress({ done, total }))
       if (failed === 0) await setMeta('imagesCachedFor', lastSync)
@@ -87,7 +92,7 @@ export default function App() {
     <main className="app">
       {view.name === 'home' && (
         <Home
-          onLearn={extraNew => navigate({ name: 'learn', extraNew })}
+          onLearn={(deck, extraNew) => navigate({ name: 'learn', deck, extraNew })}
           onQuiz={() => navigate({ name: 'quiz' })}
           onShop={() => navigate({ name: 'shop' })}
           onSettings={() => navigate({ name: 'settings' })}
@@ -97,7 +102,7 @@ export default function App() {
           onSync={sync}
         />
       )}
-      {view.name === 'learn' && <Learn onExit={goBack} extraNew={view.extraNew} />}
+      {view.name === 'learn' && <Learn deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'settings' && (

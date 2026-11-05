@@ -1,4 +1,4 @@
-import { useImperativeHandle, useRef, useState, type PointerEvent, type ReactNode, type Ref } from 'react'
+import { useImperativeHandle, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from 'react'
 
 const SWIPE_THRESHOLD = 90
 const TAP_SLOP = 8
@@ -17,9 +17,11 @@ interface Props {
   flipped: boolean
   onFlip: () => void
   slotClass?: string
+  /** z. B. Hintergrund in Hero-Farbe */
+  frontStyle?: CSSProperties
 }
 
-export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass }: Props) {
+export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass, frontStyle }: Props) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
   const start = useRef<{ x: number; y: number; id: number } | null>(null)
@@ -86,7 +88,7 @@ export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass
         onPointerCancel={onPointerCancel}
       >
         <div className={`card${flipped ? ' flipped' : ''}`}>
-          <div className={`face front ${slotClass ?? ''}`} aria-hidden={flipped}>{front}</div>
+          <div className={`face front ${slotClass ?? ''}`} style={frontStyle} aria-hidden={flipped}>{front}</div>
           <div className="face back" aria-hidden={!flipped}>{back}</div>
         </div>
         <div className="swipe-label known" style={{ opacity: Math.max(0, progress) }}>Gewusst</div>

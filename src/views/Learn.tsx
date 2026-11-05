@@ -1,15 +1,50 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { FlashCard, type FlashCardHandle } from '../components/FlashCard'
+import { AbilityBack, AbilityFront, HeroBack, HeroFront } from '../components/HeroCards'
+import { heroGlow } from '../components/heroStyle'
 import { ItemBack } from '../components/ItemBack'
-import { db, getSettings, type Settings } from '../data/db'
-import type { ItemCard } from '../data/model'
+import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
+import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
+import { newIntroducedToday, type DeckId } from '../decks'
 import { buildQueue, isInLearnScope, localDate, rateCard, requeue } from '../srs/srs'
 
 interface Props {
+  deck: DeckId
   onExit: () => void
   /** Zusätzliche neue Karten über das Tageslimit hinaus */
   extraNew?: number
+}
+
+/** Eine Karte aus einem der drei Decks, mit allem, was die Lern-Ansicht braucht */
+interface LearnEntry {
+  id: string
+  /** Reihenfolge neuer Karten */
+  order: number
+  image?: string
+  front: ReactNode
+  back: ReactNode
+  frontClass?: string
+  frontStyle?: CSSProperties
+}
+
+function itemEntry(card: ItemCard): LearnEntry {
+  return { id: card.id, order: card.tier, image: card.image, front: <ItemFront card={card} />, back: <ItemBack card={card} />, frontClass: `slot-bg-${card.slot}` }
+}
+
+function abilityEntry(card: AbilityCard): LearnEntry {
+  return { id: card.id, order: card.order, image: card.image, front: <AbilityFront card={card} />, back: <AbilityBack card={card} />, frontStyle: heroGlow(card.heroColor) }
+}
+
+function heroEntry(card: HeroCard): LearnEntry {
+  return { id: card.id, order: card.order, image: card.image, front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color) }
+}
+
+async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
+  if (deck === 'abilities') return (await db.abilities.toArray()).map(abilityEntry)
+  if (deck === 'heroes') return (await db.heroes.toArray()).map(heroEntry)
+  const items = await db.items.toArray()
+  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(itemEntry)
 }
 
 function ItemFront({ card }: { card: ItemCard }) {
@@ -26,8 +61,8 @@ function ItemFront({ card }: { card: ItemCard }) {
   )
 }
 
-export function Learn({ onExit, extraNew = 0 }: Props) {
-  const [cards, setCards] = useState<Map<string, ItemCard> | null>(null)
+export function Learn({ deck, onExit, extraNew = 0 }: Props) {
+  const [cards, setCards] = useState<Map<string, LearnEntry> | null>(null)
   const [queue, setQueue] = useState<string[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [flipped, setFlipped] = useState(false)
@@ -42,17 +77,17 @@ export function Learn({ onExit, extraNew = 0 }: Props) {
     ;(async () => {
       const s = await getSettings()
       const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
-      const items = (await db.items.toArray()).filter(i => isInLearnScope(s.slots.includes(i.slot), reviews.get(i.id)))
+      const entries = await loadEntries(deck, s, reviews)
       const day = await db.days.get(localDate())
-      const newLimit = extraNew > 0 ? extraNew : s.newPerDay - (day?.newIntroduced ?? 0)
-      const q = buildQueue({ cards: items, reviews, now: new Date(), newLimit })
+      const newLimit = extraNew > 0 ? extraNew : s.newPerDay - newIntroducedToday(day, deck)
+      const q = buildQueue({ cards: entries, reviews, now: new Date(), newLimit })
       if (cancelled) return
       setSettings(s)
-      setCards(new Map(items.map(i => [i.id, i])))
+      setCards(new Map(entries.map(e => [e.id, e])))
       setQueue(q)
     })()
     return () => { cancelled = true }
-  }, [extraNew])
+  }, [deck, extraNew])
 
   const current = cards && queue.length ? cards.get(queue[0]) : undefined
   const next = cards && queue.length > 1 ? cards.get(queue[1]) : undefined
@@ -112,13 +147,14 @@ export function Learn({ onExit, extraNew = 0 }: Props) {
         <>
           <FlashCard
             key={`${current.id}-${turn}`}
-            front={<ItemFront card={current} />}
-            back={<ItemBack card={current} />}
+            front={current.front}
+            back={current.back}
             flipped={flipped}
             onFlip={() => setFlipped(f => !f)}
             onRate={handleRate}
             ref={cardRef}
-            slotClass={`slot-bg-${current.slot}`}
+            slotClass={current.frontClass}
+            frontStyle={current.frontStyle}
           />
           <div className={`rate-row${flipped ? '' : ' hidden'}`}>
             <button className="rate unknown" disabled={!flipped || busy} onClick={() => cardRef.current?.swipe(false)}>← Nicht gewusst</button>

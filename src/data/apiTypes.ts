@@ -48,6 +48,44 @@ export interface ApiItem {
   tooltip_sections?: ApiTooltipSection[] | null
   component_items?: string[] | null
   corrupted_info?: ApiCorruptedInfo | null
+  // --- nur bei Abilities (type: 'ability') ---
+  hero?: number | null
+  heroes?: number[] | null
+  /** 'signature' | 'ultimate' | … */
+  ability_type?: string | null
+  tooltip_details?: { info_sections?: ApiInfoSection[] | null } | null
+  /** Ability-Upgrades (Stufe 1–3) */
+  upgrades?: { property_upgrades?: { name: string; bonus: string | number }[] | null }[] | null
+  // --- nur bei Waffen (type: 'weapon') ---
+  weapon_info?: Record<string, unknown> | null
+}
+
+export interface ApiInfoSection {
+  loc_string?: string | null
+  properties_block?: { properties?: { important_property?: string | null }[] | null }[] | null
+  basic_properties?: string[] | null
+}
+
+/** Startwerte sind Zahlen oder { value, display_stat_name } */
+export type ApiStatValue = number | string | { value?: number | string | null } | null
+
+/** Teilmenge von /v1/assets/heroes */
+export interface ApiHero {
+  id: number
+  class_name: string
+  name: string
+  description?: { lore?: string | null; role?: string | null; playstyle?: string | null } | null
+  player_selectable?: boolean | null
+  disabled?: boolean | null
+  in_development?: boolean | null
+  tags?: string[] | null
+  gun_tag?: string | null
+  complexity?: number | null
+  images?: Record<string, string | null | undefined> | null
+  colors?: { style_hex?: string | null } | null
+  /** Slot → Ability/Waffe, z. B. signature1 → "ability_sleep_dagger" (ältere Daten: Item-ID) */
+  items?: Record<string, string | number | null> | null
+  starting_stats?: Record<string, ApiStatValue> | null
 }
 
 /** Broker-Variante eines Tier-3/4-Items */
