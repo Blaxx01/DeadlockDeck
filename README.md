@@ -6,8 +6,9 @@ Drei Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Coo
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
 
 Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad),
-Punkten mit Zeitbonus und Highscore, und einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
-Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“.
+Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
+Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ – und **Hero erraten**: Silhouette, Zoom-Ausschnitt,
+unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore.
 
 Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
 
@@ -37,6 +38,7 @@ Aufbau:
 | `src/data/normalize.ts` | API-Items → Karteikarten (englische Namen, deutsche Texte) |
 | `src/data/heroes.ts` | API-Heroes + Abilities → Hero- und Fähigkeiten-Karten |
 | `src/decks.ts` | Die drei Decks, Neu-Limit je Deck |
+| `src/guess/guess.ts`, `src/views/Guess.tsx` | Hero erraten: Runden, Aufdeck-Stufen, Joker, Punkte |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |

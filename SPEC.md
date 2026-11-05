@@ -73,11 +73,17 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 - Navigation über den Browser-Verlauf: **Zurück (auch Android-Geste)** führt überall einen Schritt zurück
 
 ## Hero erraten
-- Bildquellen: offizielle Assets und **eigene Ingame-Screenshots**
-- Varianten: **Silhouette**, **Zoom-Ausschnitt**, **Unscharf → scharf**, **Ability-Icon → Hero**
-- Antwort: zuerst **Hero-Grid** (alle Porträts); als Joker auf **4 Antworten** reduzieren
-- Punkte: Start 100, jede Aufdeck-Stufe −20, Joker halbiert, falscher Tipp −15
-- Runden mit Highscore
+- Bildquellen: offizielle Assets und **eigene Ingame-Screenshots** (Screenshots folgen als eigener Schritt)
+- Offizielle Bilder: die drei **freigestellten Kartenposen** je Hero (normal, critical, gloat) – zufällig gewählt,
+  damit man nicht nur das Bild der Lernkarte wiedererkennt
+- Varianten (in den Einstellungen wählbar), je **3 Aufdeck-Stufen**:
+  - **Silhouette** (schwarz auf hellem Grund) → dunkel mit Details → halbhell → Original
+  - **Zoom-Ausschnitt** (3,4× auf Gesicht/Oberkörper) → 2,3× → 1,5× → ganzes Bild
+  - **Unscharf → scharf** (Weichzeichner 22 → 12 → 5 px → scharf)
+  - **Fähigkeit → Hero**: erst 1 Ability-Icon, pro Stufe eins mehr, auf der letzten Stufe mit Namen
+- Antwort: **Hero-Raster** (alle 42 Köpfe mit Namen); **Joker** reduziert auf **4 Antworten** (ohne schon falsch getippte)
+- Punkte je Hero: Start 100, Aufdecken −20, Joker halbiert, falscher Tipp −15 (nie unter 0); **Auflösen** = 0
+- Runden à 10 Heroes mit Highscore; am Ende Übersicht aller Heroes der Runde (Variante, Punkte, Fehlversuche)
 - Eigene Screenshots:
   - In der App hochladen und Hero zuordnen (nur lokal in IndexedDB)
   - Im Repo unter `public/screenshots/<hero>/…` ablegen (per Deploy auf allen Geräten)
@@ -93,7 +99,7 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 2. ✅ Quiz
 3. ✅ Shop (Nachschlagen)
 4. ✅ Hero-Decks (Fähigkeiten, Heroes)
-5. Hero erraten (offizielle Assets)
+5. ✅ Hero erraten (offizielle Assets)
 6. Eigene Screenshots
 7. Patch-Erkennung (Reset + Badge)
 

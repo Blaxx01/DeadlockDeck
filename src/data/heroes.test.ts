@@ -8,7 +8,10 @@ function hero(id: number, name: string, extra: Partial<ApiHero> = {}): ApiHero {
   return {
     id, class_name: `hero_${slug}`, name, player_selectable: true, disabled: false, in_development: false,
     complexity: 2, tags: ['Brawler'], gun_tag: 'Rapid Fire', colors: { style_hex: '#123456' },
-    images: { icon_hero_card_webp: `https://cdn/${slug}_card.webp`, icon_image_small_webp: `https://cdn/${slug}_sm.webp` },
+    images: {
+      icon_hero_card_webp: `https://cdn/${slug}_card.webp`, icon_image_small_webp: `https://cdn/${slug}_sm.webp`,
+      hero_card_critical: `https://cdn/${slug}_critical.png`, hero_card_gloat_webp: `https://cdn/${slug}_gloat.webp`,
+    },
     items: {
       weapon_primary: `weapon_${slug}`,
       signature1: `ability_${slug}_1`, signature2: `ability_${slug}_2`, signature3: `ability_${slug}_3`, signature4: `ability_${slug}_4`,
@@ -72,6 +75,8 @@ describe('buildHeroDecks', () => {
       role: 'Rolle auf Deutsch', playstyle: 'Spielstil<br>zweite Zeile', tags: ['Schläger', 'Robust'],
       gunTag: 'Schnellfeuer', color: '#123456', complexity: 2, image: 'https://cdn/alpha_card.webp',
     })
+    // webp bevorzugt, sonst png
+    expect(alpha.poses).toEqual(['https://cdn/alpha_card.webp', 'https://cdn/alpha_critical.png', 'https://cdn/alpha_gloat.webp'])
   })
 
   it('liest Startwerte als Zahl oder Objekt und lässt 0 weg', () => {

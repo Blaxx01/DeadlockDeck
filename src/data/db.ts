@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
-import { QUIZ_KINDS, type AbilityCard, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
+import { GUESS_KINDS, QUIZ_KINDS, type AbilityCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -31,6 +31,8 @@ export interface Settings {
   slots: SlotType[]
   /** Fragetypen, die im Quiz vorkommen */
   quizKinds: QuizKind[]
+  /** Varianten beim Hero-Erraten */
+  guessKinds: GuessKind[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   newPerDay: 10,
   slots: ['weapon', 'vitality', 'spirit'],
   quizKinds: [...QUIZ_KINDS],
+  guessKinds: [...GUESS_KINDS],
 }
 
 export class DeckDB extends Dexie {
@@ -83,16 +86,23 @@ export async function saveSettings(settings: Settings, database: DeckDB = db): P
   await setMeta('settings', settings, database)
 }
 
-export async function getQuizHighscore(database: DeckDB = db): Promise<number> {
-  return getMeta<number>('quizHighscore', 0, database)
+export type HighscoreKey = 'quizHighscore' | 'guessHighscore'
+
+export async function getHighscore(key: HighscoreKey, database: DeckDB = db): Promise<number> {
+  return getMeta<number>(key, 0, database)
 }
 
 /** Speichert den Punktestand, wenn er ein neuer Highscore ist. Gibt true zurück, wenn ja. */
-export async function submitQuizScore(score: number, database: DeckDB = db): Promise<boolean> {
+export async function submitHighscore(key: HighscoreKey, score: number, database: DeckDB = db): Promise<boolean> {
   return database.transaction('rw', database.meta, async () => {
-    const best = await getQuizHighscore(database)
+    const best = await getHighscore(key, database)
     if (score <= best) return false
-    await setMeta('quizHighscore', score, database)
+    await setMeta(key, score, database)
     return true
   })
 }
+
+export const getQuizHighscore = (database: DeckDB = db) => getHighscore('quizHighscore', database)
+export const submitQuizScore = (score: number, database: DeckDB = db) => submitHighscore('quizHighscore', score, database)
+export const getGuessHighscore = (database: DeckDB = db) => getHighscore('guessHighscore', database)
+export const submitGuessScore = (score: number, database: DeckDB = db) => submitHighscore('guessHighscore', score, database)

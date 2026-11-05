@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
 import { db, getSettings, saveSettings, type Settings } from '../data/db'
-import { QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type QuizKind, type SlotType } from '../data/model'
+import { GUESS_KIND_LABEL, GUESS_KINDS, QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type GuessKind, type QuizKind, type SlotType } from '../data/model'
 
 interface Props {
   onBack: () => void
@@ -32,6 +32,14 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
     const quizKinds = has ? settings.quizKinds.filter(k => k !== kind) : QUIZ_KINDS.filter(k => k === kind || settings.quizKinds.includes(k))
     if (quizKinds.length === 0) return
     update({ quizKinds })
+  }
+
+  function toggleGuessKind(kind: GuessKind) {
+    if (!settings) return
+    const has = settings.guessKinds.includes(kind)
+    const guessKinds = has ? settings.guessKinds.filter(k => k !== kind) : GUESS_KINDS.filter(k => k === kind || settings.guessKinds.includes(k))
+    if (guessKinds.length === 0) return
+    update({ guessKinds })
   }
 
   function toggleSlot(slot: SlotType) {
@@ -112,6 +120,21 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
           ))}
         </div>
         <p className="muted small">Die Kategorien von oben gelten auch fürs Quiz.</p>
+      </div>
+
+      <div className="panel">
+        <h2>Hero erraten</h2>
+        <div className="field">
+          <span>Varianten</span>
+        </div>
+        <div className="chips">
+          {GUESS_KINDS.map(kind => (
+            <button key={kind} className={`chip toggle${settings.guessKinds.includes(kind) ? ' on' : ''}`}
+              onClick={() => toggleGuessKind(kind)} aria-pressed={settings.guessKinds.includes(kind)}>
+              {GUESS_KIND_LABEL[kind]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="panel">

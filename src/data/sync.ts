@@ -10,8 +10,9 @@ export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
  * 2: Timings haben ein `kind` (für Cooldown-Fragen im Quiz)
  * 3: Broker-Variante (`corrupted`) für den Shop
  * 4: Hero-Decks (heroes, abilities) + Einheiten-Korrekturen
+ * 5: Hero-Posen fürs Hero-Erraten
  */
-export const DATA_VERSION = 4
+export const DATA_VERSION = 5
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 

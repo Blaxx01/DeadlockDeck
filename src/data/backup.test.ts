@@ -1,15 +1,16 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { createBackup, parseBackup, restoreBackup } from './backup'
-import { DeckDB, getQuizHighscore, getSettings, saveSettings, submitQuizScore } from './db'
+import { DeckDB, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitGuessScore, submitQuizScore } from './db'
 import { rateCard } from '../srs/srs'
 
 describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
     const src = new DeckDB(`b-${Math.random()}`)
     await rateCard('item:x', true, new Date('2026-11-05T12:00:00'), src)
-    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'] }, src)
+    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], guessKinds: ['zoom'] }, src)
     await submitQuizScore(870, src)
+    await submitGuessScore(640, src)
     const json = JSON.stringify(await createBackup(src))
 
     const dst = new DeckDB(`b-${Math.random()}`)
@@ -22,6 +23,8 @@ describe('Backup', () => {
     expect((await getSettings(dst)).dailyGoal).toBe(33)
     expect((await getSettings(dst)).quizKinds).toEqual(['number'])
     expect(await getQuizHighscore(dst)).toBe(870)
+    expect(await getGuessHighscore(dst)).toBe(640)
+    expect((await getSettings(dst)).guessKinds).toEqual(['zoom'])
   })
 
   it('ergänzt fehlende neue Einstellungen aus alten Backups mit Standardwerten', async () => {
@@ -34,6 +37,7 @@ describe('Backup', () => {
     const s = await getSettings(dst)
     expect(s.dailyGoal).toBe(15)
     expect(s.quizKinds).toEqual(['image', 'description', 'number', 'build'])
+    expect(s.guessKinds).toEqual(['silhouette', 'zoom', 'blur', 'ability'])
   })
 
   it('lehnt fremde Dateien ab', () => {

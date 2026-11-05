@@ -4,6 +4,7 @@ import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from '.
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
 import { Learn } from './views/Learn'
+import { Guess } from './views/Guess'
 import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
 import { Shop } from './views/Shop'
@@ -94,6 +95,7 @@ export default function App() {
         <Home
           onLearn={(deck, extraNew) => navigate({ name: 'learn', deck, extraNew })}
           onQuiz={() => navigate({ name: 'quiz' })}
+          onGuess={() => navigate({ name: 'guess' })}
           onShop={() => navigate({ name: 'shop' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
@@ -104,6 +106,7 @@ export default function App() {
       )}
       {view.name === 'learn' && <Learn deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
+      {view.name === 'guess' && <Guess onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />

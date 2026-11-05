@@ -179,6 +179,9 @@ export function buildHeroDecks(
     const de = heroDe.get(en.id) ?? en
     const image = en.images?.icon_hero_card_webp || en.images?.icon_hero_card || undefined
     const smallImage = en.images?.icon_image_small_webp || en.images?.icon_image_small || undefined
+    const poses = (['icon_hero_card', 'hero_card_critical', 'hero_card_gloat'] as const)
+      .map(k => en.images?.[`${k}_webp`] || en.images?.[k] || undefined)
+      .filter((u): u is string => !!u)
     const color = en.colors?.style_hex || undefined
     const refs: AbilityRef[] = []
 
@@ -217,6 +220,7 @@ export function buildHeroDecks(
       order: index,
       image,
       smallImage,
+      poses,
       color,
       role: cleanHtml(de.description?.role),
       playstyle: cleanHtml(de.description?.playstyle),

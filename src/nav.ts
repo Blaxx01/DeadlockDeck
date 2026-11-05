@@ -10,6 +10,7 @@ export type View =
   /** deck fehlt bei Verlaufseinträgen von vor den Hero-Decks → Items */
   | { name: 'learn'; deck?: DeckId; extraNew?: number }
   | { name: 'quiz' }
+  | { name: 'guess' }
   | { name: 'shop' }
   | { name: 'settings' }
 

@@ -114,6 +114,8 @@ export interface HeroCard {
   order: number
   image?: string
   smallImage?: string
+  /** Freigestellte Kartenbilder in mehreren Posen (normal, critical, gloat) – fürs Hero-Erraten */
+  poses: string[]
   /** Akzentfarbe des Heroes (#RRGGBB) */
   color?: string
   /** Deutsch: Kurzbeschreibung der Rolle */
@@ -160,4 +162,16 @@ export interface AbilityCard {
   stats: Stat[]
   upgrades: AbilityUpgrade[]
   hash: string
+}
+
+/** Varianten beim Hero-Erraten */
+export type GuessKind = 'silhouette' | 'zoom' | 'blur' | 'ability'
+
+export const GUESS_KINDS: GuessKind[] = ['silhouette', 'zoom', 'blur', 'ability']
+
+export const GUESS_KIND_LABEL: Record<GuessKind, string> = {
+  silhouette: 'Silhouette',
+  zoom: 'Zoom-Ausschnitt',
+  blur: 'Unscharf → scharf',
+  ability: 'Fähigkeit → Hero',
 }

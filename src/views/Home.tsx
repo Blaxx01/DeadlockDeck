@@ -1,13 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
-import { db, getMeta, getQuizHighscore, getSettings, type ReviewRecord } from '../data/db'
+import { db, getGuessHighscore, getMeta, getQuizHighscore, getSettings, type ReviewRecord } from '../data/db'
 import { DECKS, newIntroducedToday, type DeckId } from '../decks'
 import { computeStreak, isInLearnScope, localDate } from '../srs/srs'
 
 interface Props {
   onLearn: (deck: DeckId, extraNew?: number) => void
   onQuiz: () => void
+  onGuess: () => void
   onShop: () => void
   onSettings: () => void
   syncing: boolean
@@ -83,6 +84,8 @@ function useHomeStats() {
       streak: computeStreak(days, settings.dailyGoal),
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
+      guessHighscore: await getGuessHighscore(),
+      heroCount: ids.heroes.length,
     }
   }, [tick])
 }
@@ -110,7 +113,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
   )
 }
 
-export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onGuess, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -166,6 +169,17 @@ export function Home({ onLearn, onQuiz, onShop, onSettings, syncing, syncError, 
         <p className="muted small">10 Fragen: Bild, Effekt, Zahlen und Build-Pfad – schnell antworten gibt Bonus.</p>
         <button onClick={onQuiz}>Quiz starten</button>
       </div>
+
+      {s.heroCount >= 4 && (
+        <div className="panel deck">
+          <div className="row">
+            <h2>Hero erraten</h2>
+            <span className="muted small">Highscore {s.guessHighscore}</span>
+          </div>
+          <p className="muted small">10 Heroes pro Runde – als Silhouette, Ausschnitt, unscharf oder an einer Fähigkeit. Aufdecken und Joker kosten Punkte.</p>
+          <button onClick={onGuess}>Hero erraten starten</button>
+        </div>
+      )}
 
       <div className="panel deck">
         <h2>Shop</h2>

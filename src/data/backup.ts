@@ -8,6 +8,7 @@ export interface BackupFile {
   reviews: ReviewRecord[]
   days: DayRecord[]
   quizHighscore?: number
+  guessHighscore?: number
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -19,6 +20,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     reviews: await database.reviews.toArray(),
     days: await database.days.toArray(),
     quizHighscore: await getMeta<number>('quizHighscore', 0, database),
+    guessHighscore: await getMeta<number>('guessHighscore', 0, database),
   }
 }
 
@@ -59,6 +61,7 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     await database.days.bulkPut(backup.days)
     if (backup.settings) await saveSettings(backup.settings, database)
     if (typeof backup.quizHighscore === 'number') await setMeta('quizHighscore', backup.quizHighscore, database)
+    if (typeof backup.guessHighscore === 'number') await setMeta('guessHighscore', backup.guessHighscore, database)
   })
 }
 
