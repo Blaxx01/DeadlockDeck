@@ -19,12 +19,17 @@ export function isPropertyVisible(prop: ApiItemProperty | undefined): prop is Ap
 }
 
 export function formatPropertyValue(prop: ApiItemProperty): string {
-  const value = String(prop.value ?? '')
+  let value = String(prop.value ?? '')
+  const postfix = prop.postfix ?? ''
+  const unit = postfix.trim()
+  // Die API liefert Werte teils schon mit Einheit ("2m", "30m"). Gibt es eine Einheit
+  // im postfix, gilt nur diese – sonst entstünde "2m m/s".
+  const withUnit = value.match(/^([+-]?\d+(?:\.\d+)?)\s*[a-zA-Z/]+$/)
+  if (unit && withUnit) value = withUnit[1]
   const num = Number.parseFloat(value)
   const sign = Number.isFinite(num) && num >= 0 ? '+' : ''
   const prefix = prop.prefix?.replace('{s:sign}', sign) ?? ''
-  const postfix = prop.postfix ?? ''
-  const suffix = postfix.trim() && value.endsWith(postfix.trim()) ? '' : postfix
+  const suffix = unit && value.endsWith(unit) ? '' : postfix
   return `${prefix}${value}${suffix}`
 }
 
@@ -107,9 +112,29 @@ function buildTimings(item: ApiItem): Timing[] {
   return result
 }
 
-/** Deutsche Namen der Broker-Nachteile (die API liefert nur englische/interne Bezeichnungen) */
+/**
+ * Deutsche Namen der Broker-Nachteile je Effekt (die API liefert nur englische Labels).
+ * Achtung: TechCooldown senkt die *Abklingzeitreduktion* – „−13 % Abklingzeit“ wäre ein Vorteil.
+ */
+const PENALTY_EFFECT_LABEL_DE: Record<string, string> = {
+  MODIFIER_VALUE_COOLDOWN_REDUCTION_PERCENTAGE: 'Abklingzeitreduktion',
+  MODIFIER_VALUE_TECH_RANGE_PERCENT: 'Fähigkeiten-Reichweite',
+  MODIFIER_VALUE_TECH_RADIUS_PERCENT: 'Fähigkeiten-Radius',
+  MODIFIER_VALUE_BONUS_ABILITY_DURATION_PERCENTAGE: 'Fähigkeiten-Dauer',
+  MODIFIER_VALUE_TECH_POWER: 'Spirit-Kraft',
+  MODIFIER_VALUE_TECH_RESIST_REDUCTION: 'Spirit-Resistenz',
+  MODIFIER_VALUE_STAMINA: 'Ausdauer',
+  MODIFIER_VALUE_STAMINA_REGEN_PER_SECOND_PERCENTAGE: 'Ausdauerregeneration',
+  MODIFIER_VALUE_MOVEMENT_SPEED_MAX: 'Lauftempo',
+  MODIFIER_VALUE_FIRE_RATE: 'Feuerrate',
+  MODIFIER_VALUE_WEAPON_DAMAGE_INCREASE: 'Waffenschaden',
+  MODIFIER_VALUE_HEALTH_MAX: 'Lebenspunkte',
+  MODIFIER_VALUE_BULLET_AND_MELEE_RESIST_REDUCTION: 'Kugel- und Nahkampfresistenz',
+}
+
+/** Fallback nach Name des Nachteils, falls ein Effekt unbekannt ist */
 const PENALTY_LABEL_DE: Record<string, string> = {
-  TechCooldown: 'Fähigkeiten-Abklingzeit',
+  TechCooldown: 'Abklingzeitreduktion',
   TechRange: 'Fähigkeiten-Reichweite',
   TechDuration: 'Fähigkeiten-Dauer',
   TechPower: 'Spirit-Kraft',
@@ -152,12 +177,14 @@ export function buildCorrupted(
     const bonus = toNumber(upgrade.bonus)
     if (!prop || base === null || bonus === null) continue
     const raw = upgrade.round_corrupted_bonus ? Math.round(base + bonus) : base + bonus
-    bonuses.push({
+    const stat: CorruptedStat = {
       label: prop.label?.trim() || humanizeKey(upgrade.name),
       base: formatPropertyValue(prop),
       value: formatPropertyValue({ ...prop, value: String(roundForDisplay(raw)) }),
       varies: !upgrade.fixed_corrupted_bonus,
-    })
+    }
+    // Manche Items haben zwei interne Werte mit gleicher Anzeige (z. B. 2× „Eingehende Heilung“)
+    if (!bonuses.some(b => b.label === stat.label && b.base === stat.base && b.value === stat.value)) bonuses.push(stat)
   }
 
   const excluded = new Set(info.excluded_penalties ?? [])
@@ -178,9 +205,11 @@ export function buildCorrupted(
         return `${v > 0 ? '+' : ''}${v}${e.postfix ?? ''}`
       })
       .join(' / ')
-    const label = effects.length === 1 && PENALTY_LABEL_DE[penalty.name]
-      ? PENALTY_LABEL_DE[penalty.name]
-      : effects.map(e => e.label?.trim() || e.modifier_value).join(' / ')
+    const label = effects
+      .map(e => PENALTY_EFFECT_LABEL_DE[e.modifier_value]
+        ?? (effects.length === 1 ? PENALTY_LABEL_DE[penalty.name] : undefined)
+        ?? (e.label?.trim() || e.modifier_value))
+      .join(' / ')
     penalties.push({ label, value, negative: true })
   }
 

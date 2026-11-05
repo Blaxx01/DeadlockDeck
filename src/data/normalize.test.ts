@@ -137,3 +137,52 @@ describe('Broker-Variante', () => {
     expect(roundForDisplay(-11.954)).toBe(-11.95)
   })
 })
+
+describe('Einheiten aus echten API-Daten', () => {
+  it('nutzt nur die Einheit aus postfix, auch wenn der Wert schon eine hat', () => {
+    expect(formatPropertyValue({ value: '2m', postfix: ' m/s', prefix: '{s:sign}' })).toBe('+2 m/s')
+    expect(formatPropertyValue({ value: '30m', postfix: ' m' })).toBe('30 m')
+    expect(formatPropertyValue({ value: 35, postfix: ' m' })).toBe('35 m')
+    expect(formatPropertyValue({ value: '1.95', postfix: ' % Schaden pro Sek.' })).toBe('1.95 % Schaden pro Sek.')
+    expect(formatPropertyValue({ value: '7.5s' })).toBe('7.5s')
+  })
+})
+
+describe('Broker mit echter Datenstruktur', () => {
+  const item: ApiItem = {
+    id: 1, class_name: 'upgrade_decay', name: 'Decay', type: 'upgrade', item_slot_type: 'spirit', item_tier: 3, cost: 3200,
+    properties: {
+      HealAmpReceivePenaltyPercent: { value: '-55', label: 'Eingehende Heilung', postfix: ' %' },
+      HealAmpRegenPenaltyPercent: { value: '-55', label: 'Eingehende Heilung', postfix: ' %' },
+    },
+    corrupted_info: {
+      property_upgrades: [{ name: 'HealAmpReceivePenaltyPercent', bonus: -25 }, { name: 'HealAmpRegenPenaltyPercent', bonus: -25 }],
+      excluded_penalties: [],
+    },
+  }
+  const generic: ApiGenericData = {
+    item_corruption_price_per_tier: [0, 0, 0, 0, 0, 0],
+    corrupted_penalties: [
+      { name: 'TechCooldown', effects: [{ modifier_value: 'MODIFIER_VALUE_COOLDOWN_REDUCTION_PERCENTAGE', label: 'Ability Cooldown Reduction', postfix: '%', bonus_per_tier: [0, 0, 0, -13, -17, 0], display: true }] },
+      { name: 'Stamina', effects: [
+        { modifier_value: 'MODIFIER_VALUE_STAMINA', label: 'Stamina', postfix: null, bonus_per_tier: [0, 0, 0, -1, -1, 0], display: true },
+        { modifier_value: 'MODIFIER_VALUE_STAMINA_REGEN_PER_SECOND_PERCENTAGE', label: 'Stamina Regen', postfix: '%', bonus_per_tier: [0, 0, 0, -18, -24, 0], display: true },
+      ] },
+      { name: 'Future', effects: [{ modifier_value: 'MODIFIER_VALUE_NEW', label: 'Something New', postfix: '%', bonus_per_tier: [0, 0, 0, -5, -5, 0], display: true }] },
+    ],
+  }
+  const [card] = buildItemCards([item], [item], generic)
+
+  it('zeigt doppelte Werte nur einmal und keinen Preis von 0', () => {
+    expect(card.corrupted?.bonuses).toEqual([{ label: 'Eingehende Heilung', base: '-55 %', value: '-80 %', varies: true }])
+    expect(card.corrupted?.price).toBeUndefined()
+  })
+
+  it('übersetzt jeden Effekt einzeln – Abklingzeitreduktion statt Abklingzeit', () => {
+    expect(card.corrupted?.penalties).toEqual([
+      { label: 'Abklingzeitreduktion', value: '-13%', negative: true },
+      { label: 'Ausdauer / Ausdauerregeneration', value: '-1 / -18%', negative: true },
+      { label: 'Something New', value: '-5%', negative: true },
+    ])
+  })
+})
