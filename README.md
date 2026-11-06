@@ -6,9 +6,11 @@ Vier Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Coo
 und **Counter** (Hero → die 3 Items, die Spieler ab Orakel gegen ihn am deutlichsten öfter kaufen, mit Kauf-Faktor –
 Statistik der API, wöchentlich aktualisiert).
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
+Neue Item-Karten kommen **meistgekauft zuerst** (Kaufstatistik ab Orakel).
 Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Zurück** führt wieder in die Lernsession.
 
-Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter),
+Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter,
+Fähigkeiten-Upgrades „Was macht das 5-AP-Upgrade?“, Item-Effekte „Welches Item hat …?“ / „Wer gibt am meisten?“),
 Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
 Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ –, **Hero erraten**: Silhouette, Zoom-Ausschnitt,
 unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore – und das **Build-Quiz**: alle Items
@@ -77,6 +79,8 @@ Aufbau:
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
 | `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
+| `src/quiz/upgrades.ts`, `src/quiz/effects.ts` | Upgrade-Fragen (gelernte Fähigkeiten bevorzugt) und Item-Effekt-Fragen |
+| `src/data/popularity.ts` | Neue Item-Karten nach Beliebtheit (Käufe aus der Counter-Statistik) |
 | `src/views/Quiz.tsx`, `src/components/QuizParts.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis; Fragen-Bausteine (auch für Überleben) |
 | `src/views/Shop.tsx`, `src/views/ItemDetail.tsx` | Shop (Tabs, Tiers, Suche, Sammelalbum) und Item-Detailseite |
 | `src/shop/search.ts` | Shop-Aufbau und Suche (Name + Effekttext) |

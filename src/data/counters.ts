@@ -35,6 +35,17 @@ export interface ApiItemStat {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
+/** Käufe je Item (Karten-ID) über alle Matches ab Orakel – für „Items nach Beliebtheit“ */
+export function itemPurchases(base: readonly ApiItemStat[], items: readonly ItemCard[]): Record<string, number> {
+  const idByApiId = new Map(items.filter(i => typeof i.apiId === 'number').map(i => [i.apiId, i.id]))
+  const out: Record<string, number> = {}
+  for (const r of base) {
+    const id = idByApiId.get(r.item_id)
+    if (id) out[id] = (out[id] ?? 0) + r.matches
+  }
+  return out
+}
+
 /**
  * Baut die Counter-Karten: je Hero die Top 3 nach Kauf-Faktor und alle Faktoren (fürs Quiz).
  * Nur Items aus dem Shop mit mindestens MIN_PURCHASES Käufen gegen den Hero; Heroes mit

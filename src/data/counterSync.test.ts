@@ -51,6 +51,8 @@ describe('syncCounters', () => {
       ['counter:hero_vindicta', 0, 'item:beta'],
     ])
     expect(await getMeta('countersError', 'x', database)).toBeNull()
+    // Käufe je Item für „Items nach Beliebtheit“ (aus derselben Abfrage)
+    expect(await getMeta('itemPurchases', {}, database)).toEqual({ 'item:alpha': 10_000, 'item:beta': 10_000, 'item:gamma': 10_000, 'item:delta': 10_000 })
 
     // Innerhalb einer Woche: keine neue Abfrage
     fetchMock.mockClear()

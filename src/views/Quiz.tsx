@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db, getQuizHighscore, getSettings, submitQuizScore } from '../data/db'
 import type { ItemCard } from '../data/model'
-import { QuestionMedia, QuizOptions, SoulsEarned } from '../components/QuizParts'
-import { itemInfo, plainText } from '../quiz/format'
+import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned } from '../components/QuizParts'
+import { itemInfo, questionLine } from '../quiz/format'
+import { loadQuizExtra } from '../quiz/load'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
 import { logMistake } from '../game/weakness'
@@ -40,9 +41,9 @@ export function Quiz({ onExit }: Props) {
       const settings = await getSettings()
       const all = await db.items.toArray()
       const items = all.filter(i => settings.slots.includes(i.slot))
-      // Counter-Fragen brauchen die Counter-Daten; alle Items für die Namen in der Auflösung
-      const counters = await db.counters.toArray()
-      const qs = buildRound(items, settings.quizKinds, Math.random, ROUND_SIZE, { counters, items: new Map(all.map(i => [i.id, i])) })
+      // Counter-Fragen brauchen die Counter-Daten, Upgrade-Fragen die Fähigkeiten; alle Items für die Auflösung
+      const extra = await loadQuizExtra(all)
+      const qs = buildRound(items, settings.quizKinds, Math.random, ROUND_SIZE, extra)
       const best = await getQuizHighscore()
       if (ctrl.signal.aborted) return
       finishing.current = false
@@ -154,19 +155,16 @@ export function Quiz({ onExit }: Props) {
           <div className="panel">
             <h2>Zum Merken</h2>
             <ul className="mistakes">
-              {mistakes.map(({ question: q, picked }) => {
-                const item = cards.get(q.itemId)
-                return (
-                  <li key={q.itemId}>
-                    {item?.image && <img src={item.image} alt="" />}
-                    <div>
-                      <div className="muted small">{q.kind === 'description' && q.html ? `„${plainText(q.html)}“` : q.prompt}</div>
-                      <div>Richtig: <b>{q.options[q.answer]}</b></div>
-                      <div className="small error">Deine Antwort: {q.options[picked]}</div>
-                    </div>
-                  </li>
-                )
-              })}
+              {mistakes.map(({ question: q, picked }) => (
+                <li key={q.itemId}>
+                  <QuestionThumb question={q} items={cards} />
+                  <div>
+                    <div className="muted small">{questionLine(q)}</div>
+                    <div>Richtig: <b>{q.options[q.answer]}</b></div>
+                    <div className="small error">Deine Antwort: {q.options[picked]}</div>
+                  </div>
+                </li>
+              ))}
             </ul>
           </div>
         )}
