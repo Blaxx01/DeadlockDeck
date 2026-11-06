@@ -9,7 +9,7 @@ import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
-import { buildQueue, isInLearnScope, localDate, rateCard, requeue } from '../srs/srs'
+import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
 
 interface Props {
   deck: DeckId
@@ -84,7 +84,10 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
   const [flipped, setFlipped] = useState(false)
   const cardRef = useRef<FlashCardHandle>(null)
   const [turn, setTurn] = useState(0)
-  const [sessionCount, setSessionCount] = useState(0)
+  /** In dieser Session bewertete Karten (jede einmal) */
+  const [rated, setRated] = useState<string[]>([])
+  /** Nicht gewusste letzte Karten, die erst in ein paar Minuten wieder fällig sind */
+  const [deferred, setDeferred] = useState(0)
   const [busy, setBusy] = useState(false)
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
@@ -118,14 +121,16 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
     setBusy(true)
     try {
       await rateCard(current.id, known)
-      setSessionCount(c => c + 1)
-      setQueue(q => (known ? q.slice(1) : requeue(q, current.id)))
+      const next = afterRating(queue, current.id, known)
+      setQueue(next.queue)
+      if (next.deferred) setDeferred(d => d + 1)
+      setRated(r => (r.includes(current.id) ? r : [...r, current.id]))
       setFlipped(false)
       setTurn(t => t + 1)
     } finally {
       setBusy(false)
     }
-  }, [current, busy])
+  }, [current, busy, queue])
 
   // Tastatur: Leertaste/Enter = umdrehen, ←/→ = bewerten, Esc = beenden
   const hasCard = !!current
@@ -180,7 +185,10 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
       ) : (
         <div className="done">
           <h2>Fertig! 🎉</h2>
-          <p>{sessionCount > 0 ? `${sessionCount} Bewertungen in dieser Session.` : 'Gerade ist nichts fällig.'}</p>
+          <p>{rated.length > 0 ? `${rated.length} ${rated.length === 1 ? 'Karte' : 'Karten'} in dieser Session.` : 'Gerade ist nichts fällig.'}</p>
+          {deferred > 0 && (
+            <p className="muted small">Die nicht gewusste Karte kommt in ein paar Minuten wieder – schau dann nochmal rein.</p>
+          )}
           {reviewedToday >= settings.dailyGoal && <p className="good">Tagesziel erreicht.</p>}
           <button className="primary" onClick={onExit}>Zurück</button>
         </div>

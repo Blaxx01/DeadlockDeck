@@ -14,7 +14,10 @@ export interface ReviewRecord extends Card {
 export interface DayRecord {
   /** Lokales Datum YYYY-MM-DD */
   date: string
+  /** Verschiedene Karten, die heute bewertet wurden (zählt fürs Tagesziel) */
   reviewed: number
+  /** IDs der heute bewerteten Karten – jede Karte zählt nur einmal pro Tag */
+  cards?: string[]
   /** Neue Karten insgesamt */
   newIntroduced: number
   /** Neue Karten je Deck (für das Neu-Limit je Deck); fehlt bei Tagen von vor den Hero-Decks */

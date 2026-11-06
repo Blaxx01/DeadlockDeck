@@ -50,6 +50,19 @@ export function requeue(queue: string[], id: string, gap = REQUEUE_GAP): string[
   return [...rest.slice(0, pos), id, ...rest.slice(pos)]
 }
 
+/**
+ * Warteschlange nach einer Bewertung.
+ * Gewusst: für diese Session erledigt. Nicht gewusst: kommt nach ein paar anderen Karten wieder.
+ * Ist sie die letzte, endet die Session – sofort wieder zeigen bringt nichts (die Antwort wurde
+ * gerade gesehen); sie ist laut Wiederholungsplan in wenigen Minuten wieder fällig.
+ */
+export function afterRating(queue: string[], id: string, known: boolean): { queue: string[]; deferred: boolean } {
+  const rest = queue.filter(q => q !== id)
+  if (known) return { queue: rest, deferred: false }
+  if (rest.length === 0) return { queue: [], deferred: true }
+  return { queue: requeue(queue, id), deferred: false }
+}
+
 export function nextCard(card: Card, known: boolean, now: Date): Card {
   return scheduler.next(card, now, known ? Rating.Good : Rating.Again).card
 }
@@ -59,7 +72,7 @@ export interface RateResult {
   due: Date
 }
 
-/** Speichert eine Bewertung (Swipe) und zählt sie für das Tagesziel. */
+/** Speichert eine Bewertung (Swipe) und zählt die Karte fürs Tagesziel – jede Karte nur einmal pro Tag. */
 export async function rateCard(id: string, known: boolean, now = new Date(), database: DeckDB = db): Promise<RateResult> {
   return database.transaction('rw', database.reviews, database.days, async () => {
     const existing = await database.reviews.get(id)
@@ -73,7 +86,13 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
 
     const date = localDate(now)
     const day: DayRecord = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
-    day.reviewed += 1
+    // Dieselbe Karte mehrfach bewerten (z. B. immer wieder „nicht gewusst“) zählt nicht mehrfach
+    const cards = day.cards ?? []
+    if (!cards.includes(id)) {
+      cards.push(id)
+      day.reviewed += 1
+    }
+    day.cards = cards
     if (!existing) {
       // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
       const byDeck = day.newByDeck ?? { items: day.newIntroduced }

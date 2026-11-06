@@ -36,8 +36,10 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 
 ### Lernmodus
 - Spaced Repetition (FSRS). Antippen = umdrehen. **Swipe rechts = gewusst, links = nicht gewusst**
-- Nicht gewusste Karten kommen in derselben Session nochmal
-- **Tagesziel** (z. B. 20 Karten) mit **Streak**-Zähler, jederzeit abbrechbar ohne Verlust
+- Nicht gewusste Karten kommen in derselben Session nach ein paar anderen Karten nochmal; ist es die **letzte**
+  Karte, endet die Session (sofort wieder zeigen bringt nichts) – sie ist in ein paar Minuten wieder fällig
+- **Tagesziel** (z. B. 20 Karten) mit **Streak**-Zähler, jederzeit abbrechbar ohne Verlust; es zählt
+  **verschiedene Karten pro Tag** – dieselbe Karte mehrfach zu bewerten zählt nur einmal
 - Limit für neue Karten pro Tag, **je Deck**; Tagesziel und Streak zählen alle Decks zusammen
 
 ### Patches

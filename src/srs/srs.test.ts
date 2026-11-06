@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
 import { deckOfCardId, newIntroducedToday } from '../decks'
-import { buildQueue, computeStreak, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
+import { afterRating, buildQueue, computeStreak, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
 
 const now = new Date('2026-11-05T12:00:00')
 const past = new Date('2026-11-04T12:00:00')
@@ -27,6 +27,20 @@ describe('buildQueue', () => {
 
   it('ignoriert negative Limits', () => {
     expect(buildQueue({ cards, reviews, now, newLimit: -3 })).toEqual(['e', 'd'])
+  })
+})
+
+describe('afterRating', () => {
+  it('gewusst: Karte ist für die Session erledigt', () => {
+    expect(afterRating(['a', 'b', 'c'], 'a', true)).toEqual({ queue: ['b', 'c'], deferred: false })
+  })
+  it('nicht gewusst: kommt nach ein paar anderen Karten wieder', () => {
+    expect(afterRating(['a', 'b', 'c', 'd', 'e'], 'a', false)).toEqual({ queue: ['b', 'c', 'd', 'a', 'e'], deferred: false })
+    expect(afterRating(['a', 'b'], 'a', false)).toEqual({ queue: ['b', 'a'], deferred: false })
+  })
+  it('nicht gewusst und letzte Karte: Session endet, Karte kommt später wieder', () => {
+    expect(afterRating(['a'], 'a', false)).toEqual({ queue: [], deferred: true })
+    expect(afterRating(['a'], 'a', true)).toEqual({ queue: [], deferred: false })
   })
 })
 
@@ -65,7 +79,19 @@ describe('rateCard', () => {
     const later = new Date(now.getTime() + 10 * 60_000)
     await rateCard('item:a', true, later, database)
     const day = await database.days.get(localDate(now))
-    expect(day).toMatchObject({ reviewed: 2, newIntroduced: 1 })
+    // dieselbe Karte zählt nur einmal fürs Tagesziel
+    expect(day).toMatchObject({ reviewed: 1, newIntroduced: 1, cards: ['item:a'] })
+  })
+
+  it('immer wieder „nicht gewusst“ auf derselben Karte trickst das Tagesziel nicht aus', async () => {
+    const database = new DeckDB(`t-${Math.random()}`)
+    let t = now
+    for (let i = 0; i < 10; i++) {
+      await rateCard('item:last', false, t, database)
+      t = new Date(t.getTime() + 2 * 60_000)
+    }
+    await rateCard('item:other', true, t, database)
+    expect(await database.days.get(localDate(now))).toMatchObject({ reviewed: 2 })
   })
 
   it('plant gewusste Review-Karten weiter in die Zukunft', async () => {
@@ -160,9 +186,9 @@ describe('Decks', () => {
     await rateCard('hero:hero_haze', true, now, database)
     await rateCard('ability:ability_a', false, now, database)
     await rateCard('ability:ability_b', true, now, database)
-    await rateCard('ability:ability_a', true, now, database) // keine neue Karte mehr
+    await rateCard('ability:ability_a', true, now, database) // keine neue Karte mehr, zählt auch nicht nochmal
     const day = await database.days.get(localDate(now))
-    expect(day).toMatchObject({ reviewed: 7, newIntroduced: 6, newByDeck: { items: 3, heroes: 1, abilities: 2 } })
+    expect(day).toMatchObject({ reviewed: 6, newIntroduced: 6, newByDeck: { items: 3, heroes: 1, abilities: 2 } })
     expect(newIntroducedToday(day, 'abilities')).toBe(2)
     expect(newIntroducedToday(undefined, 'items')).toBe(0)
   })
