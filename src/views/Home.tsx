@@ -2,11 +2,13 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
 import { RankBadge } from '../components/RankBadge'
+import { daysAgoText, exportBackup, getBackupStatus, prefersShare, snoozeBackupReminder, BACKUP_EVERY_DAYS, type BackupStatus } from '../data/backup'
+import { ensurePersistentStorage } from '../data/persist'
 import {
   db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, getSprintHighscores, getSurvivalHighscore, setMeta,
   type DayRecord, type LastPatch, type ReviewRecord,
 } from '../data/db'
-import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId } from '../decks'
+import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId, type LearnDeck } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
@@ -15,7 +17,7 @@ import { getWeaknesses, WEAK_DAYS, type Weakness } from '../game/weakness'
 import { computeStreakState, isInLearnScope, localDate, type StreakState } from '../srs/srs'
 
 interface Props {
-  onLearn: (deck: DeckId, extraNew?: number) => void
+  onLearn: (deck: LearnDeck, extraNew?: number) => void
   onQuiz: () => void
   onGuess: () => void
   onBuilds: () => void
@@ -124,6 +126,46 @@ function PatchNotice({ patch }: { patch: LastPatch }) {
   )
 }
 
+/** Erinnerung ans Backup (nie gesichert: nach einer Woche, sonst alle zwei Wochen, wenn seitdem gelernt wurde) */
+function BackupReminder({ status, saved, onSaved, onClose }: { status: BackupStatus; saved: boolean; onSaved: () => void; onClose: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [share] = useState(prefersShare)
+  async function save() {
+    setBusy(true)
+    try {
+      if ((await exportBackup()) !== 'cancelled') onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (saved) {
+    return (
+      <div className="panel backup-notice">
+        <div className="row">
+          <h2>✓ Backup gesichert</h2>
+          <button className="icon-btn" aria-label="Hinweis schließen" onClick={onClose}>✕</button>
+        </div>
+        <p className="small">Die nächste Erinnerung kommt in {BACKUP_EVERY_DAYS} Tagen, wenn du bis dahin weiterlernst.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="panel backup-notice">
+      <h2>💾 Zeit für ein Backup</h2>
+      <p className="small">
+        {status.lastBackupAt === undefined
+          ? 'Dein Fortschritt liegt nur auf diesem Gerät – ein Backup gibt es noch nicht.'
+          : `Dein letztes Backup ist ${daysAgoText(status.daysSince ?? 0)} entstanden, seitdem hast du weitergelernt.`}
+        {share ? ' Über „Teilen“ landet es z. B. in Drive oder Dateien.' : ' Es wird als Datei heruntergeladen.'}
+      </p>
+      <div className="notice-actions">
+        <button className="primary" disabled={busy} onClick={() => void save()}>Jetzt sichern</button>
+        <button onClick={() => void snoozeBackupReminder()}>Später</button>
+      </div>
+    </div>
+  )
+}
+
 /** Warnung vor dem Rang-Verfall ab dem 4. Tag ohne Lernen */
 function decayWarning(daysWithout: number): string | undefined {
   const start = DECAY_GRACE_DAYS + 1
@@ -213,6 +255,8 @@ function useHomeStats() {
   const tick = useClockTick()
   // Missionen des Tages festhalten und offene Boni gutschreiben (z. B. nach dem ersten Sync)
   useEffect(() => { void checkDailyBonuses() }, [tick])
+  // Mit Fortschritt den Browser um dauerhaften Speicher bitten (höchstens einmal am Tag)
+  useEffect(() => { void ensurePersistentStorage() }, [tick])
   return useLiveQuery(async () => {
     const settings = await getSettings()
     const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
@@ -268,6 +312,7 @@ function useHomeStats() {
       buildCount: await db.builds.where('source').equals('typical').count(),
       heroCount: ids.heroes.length,
       heroStars: (await allHeroMastery()).reduce((sum, m) => sum + m.stars.length, 0),
+      backup: await getBackupStatus(),
     }
   }, [tick])
 }
@@ -283,7 +328,25 @@ function weakText(weak: readonly Weakness[]): string {
   ].filter(Boolean).join(' · ')
 }
 
-function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn'] }) {
+/** „Alles lernen“: alle Decks in einer Session – fällige zuerst, dann die neuen jedes Decks (eigene Limits) */
+function AllDecksRow({ decks, onLearn }: { decks: readonly DeckStats[]; onLearn: Props['onLearn'] }) {
+  const due = decks.reduce((n, d) => n + d.due, 0)
+  const fresh = decks.reduce((n, d) => n + d.newLeft, 0)
+  return (
+    <div className="deck-row all-row">
+      <div className="deck-info">
+        <div className="deck-name">Alle Decks</div>
+        <div className="muted small">{due + fresh > 0 ? `${due} fällig · ${fresh} neu – in einer Session` : 'Für heute alles gelernt'}</div>
+      </div>
+      {due + fresh > 0
+        ? <button className="primary" onClick={() => onLearn('all')}>Alles lernen ({due + fresh})</button>
+        : <span className="good small">Erledigt</span>}
+    </div>
+  )
+}
+
+/** `primary`: Lernen-Knopf hervorgehoben (nicht, wenn darüber „Alles lernen“ steht) */
+function DeckRow({ deck, onLearn, primary }: { deck: DeckStats; onLearn: Props['onLearn']; primary: boolean }) {
   const toLearn = deck.due + deck.newLeft
   return (
     <div className="deck-row">
@@ -296,7 +359,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
         </div>
       </div>
       {toLearn > 0 ? (
-        <button className="primary" onClick={() => onLearn(deck.id)}>Lernen ({toLearn})</button>
+        <button className={primary ? 'primary' : undefined} onClick={() => onLearn(deck.id)}>Lernen ({toLearn})</button>
       ) : deck.fresh > 0 ? (
         <button onClick={() => onLearn(deck.id, 10)} title="10 weitere neue Karten">+10 neue</button>
       ) : deck.total > 0 ? (
@@ -311,7 +374,11 @@ export function Home({
   syncing, syncError, imageProgress, onSync,
 }: Props) {
   const s = useHomeStats()
+  /** Gerade über die Erinnerung gesichert: Bestätigung statt Erinnerung */
+  const [backupSaved, setBackupSaved] = useState(false)
   if (!s) return <div className="center muted">Lade…</div>
+  // „Alles lernen“ ab zwei Decks mit Karten
+  const showAll = s.decks.filter(d => d.total > 0).length >= 2
 
   if (s.totalAll === 0) {
     return (
@@ -338,13 +405,18 @@ export function Home({
 
       {s.patch && <PatchNotice patch={s.patch} />}
 
+      {(s.backup.remind || backupSaved) && (
+        <BackupReminder status={s.backup} saved={backupSaved} onSaved={() => setBackupSaved(true)} onClose={() => setBackupSaved(false)} />
+      )}
+
       <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
 
       <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} />
 
       <div className="panel">
         <h2>Karteikarten</h2>
-        {s.decks.map(d => <DeckRow key={d.id} deck={d} onLearn={onLearn} />)}
+        {showAll && <AllDecksRow decks={s.decks} onLearn={onLearn} />}
+        {s.decks.map(d => <DeckRow key={d.id} deck={d} onLearn={onLearn} primary={!showAll} />)}
         <div className="deck-row weak-row">
           <div className="deck-info">
             <div className="deck-name">Schwächen</div>

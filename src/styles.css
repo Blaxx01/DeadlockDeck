@@ -274,6 +274,9 @@ button.link {
 /* ---------- Decks auf der Startseite ---------- */
 .deck-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .deck-row:first-of-type { border-top: none; padding-top: 0; }
+/* „Alles lernen“ über den einzelnen Decks */
+.deck-row.all-row { padding-bottom: 12px; }
+.deck-row.all-row + .deck-row { border-top-width: 2px; }
 .deck-info { min-width: 0; }
 .deck-name { font-weight: 700; }
 .deck-row button { flex: none; padding: 10px 14px; }
@@ -835,3 +838,9 @@ button.link {
 .guess-stage > .unlearned-tag { position: absolute; margin: 0; background: rgba(0, 0, 0, 0.6); }
 .sprint-stage > .unlearned-tag { top: 8px; right: 8px; }
 .guess-stage > .unlearned-tag { top: 36px; left: 8px; }
+
+/* ---------- Backup-Erinnerung und Speicher ---------- */
+.backup-notice { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.backup-notice h2 { color: var(--accent); }
+.notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.backup-info { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

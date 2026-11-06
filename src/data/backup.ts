@@ -2,6 +2,7 @@ import { checkAllMilestones, getMilestones, resetMilestonesInTx, type MilestoneM
 import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import type { SprintHighscores } from '../sprint/sprint'
+import { addDays, daysBetween, localDate } from './dates'
 import {
   db, getBuildBests, getMeta, getSettings, getSprintHighscores, saveSettings, setMeta,
   type BuildBest, type DayRecord, type DeckDB, type NoteRecord, type ReviewRecord, type Settings,
@@ -126,20 +127,126 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
   }
   // Meilensteine, die der Fortschritt hergibt, aber noch nicht belohnt sind (z. B. Backup von vor den Meilensteinen)
   await checkAllMilestones(new Date(), database)
+  // Der Stand entspricht jetzt diesem Backup
+  const exported = Date.parse(backup.exportedAt)
+  if (Number.isFinite(exported)) await markBackupDone(new Date(exported), database)
 }
 
 function isRecord<T>(value: T | undefined): value is T {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export function downloadBackup(backup: BackupFile): void {
-  const blob = new Blob([JSON.stringify(backup, null, 1)], { type: 'application/json' })
+function downloadFile(text: string, name: string): void {
+  const blob = new Blob([text], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `deadlockdeck-backup-${backup.exportedAt.slice(0, 10)}.json`
+  a.download = name
   document.body.appendChild(a)
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** Auf dem Handy (Touch) übers Teilen-Menü sichern – Dateien, Drive, Mail … */
+export function prefersShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function'
+    && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+}
+
+export type BackupResult = 'shared' | 'downloaded' | 'cancelled'
+
+/**
+ * Backup erstellen und sichern: auf dem Handy übers Teilen-Menü, sonst (oder mit `download`) als Datei.
+ * Gelungen → als letztes Backup gemerkt. Abgebrochenes Teilen ändert nichts.
+ */
+export async function exportBackup({ download = false, now = new Date(), database = db }: { download?: boolean; now?: Date; database?: DeckDB } = {}): Promise<BackupResult> {
+  const json = JSON.stringify(await createBackup(database), null, 1)
+  const name = `deadlockdeck-backup-${localDate(now)}`
+  if (!download && prefersShare()) {
+    // Chrome teilt keine JSON-Dateien – dann als Textdatei (der Import liest beides)
+    const files = [new File([json], `${name}.json`, { type: 'application/json' }), new File([json], `${name}.txt`, { type: 'text/plain' })]
+    const file = files.find(f => navigator.canShare({ files: [f] }))
+    if (file) {
+      try {
+        await navigator.share({ files: [file], title: 'DeadlockDeck-Backup' })
+        await markBackupDone(now, database)
+        return 'shared'
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+        // z. B. Teilen nicht erlaubt – dann herunterladen
+      }
+    }
+  }
+  downloadFile(json, `${name}.json`)
+  await markBackupDone(now, database)
+  return 'downloaded'
+}
+
+/** Nie gesichert: Erinnerung so viele Tage nach dem ersten Lerntag */
+export const BACKUP_FIRST_DAYS = 7
+/** Danach: so viele Tage nach dem letzten Backup (wenn seitdem gelernt wurde) */
+export const BACKUP_EVERY_DAYS = 14
+/** „Später“ blendet die Erinnerung so lange aus */
+export const BACKUP_SNOOZE_DAYS = 3
+
+export interface BackupStatus {
+  /** Letztes Backup (ms) */
+  lastBackupAt?: number
+  /** Ganze Tage seit dem letzten Backup */
+  daysSince?: number
+  /** Erinnerung auf der Startseite zeigen */
+  remind: boolean
+}
+
+export interface BackupReminderInput {
+  lastBackupAt?: number
+  /** Ausgeblendet bis (lokales Datum, ausschließlich) */
+  snoozedUntil?: string
+  /** Erster und letzter Tag mit Lernen */
+  firstDay?: string
+  lastDay?: string
+}
+
+/** Erinnerung fällig? Nur mit Fortschritt; nach einem Backup nur, wenn seitdem gelernt wurde */
+export function backupReminderDue({ lastBackupAt, snoozedUntil, firstDay, lastDay }: BackupReminderInput, now: Date): boolean {
+  if (!firstDay || !lastDay) return false
+  const today = localDate(now)
+  if (snoozedUntil && today < snoozedUntil) return false
+  if (lastBackupAt === undefined) return daysBetween(firstDay, today) >= BACKUP_FIRST_DAYS
+  const backupDay = localDate(new Date(lastBackupAt))
+  return lastDay >= backupDay && daysBetween(backupDay, today) >= BACKUP_EVERY_DAYS
+}
+
+export async function getBackupStatus(now = new Date(), database: DeckDB = db): Promise<BackupStatus> {
+  const [lastBackupAt, snoozedUntil, days] = await Promise.all([
+    getMeta<number | null>('lastBackupAt', null, database),
+    getMeta<string | null>('backupSnoozedUntil', null, database),
+    database.days.toArray(),
+  ])
+  const learned = days.filter(d => d.reviewed > 0).map(d => d.date).sort()
+  const last = lastBackupAt ?? undefined
+  return {
+    lastBackupAt: last,
+    daysSince: last === undefined ? undefined : daysBetween(localDate(new Date(last)), localDate(now)),
+    remind: backupReminderDue({ lastBackupAt: last, snoozedUntil: snoozedUntil ?? undefined, firstDay: learned[0], lastDay: learned.at(-1) }, now),
+  }
+}
+
+/** „heute“, „gestern“, „vor 5 Tagen“ */
+export function daysAgoText(days: number): string {
+  if (days <= 0) return 'heute'
+  if (days === 1) return 'gestern'
+  return `vor ${days} Tagen`
+}
+
+/** Backup gesichert: Erinnerung zurücksetzen */
+export async function markBackupDone(now = new Date(), database: DeckDB = db): Promise<void> {
+  await setMeta('lastBackupAt', now.getTime(), database)
+  await setMeta('backupSnoozedUntil', null, database)
+}
+
+/** „Später“: Erinnerung ein paar Tage ausblenden */
+export async function snoozeBackupReminder(now = new Date(), database: DeckDB = db): Promise<void> {
+  await setMeta('backupSnoozedUntil', addDays(localDate(now), BACKUP_SNOOZE_DAYS), database)
 }

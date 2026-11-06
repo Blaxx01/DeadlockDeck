@@ -10,11 +10,11 @@ import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, CounterCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import {
-  baseCardId, deckOfCardId, isReverseId, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseId, reverseIdsFor, reverseIntroducedToday,
-  type DeckId,
+  baseCardId, DECKS, deckOfCardId, isReverseId, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseId, reverseIdsFor, reverseIntroducedToday,
+  type DeckId, type LearnDeck,
 } from '../decks'
 import { currentNav, pushNav, type NavState, type View } from '../nav'
-import { afterRating, buildDeckQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import { afterRating, buildDeckQueue, buildMixedQueue, isInLearnScope, localDate, rateCard, type DeckQueueInput } from '../srs/srs'
 import { checkAnswer } from '../srs/typing'
 import { AnswerInput, TypedResult, type TypedAnswer } from '../components/AnswerInput'
 import { ReverseFront, ReverseImage } from '../components/ReverseCards'
@@ -25,7 +25,8 @@ import { CardNote, NoteButton, NoteSheet } from '../components/Notes'
 import { ItemDetail } from './ItemDetail'
 
 interface Props {
-  deck: DeckId
+  /** Ein Deck oder „all“: Alles lernen (alle Decks in einer Session) */
+  deck: LearnDeck
   onExit: () => void
   /** Zusätzliche neue Karten über das Tageslimit hinaus */
   extraNew?: number
@@ -291,6 +292,17 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
         // Schwächen-Training: feste Auswahl, unabhängig von Fälligkeit und Neu-Limit
         entries = await withPatches(await entriesForIds(weakIds, onItemClick), reviews)
         q = entries.map(e => e.id)
+      } else if (deck === 'all') {
+        // Alles lernen: alle Decks mit ihren eigenen Limits in einer Session
+        const day = await db.days.get(localDate())
+        const now = new Date()
+        const decks = await Promise.all(DECKS.map(async ({ id }) => ({ id, ...(await loadEntries(id, s, reviews, onItemClick)) })))
+        entries = decks.flatMap(d => [...d.normal, ...d.reverse])
+        q = buildMixedQueue(decks.map((d): DeckQueueInput => ({
+          cards: d.normal, reverse: d.reverse, reviews, now,
+          newLimit: s.newPerDay - newIntroducedToday(day, d.id),
+          reverseLimit: REVERSE_NEW_PER_DAY - reverseIntroducedToday(day, d.id),
+        })))
       } else {
         const { normal, reverse } = await loadEntries(deck, s, reviews, onItemClick)
         entries = [...normal, ...reverse]

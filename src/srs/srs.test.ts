@@ -4,7 +4,7 @@ import { State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
 import { baseCardId, deckOfCardId, isReverseId, newIntroducedToday, reverseId, reverseIdsFor, reverseIntroducedToday } from '../decks'
 import {
-  afterRating, buildDeckQueue, buildQueue, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate,
+  afterRating, buildDeckQueue, buildMixedQueue, buildQueue, interleave, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate,
   rateCard, requestLearn, requeue,
 } from './srs'
 
@@ -57,6 +57,26 @@ describe('Rückrichtung', () => {
     ])
     expect(buildDeckQueue({ cards, reverse, reviews, now, newLimit: 1, reverseLimit: 5, rng: () => 0.5 })).toEqual(['a', 'b~r', 'n1', 'a~r'])
     expect(buildDeckQueue({ cards, reverse, reviews, now, newLimit: 2, reverseLimit: 0, rng: () => 0.5 })).toEqual(['a', 'b~r', 'n1', 'n2'])
+  })
+
+  it('„Alles lernen“: alle fälligen über die Decks (älteste zuerst), dann neue abwechselnd je Deck-Limit, dann neue Rückrichtung', () => {
+    const at = (h: number) => new Date(2026, 10, 5, h)
+    const reviews = new Map([
+      ['item:a', { due: at(9) }], ['item:b', { due: future }], ['item:b~r', { due: at(7) }],
+      ['ability:x', { due: at(8) }], ['hero:h', { due: at(10) }],
+    ])
+    const order = (ids: string[]) => ids.map((id, i) => ({ id, order: i }))
+    const items = { cards: order(['item:a', 'item:b', 'item:n1', 'item:n2', 'item:n3']), reverse: order(['item:a~r', 'item:b~r']), newLimit: 2, reverseLimit: 5 }
+    const abilities = { cards: order(['ability:x', 'ability:n1', 'ability:n2']), reverse: order(['ability:x~r']), newLimit: 1, reverseLimit: 0 }
+    const heroes = { cards: order(['hero:h', 'hero:n1']), reverse: [], newLimit: 0, reverseLimit: 5 }
+    const counters = { cards: order(['counter:n1', 'counter:n2']), reverse: [], newLimit: 5, reverseLimit: 5 }
+    const queue = buildMixedQueue([items, abilities, heroes, counters].map(d => ({ ...d, reviews, now, rng: () => 0.5 })))
+    expect(queue).toEqual([
+      'item:b~r', 'ability:x', 'item:a', 'hero:h',
+      'item:n1', 'ability:n1', 'counter:n1', 'item:n2', 'counter:n2',
+      'item:a~r',
+    ])
+    expect(interleave([[1, 2, 3], [], [4], [5, 6]])).toEqual([1, 4, 5, 2, 6, 3])
   })
 
   it('neue Rückrichtungs-Karten zählen nicht gegen das normale Neu-Limit', async () => {

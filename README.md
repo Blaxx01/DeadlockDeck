@@ -8,7 +8,8 @@ Statistik der API, wöchentlich aktualisiert).
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
 Neue Item-Karten kommen **meistgekauft zuerst** (Kaufstatistik ab Orakel). Gelernte Items, Fähigkeiten und Heroes
 kommen auch in **Rückrichtung** (Name → Bild und Wirkung); bei Items und Counter kann man die **Antwort eintippen**
-(Tippfehler werden toleriert).
+(Tippfehler werden toleriert). **Alles lernen** fasst alle Decks in einer Session zusammen (fällige zuerst, dann die
+neuen abwechselnd aus den Decks).
 Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Zurück** führt wieder in die Lernsession.
 
 Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter,
@@ -46,7 +47,9 @@ Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
    **iPhone/Safari:** Teilen → „Zum Home-Bildschirm“
 3. Einmal mit Internet öffnen. Die App lädt alle Items und Bilder, danach geht alles offline.
 
-Der Lernfortschritt liegt nur auf dem Gerät. Unter ⚙ → *Backup* lässt er sich als Datei exportieren und wieder importieren.
+Der Lernfortschritt liegt nur auf dem Gerät. Unter ⚙ → *Backup* lässt er sich sichern (auf dem Handy übers Teilen-Menü,
+z. B. in Drive) und wieder importieren; die Startseite erinnert alle zwei Wochen daran. Die App bittet den Browser
+außerdem um dauerhaften Speicher, damit er die Daten nicht bei Platzmangel löscht.
 
 ## Entwicklung
 
@@ -83,6 +86,7 @@ Aufbau:
 | `src/components/SoulsFx.tsx` | „+10 ◆“-Animation und Aufstieg mit Konfetti |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
+| `src/data/backup.ts`, `src/data/persist.ts` | Backup: Export (Teilen/Download), Import, Erinnerung; dauerhafter Speicher |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange (inkl. Rückrichtung), FSRS-Bewertung, Streak |
 | `src/srs/typing.ts`, `src/components/AnswerInput.tsx` | Antwort eintippen: tolerante Prüfung, Eingabe, Ergebnis |
 | `src/components/ReverseCards.tsx` | Rückrichtung: Vorderseite mit Name, Bild auf der Rückseite |

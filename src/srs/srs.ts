@@ -54,12 +54,49 @@ export interface DeckQueueInput {
   rng?: () => number
 }
 
-/** Lernsession eines Decks: alle fälligen (beide Richtungen, älteste zuerst), dann neue, dann neue Rückrichtung */
-export function buildDeckQueue({ cards, reverse, reviews, now, newLimit, reverseLimit, rng = Math.random }: DeckQueueInput): string[] {
+interface DeckQueueParts {
+  /** Fällige Karten (beide Richtungen), älteste zuerst */
+  due: string[]
+  /** Neue Karten bis zum Limit */
+  fresh: string[]
+  /** Neue Rückrichtungs-Karten bis zu ihrem Limit */
+  freshReverse: string[]
+}
+
+function deckQueueParts({ cards, reverse, reviews, now, newLimit, reverseLimit, rng = Math.random }: DeckQueueInput): DeckQueueParts {
   const due = buildQueue({ cards: [...cards, ...reverse], reviews, now, newLimit: 0, rng })
   const fresh = (list: { id: string; order: number }[], limit: number) =>
     buildQueue({ cards: list, reviews, now, newLimit: limit, rng }).filter(id => !reviews.has(id))
-  return [...due, ...fresh(cards, newLimit), ...fresh(reverse, reverseLimit)]
+  return { due, fresh: fresh(cards, newLimit), freshReverse: fresh(reverse, reverseLimit) }
+}
+
+/** Lernsession eines Decks: alle fälligen (beide Richtungen, älteste zuerst), dann neue, dann neue Rückrichtung */
+export function buildDeckQueue(input: DeckQueueInput): string[] {
+  const { due, fresh, freshReverse } = deckQueueParts(input)
+  return [...due, ...fresh, ...freshReverse]
+}
+
+/** Abwechselnd aus mehreren Listen: [a1, b1, c1, a2, c2, …] */
+export function interleave<T>(lists: readonly (readonly T[])[]): T[] {
+  const out: T[] = []
+  for (let i = 0; out.length < lists.reduce((n, l) => n + l.length, 0); i++) {
+    for (const list of lists) if (i < list.length) out.push(list[i])
+  }
+  return out
+}
+
+/**
+ * „Alles lernen“: eine Session über alle Decks – erst alle fälligen Karten (beide Richtungen, älteste zuerst,
+ * über die Decks hinweg), dann die neuen jedes Decks bis zu seinem Limit (abwechselnd aus den Decks), dann die
+ * neuen Rückrichtungs-Karten (ebenso)
+ */
+export function buildMixedQueue(decks: readonly DeckQueueInput[]): string[] {
+  const parts = decks.map(deckQueueParts)
+  const due = parts
+    .flatMap((p, i) => p.due.map(id => ({ id, t: decks[i].reviews.get(id)!.due.getTime() })))
+    .sort((a, b) => a.t - b.t)
+    .map(d => d.id)
+  return [...due, ...interleave(parts.map(p => p.fresh)), ...interleave(parts.map(p => p.freshReverse))]
 }
 
 /** Wie viele Karten nach einem "nicht gewusst" dazwischen liegen, bevor sie wiederkommt. */

@@ -3,6 +3,9 @@ import type { DayRecord, ReviewRecord } from './data/db'
 
 export type DeckId = 'items' | 'abilities' | 'heroes' | 'counters'
 
+/** Was eine Lernsession lernt: ein Deck oder „Alles lernen“ (alle Decks in einer Session) */
+export type LearnDeck = DeckId | 'all'
+
 export const DECKS: { id: DeckId; label: string }[] = [
   { id: 'items', label: 'Items' },
   { id: 'abilities', label: 'Fähigkeiten' },

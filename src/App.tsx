@@ -177,7 +177,7 @@ export default function App() {
           onSync={sync}
         />
       )}
-      {view.name === 'learn' && <Learn deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
+      {view.name === 'learn' && <Learn key={view.deck ?? 'items'} deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'guess' && <Guess onExit={goBack} />}
       {view.name === 'builds' && <BuildQuiz onExit={goBack} />}

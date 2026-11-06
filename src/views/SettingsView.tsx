@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
+import { daysAgoText, exportBackup, getBackupStatus, parseBackup, prefersShare, restoreBackup, type BackupStatus } from '../data/backup'
+import { isStoragePersisted } from '../data/persist'
 import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/db'
 import { deckLabel, type DeckId } from '../decks'
 import { resetMilestonesInTx } from '../game/milestones'
@@ -20,6 +21,12 @@ const SLOTS: SlotType[] = ['weapon', 'vitality', 'spirit']
 /** Decks, bei denen man die Antwort eintippen kann */
 const TYPE_DECKS: DeckId[] = ['items', 'counters']
 
+/** Letztes Backup und ob der Speicher dauerhaft ist */
+async function loadBackupInfo(): Promise<{ status: BackupStatus; persisted?: boolean }> {
+  const [status, persisted] = await Promise.all([getBackupStatus(), isStoragePersisted()])
+  return { status, persisted }
+}
+
 /** Erklärung zur Einstellung „Gefragt wird“ */
 const SCOPE_HELP: Record<QuizScope, string> = {
   'learned-first': 'Zuerst Karten, die du schon gelernt hast (im Lernmodus mindestens einmal bewertet). Reicht das nicht, '
@@ -33,8 +40,21 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
   const [settings, setSettings] = useState<Settings | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const [backupInfo, setBackupInfo] = useState<Awaited<ReturnType<typeof loadBackupInfo>> | null>(null)
+  const [share] = useState(prefersShare)
 
   useEffect(() => { getSettings().then(setSettings) }, [])
+  useEffect(() => { loadBackupInfo().then(setBackupInfo) }, [])
+
+  async function refreshBackupInfo() {
+    setBackupInfo(await loadBackupInfo())
+  }
+
+  async function onExport(download: boolean) {
+    const result = await exportBackup({ download })
+    if (result !== 'cancelled') setMessage(result === 'shared' ? 'Backup gesichert.' : 'Backup heruntergeladen.')
+    await refreshBackupInfo()
+  }
 
   async function update(patch: Partial<Settings>) {
     if (!settings) return
@@ -74,6 +94,7 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       await restoreBackup(backup)
       setSettings(await getSettings())
       setMessage(`Backup eingespielt (${backup.reviews.length} Karten).`)
+      await refreshBackupInfo()
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Import fehlgeschlagen.')
     }
@@ -215,9 +236,23 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       <div className="panel">
         <h2>Backup</h2>
         <p className="muted small">Der Fortschritt liegt nur auf diesem Gerät. Browserdaten löschen = Fortschritt weg. Mach ab und zu ein Backup.</p>
-        <button onClick={async () => downloadBackup(await createBackup())}>Fortschritt exportieren</button>
+        {backupInfo && (
+          <ul className="backup-info small">
+            <li>
+              {backupInfo.status.lastBackupAt === undefined
+                ? 'Noch kein Backup.'
+                : `Letztes Backup: ${daysAgoText(backupInfo.status.daysSince ?? 0)} (${new Date(backupInfo.status.lastBackupAt).toLocaleDateString('de-DE')})`}
+            </li>
+            {backupInfo.persisted === true && <li className="good">✓ Dauerhafter Speicher: Der Browser löscht deinen Fortschritt nicht von selbst.</li>}
+            {backupInfo.persisted === false && (
+              <li>Kein dauerhafter Speicher: Bei Platzmangel darf der Browser deinen Fortschritt löschen – ein Backup schützt davor.</li>
+            )}
+          </ul>
+        )}
+        <button onClick={() => void onExport(false)}>{share ? 'Fortschritt sichern (Teilen …)' : 'Fortschritt exportieren'}</button>
+        {share && <button onClick={() => void onExport(true)}>Als Datei herunterladen</button>}
         <button onClick={() => fileInput.current?.click()}>Backup importieren</button>
-        <input ref={fileInput} type="file" accept="application/json,.json" hidden
+        <input ref={fileInput} type="file" accept="application/json,.json,text/plain,.txt" hidden
           onChange={e => { const f = e.target.files?.[0]; if (f) onImport(f); e.target.value = '' }} />
         <button className="danger" onClick={resetProgress}>Fortschritt löschen</button>
       </div>

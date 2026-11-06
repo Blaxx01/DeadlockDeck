@@ -50,6 +50,12 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
 - **Tagesziel** (z. B. 20 Karten) mit **Streak**-Zähler, jederzeit abbrechbar ohne Verlust; es zählt
   **verschiedene Karten pro Tag** – dieselbe Karte mehrfach zu bewerten zählt nur einmal
 - Limit für neue Karten pro Tag, **je Deck**; Tagesziel und Streak zählen alle Decks zusammen
+- **Alles lernen**: oberste Zeile im Feld „Karteikarten“ (ab zwei Decks mit Karten), eine Session über alle Decks
+  - erst alle fälligen Karten (beide Richtungen, älteste zuerst – über die Decks hinweg), dann die neuen jedes Decks
+    bis zu seinem Limit, **abwechselnd aus den Decks** (so kommt jedes Deck voran, auch wenn man früh aufhört),
+    dann die neuen Rückrichtungs-Karten ebenso
+  - die Lernen-Knöpfe der einzelnen Decks bleiben (dann nicht mehr hervorgehoben); Antwort eintippen gilt je Karte
+    nach ihrem Deck
 
 ### Patches
 - Jede Karte speichert einen **Fingerprint ihrer Spielwerte** (aus den englischen API-Rohdaten):
@@ -331,6 +337,15 @@ Hero erraten zur Hero-Karte. Die falschen Antworten kommen immer aus allen Karte
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
+  - auf dem Handy über das **Teilen-Menü** (Drive, Dateien, Mail …); Chrome teilt keine JSON-Dateien → dann als
+    Textdatei (.txt), der Import liest beides; am Computer und mit „Als Datei herunterladen“ als Download
+- **Dauerhafter Speicher**: Mit Fortschritt bittet die App den Browser um dauerhaften Speicher (ohne darf er bei
+  Platzmangel löschen) – höchstens einmal am Tag, bis er zusagt (Firefox fragt nach, Chrome entscheidet selbst)
+- Einstellungen → Backup: letztes Backup („heute“, „vor 5 Tagen“) und ob der Speicher dauerhaft ist
+- **Backup-Erinnerung** auf der Startseite: noch nie gesichert → eine Woche nach dem ersten Lerntag; sonst zwei Wochen
+  nach dem letzten Backup, wenn seitdem gelernt wurde
+  - „Jetzt sichern“ sichert direkt (danach kurz „✓ Backup gesichert“), „Später“ blendet sie 3 Tage aus
+  - abgebrochenes Teilen zählt nicht; ein eingespieltes Backup zählt als letztes Backup
 
 ## Reihenfolge
 1. ✅ **MVP:** Item-Karten + SRS + Offline + Export/Import + Deploy
@@ -352,6 +367,7 @@ Hero erraten zur Hero-Karte. Die falschen Antworten kommen immer aus allen Karte
     2. ✅ Hartnäckige Karten, Merkhilfen
     3. ✅ Eintippen, Rückrichtung
 12. ✅ Gelerntes zuerst (einstellbar: Gelerntes zuerst / Nur Gelerntes / Alles)
+13. ✅ Fortschritt absichern (dauerhafter Speicher, Backup-Erinnerung, Sichern übers Teilen-Menü), „Alles lernen“
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.
