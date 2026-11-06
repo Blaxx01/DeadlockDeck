@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ItemBack } from '../components/ItemBack'
 import { PatchNote } from '../components/PatchNote'
 import { showPatchNote } from '../data/patches'
@@ -12,6 +12,8 @@ interface Props {
   cards: readonly ItemCard[]
   onBack: () => void
   onOpen: (id: string) => void
+  /** Wohin „Zurück“ führt – Anzeige im Kopf (Standard: Shop) */
+  backLabel?: string
 }
 
 function BrokerSection({ info }: { info: CorruptedInfo }) {
@@ -49,7 +51,7 @@ function BrokerSection({ info }: { info: CorruptedInfo }) {
   )
 }
 
-export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
+export function ItemDetail({ card, cards, onBack, onOpen, backLabel = 'Shop' }: Props) {
   // { review } statt review, damit „lädt noch“ (undefined) von „keine Karte“ unterscheidbar ist
   const loaded = useLiveQuery(async () => ({ review: await db.reviews.get(card.id) }), [card.id])
   // Patch-Hinweis: Geändert 30 Tage, Neu 7 Tage (Zeitpunkt in der Abfrage prüfen, nicht beim Rendern)
@@ -58,6 +60,10 @@ export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
     return showPatchNote(p, Date.now()) ? p : undefined
   }, [card.id])
   const [justRequested, setJustRequested] = useState(false)
+  // Fokus in die Detailseite: Tasten (z. B. Leertaste = scrollen) wirken hier und nicht auf dem
+  // Link/der Kachel darunter, die sie geöffnet hat (sonst öffnet Enter/Leertaste sie erneut)
+  const pageRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { pageRef.current?.focus({ preventScroll: true }) }, [card.id])
   const byName = useMemo(() => new Map(cards.map(c => [c.name, c])), [cards])
   const state = loaded ? describeLearnState(loaded.review) : undefined
 
@@ -72,11 +78,11 @@ export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
   }
 
   return (
-    <div className="detail-page" role="dialog" aria-label={card.name}>
+    <div className="detail-page" role="dialog" aria-label={card.name} tabIndex={-1} ref={pageRef}>
       <div className="detail-inner">
         <header className="home-head">
           <button className="icon-btn" onClick={onBack} aria-label="Zurück">←</button>
-          <span className="muted small">Shop</span>
+          <span className="muted small">{backLabel}</span>
           <span className="icon-btn" aria-hidden="true" />
         </header>
 

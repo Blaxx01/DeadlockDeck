@@ -4,6 +4,7 @@ Karteikarten-App fürs Handy zum Lernen der **Deadlock**-Items, auch offline unt
 Drei Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Cooldown, Build-Pfad),
 **Fähigkeiten** (Ability-Icon → Hero, Effekt, Upgrades mit AP-Kosten) und **Heroes** (Porträt → Rolle, Fähigkeiten, Werte).
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
+Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Zurück** führt wieder in die Lernsession.
 
 Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad),
 Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,

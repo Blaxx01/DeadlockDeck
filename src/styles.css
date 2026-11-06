@@ -251,6 +251,7 @@ button.danger { color: var(--bad); }
 .detail-page {
   position: fixed; inset: 0; z-index: 10; background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
 }
+.detail-page:focus { outline: none; }
 .detail-inner {
   max-width: 520px; margin: 0 auto;
   padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));

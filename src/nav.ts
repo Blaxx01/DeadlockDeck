@@ -16,7 +16,7 @@ export type View =
 
 export interface NavState {
   view?: View
-  /** Im Shop geöffnete Item-Detailseite (Karten-ID) */
+  /** Geöffnete Item-Detailseite (Karten-ID) – im Shop oder über der Lernsession */
   item?: string
 }
 

@@ -24,7 +24,8 @@ interface Props {
 export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass, frontStyle }: Props) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
-  const start = useRef<{ x: number; y: number; id: number } | null>(null)
+  /** onControl: Druck begann auf einem Link/Button der Karte (z. B. Build-Pfad) */
+  const start = useRef<{ x: number; y: number; id: number; onControl: boolean } | null>(null)
   const [dragging, setDragging] = useState(false)
 
   function flyOut(known: boolean) {
@@ -38,7 +39,8 @@ export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (leaving || (e.pointerType === 'mouse' && e.button !== 0)) return
-    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
+    const onControl = !!(e.target as HTMLElement).closest('button, a, input')
+    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, onControl }
     setDragging(false)
   }
 
@@ -66,7 +68,8 @@ export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass
       else setDx(0)
       return
     }
-    if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < TAP_SLOP) onFlip()
+    // Tipp auf einen Link öffnet ihn (dessen Klick), dreht die Karte aber nicht um – Wischen geht dort trotzdem
+    if (!s.onControl && Math.hypot(e.clientX - s.x, e.clientY - s.y) < TAP_SLOP) onFlip()
   }
 
   function onPointerCancel() {
@@ -89,7 +92,8 @@ export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass
       >
         <div className={`card${flipped ? ' flipped' : ''}`}>
           <div className={`face front ${slotClass ?? ''}`} style={frontStyle} aria-hidden={flipped}>{front}</div>
-          <div className="face back" aria-hidden={!flipped}>{back}</div>
+          {/* inert: Links auf der verdeckten Rückseite sind nicht per Tab erreichbar */}
+          <div className="face back" aria-hidden={!flipped} inert={!flipped}>{back}</div>
         </div>
         <div className="swipe-label known" style={{ opacity: Math.max(0, progress) }}>Gewusst</div>
         <div className="swipe-label unknown" style={{ opacity: Math.max(0, -progress) }}>Nicht gewusst</div>

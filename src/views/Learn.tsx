@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { FlashCard, type FlashCardHandle } from '../components/FlashCard'
 import { AbilityBack, AbilityFront, HeroBack, HeroFront } from '../components/HeroCards'
 import { heroGlow } from '../components/heroStyle'
@@ -9,7 +9,9 @@ import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
+import { currentNav, pushNav, type NavState } from '../nav'
 import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import { ItemDetail } from './ItemDetail'
 
 interface Props {
   deck: DeckId
@@ -32,8 +34,13 @@ interface LearnEntry {
   patch?: PatchRecord
 }
 
-function itemEntry(card: ItemCard): LearnEntry {
-  return { id: card.id, order: card.tier, image: card.image, front: <ItemFront card={card} />, back: <ItemBack card={card} />, frontClass: `slot-bg-${card.slot}` }
+/** onItemClick: Build-Pfad-Namen antippbar → Detailseite über der Session */
+function itemEntry(card: ItemCard, onItemClick?: (name: string) => void): LearnEntry {
+  return {
+    id: card.id, order: card.tier, image: card.image, frontClass: `slot-bg-${card.slot}`,
+    front: <ItemFront card={card} />,
+    back: <ItemBack card={card} onItemClick={onItemClick} />,
+  }
 }
 
 function abilityEntry(card: AbilityCard): LearnEntry {
@@ -44,15 +51,15 @@ function heroEntry(card: HeroCard): LearnEntry {
   return { id: card.id, order: card.order, image: card.image, front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color) }
 }
 
-async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
+async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
   if (deck === 'abilities') return (await db.abilities.toArray()).map(abilityEntry)
   if (deck === 'heroes') return (await db.heroes.toArray()).map(heroEntry)
   const items = await db.items.toArray()
-  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(itemEntry)
+  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick))
 }
 
-async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
-  const entries = await deckEntries(deck, settings, reviews)
+async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
+  const entries = await deckEntries(deck, settings, reviews, onItemClick)
   const patches = new Map((await db.patches.toArray()).map(p => [p.id, p]))
   const now = Date.now()
   return entries.map(e => {
@@ -91,12 +98,41 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
   const [busy, setBusy] = useState(false)
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
+  // Detailseite eines Items (aus dem Build-Pfad) über der Session – als Verlaufseintrag,
+  // damit „Zurück“ (auch die Android-Geste) genau hierher zurückführt
+  const allItems = useLiveQuery(() => db.items.toArray(), [])
+  const [detailId, setDetailId] = useState<string | null>(() => currentNav().item ?? null)
+  const itemsByName = useMemo(() => new Map((allItems ?? []).map(i => [i.name, i])), [allItems])
+  const openItem = useCallback((id: string) => {
+    pushNav({ view: { name: 'learn', deck, extraNew }, item: id })
+    setDetailId(id)
+  }, [deck, extraNew])
+  const closeDetail = useCallback(() => {
+    if (currentNav().item) window.history.back()
+    else setDetailId(null)
+  }, [])
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => setDetailId((e.state as NavState | null)?.item ?? null)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  // Stabiler Klick-Handler für die Karten (die Karten werden einmal pro Session gebaut)
+  const openByName = useRef<(name: string) => void>(() => {})
+  useEffect(() => {
+    openByName.current = name => {
+      const item = itemsByName.get(name)
+      if (item) openItem(item.id)
+    }
+  }, [itemsByName, openItem])
+  const onItemClick = useCallback((name: string) => openByName.current(name), [])
+  const detail = detailId && allItems ? allItems.find(i => i.id === detailId) : undefined
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       const s = await getSettings()
       const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
-      const entries = await loadEntries(deck, s, reviews)
+      const entries = await loadEntries(deck, s, reviews, onItemClick)
       const day = await db.days.get(localDate())
       const newLimit = extraNew > 0 ? extraNew : s.newPerDay - newIntroducedToday(day, deck)
       const q = buildQueue({ cards: entries, reviews, now: new Date(), newLimit })
@@ -106,7 +142,7 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
       setQueue(q)
     })()
     return () => { cancelled = true }
-  }, [deck, extraNew])
+  }, [deck, extraNew, onItemClick])
 
   const current = cards && queue.length ? cards.get(queue[0]) : undefined
   const next = cards && queue.length > 1 ? cards.get(queue[1]) : undefined
@@ -136,6 +172,11 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
   const hasCard = !!current
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Detailseite offen: Tasten gehören ihr, Esc schließt sie
+      if (detailId) {
+        if (e.key === 'Escape') closeDetail()
+        return
+      }
       if (e.key === 'Escape') return onExit()
       if (!hasCard) return
       // Andere Buttons (z. B. ✕) behalten ihr normales Enter/Leertaste-Verhalten
@@ -146,7 +187,7 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flipped, onExit, hasCard])
+  }, [flipped, onExit, hasCard, detailId, closeDetail])
 
   if (!cards || !settings) return <div className="center muted">Lade…</div>
 
@@ -192,6 +233,10 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
           {reviewedToday >= settings.dailyGoal && <p className="good">Tagesziel erreicht.</p>}
           <button className="primary" onClick={onExit}>Zurück</button>
         </div>
+      )}
+
+      {detail && allItems && (
+        <ItemDetail key={detail.id} card={detail} cards={allItems} onBack={closeDetail} onOpen={openItem} backLabel="Lernsession" />
       )}
     </div>
   )

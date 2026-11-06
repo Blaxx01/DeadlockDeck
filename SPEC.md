@@ -36,6 +36,9 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 
 ### Lernmodus
 - Spaced Repetition (FSRS). Antippen = umdrehen. **Swipe rechts = gewusst, links = nicht gewusst**
+- Item-Karten: **Build-Pfad antippbar** („Baut auf“ / „Upgradet zu“) – öffnet die Item-Detailseite wie im Shop
+  über der Session; **Zurück** (Pfeil, Android-Geste, Esc) führt zur selben Karte zurück, noch umgedreht.
+  Antippen eines Links dreht die Karte nicht um, Wischen geht dort trotzdem
 - Nicht gewusste Karten kommen in derselben Session nach ein paar anderen Karten nochmal; ist es die **letzte**
   Karte, endet die Session (sofort wieder zeigen bringt nichts) – sie ist in ein paar Minuten wieder fällig
 - **Tagesziel** (z. B. 20 Karten) mit **Streak**-Zähler, jederzeit abbrechbar ohne Verlust; es zählt
