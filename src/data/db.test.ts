@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { DeckDB, getQuizHighscore, setMeta, submitQuizScore } from './db'
+import { DeckDB, getQuizHighscore, getSettings, saveSettings, setMeta, submitQuizScore } from './db'
 import { DATA_VERSION, needsAutoSync } from './sync'
 
 describe('Quiz-Highscore', () => {
@@ -23,5 +23,19 @@ describe('needsAutoSync', () => {
     expect(await needsAutoSync(database)).toBe(false)
     await setMeta('lastSync', Date.now() - 25 * 3600_000, database)
     expect(await needsAutoSync(database)).toBe(true)
+  })
+})
+
+describe('Einstellungen: neue Fragetypen', () => {
+  it('schaltet neue Fragetypen bei alten Einstellungen ein, respektiert aber später abgewählte', async () => {
+    const database = new DeckDB(`q-${Math.random()}`)
+    // Gespeichert vor den Counter-Fragen: nur „Bild“ gewählt, ohne knownQuizKinds
+    await setMeta('settings', { dailyGoal: 20, newPerDay: 10, slots: ['spirit'], quizKinds: ['image'] }, database)
+    const migrated = await getSettings(database)
+    expect(migrated.quizKinds).toEqual(['image', 'counterItem', 'counterHero'])
+
+    // Danach Counter abgewählt und gespeichert → bleibt aus
+    await saveSettings({ ...migrated, quizKinds: ['image'] }, database)
+    expect((await getSettings(database)).quizKinds).toEqual(['image'])
   })
 })

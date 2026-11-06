@@ -1,12 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { CounterBack, CounterFront } from '../components/CounterCards'
 import { FlashCard, type FlashCardHandle } from '../components/FlashCard'
 import { AbilityBack, AbilityFront, HeroBack, HeroFront } from '../components/HeroCards'
 import { heroGlow } from '../components/heroStyle'
 import { ItemBack } from '../components/ItemBack'
 import { PatchBadge, PatchNote } from '../components/PatchNote'
 import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
-import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
+import type { AbilityCard, CounterCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
 import { currentNav, pushNav, type NavState } from '../nav'
@@ -20,7 +21,7 @@ interface Props {
   extraNew?: number
 }
 
-/** Eine Karte aus einem der drei Decks, mit allem, was die Lern-Ansicht braucht */
+/** Eine Karte aus einem der Decks, mit allem, was die Lern-Ansicht braucht */
 interface LearnEntry {
   id: string
   /** Reihenfolge neuer Karten */
@@ -51,10 +52,23 @@ function heroEntry(card: HeroCard): LearnEntry {
   return { id: card.id, order: card.order, image: card.image, front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color) }
 }
 
+/** onItemClick: Counter-Items antippbar → Detailseite über der Session */
+function counterEntry(card: CounterCard, items: ReadonlyMap<string, ItemCard>, onItemClick?: (name: string) => void): LearnEntry {
+  return {
+    id: card.id, order: card.order, image: card.image, frontStyle: heroGlow(card.color),
+    front: <CounterFront card={card} />,
+    back: <CounterBack card={card} items={items} onItemClick={onItemClick} />,
+  }
+}
+
 async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
   if (deck === 'abilities') return (await db.abilities.toArray()).map(abilityEntry)
   if (deck === 'heroes') return (await db.heroes.toArray()).map(heroEntry)
   const items = await db.items.toArray()
+  if (deck === 'counters') {
+    const byId = new Map(items.map(i => [i.id, i]))
+    return (await db.counters.toArray()).map(c => counterEntry(c, byId, onItemClick))
+  }
   return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick))
 }
 

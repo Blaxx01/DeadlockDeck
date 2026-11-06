@@ -31,8 +31,14 @@ Hero-Erraten. Gedacht für kurze Sessions unterwegs, auch ohne Netz.
    - Name, Tags (z. B. Tank, Raufbold), Waffentyp, Komplexität (1–4), Rolle, Spielstil
    - die 4 Fähigkeiten mit Icons, Startwerte (Leben, Lauftempo, Ausdauer, Nahkampf …), Waffe (Kugelschaden, Magazin, Nachladen)
    - Rolle/Spielstil fehlen in der API bei neueren Heroes – dann nur Tags und Werte
+4. **Counter** (je spielbarem Hero eine Karte): vorne Hero-Porträt mit „Was kaufst du gegen X?“, hinten:
+   - die **Top 3 Counter-Items** mit Icon, Name, **Kauf-Faktor** (z. B. 2,1×) und dem ersten Satz ihres Effekts
+   - Items antippbar → Item-Detailseite (wie beim Build-Pfad)
+   - Fußzeile mit der Datenbasis („ab Orakel · letzte 30 Tage · Stand …“)
+   - Alle Heroes, immer 3 Items – auch ohne klaren Counter (der Faktor zeigt, wie deutlich es ist)
+   - Neue Karten: **klarste Counter zuerst** (höchster Faktor des Top-Items)
 
-Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · gelernt“ und eigenem Lernen-Button.
+Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · gelernt“ und eigenem Lernen-Button.
 
 ### Lernmodus
 - Spaced Repetition (FSRS). Antippen = umdrehen. **Swipe rechts = gewusst, links = nicht gewusst**
@@ -67,9 +73,29 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
   - Shop: Badge „Geändert“ (14 Tage) / „Neu“ (7 Tage) an der Kachel; Detailseite: Geändert 30 Tage, Neu 7 Tage
   - Startseite: Hinweis „Patch erkannt“ mit Anzahl und Namen der neuen und entfernten Karten (7 Tage, wegklickbar)
 
+### Counter-Daten
+- Quelle: Deadlock-API `/v1/analytics/item-stats` – nach Gegner-Hero gruppiert (`bucket=enemy_hero`) und als Vergleich
+  ohne Gruppierung; nur Matches **ab Orakel** (`min_average_badge=81`), letzte 30 Tage
+- **Kauf-Faktor** = Anteil eines Items an allen Käufen gegen Hero X ÷ sein Anteil an allen Käufen;
+  2,1× = wird gegen X 2,1-mal so oft gekauft wie sonst
+  - bewusst **nicht die Gewinnrate**: die ist verzerrt (Counter-Items kauft man oft erst, wenn man schon hinten liegt –
+    Knockdown gegen Vindicta hätte eine negative Gewinnrate)
+- Nur kaufbare Items mit genug Daten (mind. 2.000 Käufe gegen den Hero); Heroes ohne genug Daten (z. B. brandneu)
+  bekommen noch keine Karte
+- **Klarer Counter** = Faktor ≥ 1,3×
+- Aktualisierung höchstens **einmal pro Woche** beim normalen Sync (≈ 0,5 MB, dauert ein paar Sekunden). Lehnt die API
+  die Abfrage ab (passiert bei Last), bleiben die alten Daten und der nächste Sync versucht es erneut
+- Änderungen: Wechselt das wichtigste Item eines Heroes und ist das neue ein klarer Counter, wird die Karte (wenn schon
+  gelernt) **sofort fällig** und zeigt „Top-Counter geändert: vorher → nachher“, bis sie einmal wiederholt wurde.
+  Alle anderen Verschiebungen in den Top 3 werden still übernommen (die Plätze 2–3 schwanken von Monat zu Monat stark)
+
 ## Quiz
 - Fragetypen: **Bild → Name**, **Beschreibung → Item** (Item-Name im Text geschwärzt),
-  **Zahlen** (Cooldown, Kosten, Tier), **Build-Pfad** („In welches Item upgradet X?“ / „Auf welchem Item baut X auf?“)
+  **Zahlen** (Cooldown, Kosten, Tier), **Build-Pfad** („In welches Item upgradet X?“ / „Auf welchem Item baut X auf?“),
+  **Counter: Hero → Item** („Welches Item wird gegen X besonders oft gekauft?“, mit Hero-Porträt) und
+  **Counter: Item → Hero** („Gegen welchen Hero wird Y besonders oft gekauft?“, Antworten mit Hero-Icons)
+  - Counter-Fragen nur zu klaren Countern (≥ 1,3×); falsche Antworten sind Items/Heroes ohne Counter-Verhältnis
+    (≤ 1,0×), bevorzugt solche, die woanders Counter sind; Auflösung zeigt alle klaren Counter mit Faktor
   - Kosten folgen direkt aus dem Tier → Cooldown-Fragen kommen so oft wie Kosten- und Tier-Fragen zusammen
 - Multiple Choice mit 4 Antworten; falsche Antworten bevorzugt **ähnlich** (gleiche Kategorie/Tier, ähnliche Kosten),
   nie eine zweite richtige Antwort (z. B. anderes gültiges Upgrade, identischer Effekttext)
@@ -125,10 +151,13 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 5. ✅ Hero erraten (offizielle Assets)
 6. Eigene Screenshots – vorerst übersprungen
 7. ✅ Patch-Erkennung (Reset + Badge + vorher → nachher)
+8. ✅ Counter-Deck + Counter-Quiz (Statistik der Deadlock-API)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.
 - AP-Kosten der Ability-Upgrades (1/2/5) sind Spielwissen, nicht aus der API.
+- Counter zeigen, was Spieler ab Orakel gegen einen Hero **kaufen** – kein Beweis, dass es hilft. Bei Heroes ohne
+  klaren Counter (Top-Faktor unter 1,3×) sind die Top 3 nur leicht über dem Durchschnitt.
 - Broker: Die API liefert aktuell keine Corrupted-Preise (alle 0) – die Preiszeile entfällt dann.
 - Bilder vom CDN werden als „opaque“ gecacht, falls das CDN kein CORS sendet; Chrome rechnet
   diese mit Puffer aufs Speicherkontingent an. Bei Problemen: Bilder als Blobs in IndexedDB speichern.

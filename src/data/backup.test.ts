@@ -2,13 +2,14 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { createBackup, parseBackup, restoreBackup } from './backup'
 import { DeckDB, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitGuessScore, submitQuizScore } from './db'
+import { QUIZ_KINDS } from './model'
 import { rateCard } from '../srs/srs'
 
 describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
     const src = new DeckDB(`b-${Math.random()}`)
     await rateCard('item:x', true, new Date('2026-11-05T12:00:00'), src)
-    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], guessKinds: ['zoom'] }, src)
+    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'] }, src)
     await submitQuizScore(870, src)
     await submitGuessScore(640, src)
     const json = JSON.stringify(await createBackup(src))
@@ -36,8 +37,18 @@ describe('Backup', () => {
     await restoreBackup(parseBackup(old), dst)
     const s = await getSettings(dst)
     expect(s.dailyGoal).toBe(15)
-    expect(s.quizKinds).toEqual(['image', 'description', 'number', 'build'])
+    expect(s.quizKinds).toEqual(['image', 'description', 'number', 'build', 'counterItem', 'counterHero'])
     expect(s.guessKinds).toEqual(['silhouette', 'zoom', 'blur', 'ability'])
+  })
+
+  it('schaltet bei alten Backups mit eigener Auswahl die neuen Counter-Fragen ein', async () => {
+    const dst = new DeckDB(`b-${Math.random()}`)
+    const old = JSON.stringify({
+      app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(),
+      settings: { dailyGoal: 15, newPerDay: 3, slots: ['weapon'], quizKinds: ['image', 'build'] }, reviews: [], days: [],
+    })
+    await restoreBackup(parseBackup(old), dst)
+    expect((await getSettings(dst)).quizKinds).toEqual(['image', 'build', 'counterItem', 'counterHero'])
   })
 
   it('lehnt fremde Dateien ab', () => {

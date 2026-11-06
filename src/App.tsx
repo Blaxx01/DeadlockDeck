@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { syncCounters } from './data/counterSync'
 import { db, getMeta, setMeta } from './data/db'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
@@ -48,6 +49,8 @@ export default function App() {
     try {
       await syncItems()
       void cacheImages()
+      // Counter-Statistik höchstens wöchentlich, im Hintergrund – Fehler stehen auf der Startseite
+      syncCounters().catch(() => {})
     } catch (e) {
       const offline = !navigator.onLine
       setSyncError(offline
@@ -63,6 +66,7 @@ export default function App() {
     async function maybeSync() {
       if (!navigator.onLine) return
       if (await needsAutoSync()) return void sync()
+      syncCounters().catch(() => {})
       // Bilder fehlen noch im Offline-Cache (z. B. erster Start oder abgebrochen)?
       const [lastSync, cachedFor] = await Promise.all([getMeta('lastSync', 0), getMeta('imagesCachedFor', -1)])
       if (lastSync && cachedFor !== lastSync) void cacheImages()

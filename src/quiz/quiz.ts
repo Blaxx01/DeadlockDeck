@@ -1,4 +1,5 @@
-import type { ItemCard, QuizKind } from '../data/model'
+import { formatFactor, isClearCounter, NO_COUNTER } from '../data/counters'
+import type { CounterCard, ItemCard, QuizKind } from '../data/model'
 
 export type Rng = () => number
 
@@ -16,6 +17,14 @@ export interface QuizQuestion {
   options: string[]
   /** Index der richtigen Antwort in `options` */
   answer: number
+  /** Counter-Fragen: der Hero, um den es geht (jeder Hero höchstens einmal pro Runde) */
+  heroId?: number
+  /** Counter Hero → Item: Porträt des Heroes */
+  portrait?: string
+  /** Counter Item → Hero: Hero-Icons zu den Antworten */
+  optionImages?: (string | undefined)[]
+  /** Auflösung nach der Antwort (statt der Item-Infos) */
+  info?: string
 }
 
 export const ROUND_SIZE = 10
@@ -94,16 +103,38 @@ export function descriptionOf(item: ItemCard): string | undefined {
   return redactName(html, item.name)
 }
 
-type Generator = (item: ItemCard, pool: readonly ItemCard[], rng: Rng) => QuizQuestion | null
+/** Was die Fragegeneratoren brauchen */
+export interface QuizContext {
+  /** Items, aus denen gefragt wird (Kategorie-Filter) – auch die falschen Antworten */
+  pool: readonly ItemCard[]
+  /** Counter-Karten (für die Counter-Fragen) */
+  counters: readonly CounterCard[]
+  /** Alle Items (Karten-ID → Karte), auch außerhalb des Filters – für die Auflösung */
+  items: ReadonlyMap<string, ItemCard>
+  /** Items, die gegen mindestens einen Hero ein klarer Counter sind */
+  counterItems: ReadonlySet<string>
+  /** Heroes, nach denen in dieser Runde schon gefragt wurde */
+  usedHeroes: ReadonlySet<number>
+}
 
-const imageQuestion: Generator = (item, pool, rng) => {
+export function quizContext(
+  pool: readonly ItemCard[],
+  { counters = [], items }: { counters?: readonly CounterCard[]; items?: ReadonlyMap<string, ItemCard> } = {},
+): QuizContext {
+  const counterItems = new Set(counters.flatMap(c => Object.keys(c.factors).filter(id => isClearCounter(c.factors[id]))))
+  return { pool, counters, items: items ?? new Map(pool.map(i => [i.id, i])), counterItems, usedHeroes: new Set() }
+}
+
+type Generator = (item: ItemCard, ctx: QuizContext, rng: Rng) => QuizQuestion | null
+
+const imageQuestion: Generator = (item, { pool }, rng) => {
   if (!item.image) return null
   const opts = makeOptions(item.name, pickSimilar(item, pool, 3, rng).map(c => c.name), rng)
   if (!opts) return null
   return { kind: 'image', itemId: item.id, prompt: 'Welches Item ist das?', image: item.image, ...opts }
 }
 
-const descriptionQuestion: Generator = (item, pool, rng) => {
+const descriptionQuestion: Generator = (item, { pool }, rng) => {
   const html = descriptionOf(item)
   if (!html) return null
   // Items mit exakt gleichem Effekttext wären ebenfalls richtig → nicht als falsche Antwort
@@ -161,7 +192,7 @@ function cooldownQuestion(item: ItemCard, pool: readonly ItemCard[], rng: Rng): 
   return { kind: 'number', itemId: item.id, subjectId: item.id, prompt: `Welchen Cooldown hat ${item.name}?`, ...opts }
 }
 
-const numberQuestion: Generator = (item, pool, rng) => {
+const numberQuestion: Generator = (item, { pool }, rng) => {
   // Kosten folgen direkt aus dem Tier – beide zusammen sollen nicht öfter kommen als Cooldown
   const costOrTier = shuffle([costQuestion, tierQuestion], rng)
   const order = rng() < 0.5 ? [cooldownQuestion, ...costOrTier] : [...costOrTier, cooldownQuestion]
@@ -172,7 +203,7 @@ const numberQuestion: Generator = (item, pool, rng) => {
   return null
 }
 
-const buildQuestion: Generator = (item, pool, rng) => {
+const buildQuestion: Generator = (item, { pool }, rng) => {
   const byName = new Map(pool.map(c => [c.name, c]))
   for (const dir of shuffle(['up', 'down'] as const, rng)) {
     const valid = (dir === 'up' ? item.upgradesTo : item.buildsFrom).filter(n => byName.has(n))
@@ -188,15 +219,96 @@ const buildQuestion: Generator = (item, pool, rng) => {
   return null
 }
 
+/** Heroes, gegen die ein Item ein klarer Counter ist – stärkster zuerst */
+function heroesCounteredBy(itemId: string, counters: readonly CounterCard[]): CounterCard[] {
+  return counters.filter(c => isClearCounter(c.factors[itemId])).sort((a, b) => b.factors[itemId] - a.factors[itemId])
+}
+
+/** Kein Counter: Faktor bekannt und höchstens 1,0× (zu wenig Daten zählt nicht als „kein Counter“) */
+function isNoCounter(card: CounterCard, itemId: string): boolean {
+  return (card.factors[itemId] ?? Number.POSITIVE_INFINITY) <= NO_COUNTER
+}
+
+/** „Metal Skin 2,1× · Return Fire 1,4×“ – die klaren Counter eines Heroes */
+function clearCountersText(card: CounterCard, items: ReadonlyMap<string, ItemCard>, max = 4): string {
+  return Object.entries(card.factors)
+    .filter(([, f]) => isClearCounter(f))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([id, f]) => `${items.get(id)?.name ?? id} ${formatFactor(f)}`)
+    .join(' · ')
+}
+
+/** Hero → Item: „Welches Item wird gegen Vindicta besonders oft gekauft?“ (richtig: dieses Item) */
+const counterItemQuestion: Generator = (item, ctx, rng) => {
+  const heroes = heroesCounteredBy(item.id, ctx.counters).filter(c => !ctx.usedHeroes.has(c.heroId))
+  if (!heroes.length) return null
+  const hero = heroes[Math.floor(rng() * heroes.length)]
+  // Falsch: gegen diesen Hero kein Counter – bevorzugt Items, die gegen andere Heroes Counter sind
+  const distractors = ctx.pool
+    .filter(c => c.name !== item.name && isNoCounter(hero, c.id))
+    .map(c => ({ c, d: (ctx.counterItems.has(c.id) ? 0 : 2) + distance(item, c) * 0.5 + rng() * 1.5 }))
+    .sort((a, b) => a.d - b.d)
+    .map(x => x.c.name)
+  const opts = makeOptions(item.name, distractors, rng)
+  if (!opts) return null
+  return {
+    kind: 'counterItem',
+    itemId: item.id,
+    heroId: hero.heroId,
+    portrait: hero.image,
+    prompt: `Welches Item wird gegen ${hero.heroName} besonders oft gekauft?`,
+    info: `Klare Counter gegen ${hero.heroName}: ${clearCountersText(hero, ctx.items)}`,
+    ...opts,
+  }
+}
+
+/** Item → Hero: „Gegen welchen Hero wird Spellbreaker besonders oft gekauft?“ */
+const counterHeroQuestion: Generator = (item, ctx, rng) => {
+  const countered = heroesCounteredBy(item.id, ctx.counters)
+  const candidates = countered.filter(c => !ctx.usedHeroes.has(c.heroId))
+  if (!candidates.length) return null
+  const hero = candidates[Math.floor(rng() * candidates.length)]
+  // Falsch: Heroes, gegen die das Item kein Counter ist – bevorzugt solche mit klaren Countern derselben Kategorie
+  const sameSlot = (c: CounterCard) => Object.entries(c.factors).some(([id, f]) => isClearCounter(f) && ctx.items.get(id)?.slot === item.slot)
+  const others = ctx.counters
+    .filter(c => c.heroId !== hero.heroId && isNoCounter(c, item.id))
+    .map(c => ({ c, d: (sameSlot(c) ? 0 : 1) + rng() * 1.2 }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 3)
+    .map(x => x.c)
+  if (others.length < 3) return null
+  const options = shuffle([hero, ...others], rng)
+  return {
+    kind: 'counterHero',
+    itemId: item.id,
+    subjectId: item.id,
+    heroId: hero.heroId,
+    prompt: `Gegen welchen Hero wird ${item.name} besonders oft gekauft?`,
+    options: options.map(o => o.heroName),
+    optionImages: options.map(o => o.smallImage ?? o.image),
+    answer: options.indexOf(hero),
+    info: `${item.name} wird besonders oft gekauft gegen: ${countered.slice(0, 4).map(c => `${c.heroName} ${formatFactor(c.factors[item.id])}`).join(' · ')}`,
+  }
+}
+
 const GENERATORS: Record<QuizKind, Generator> = {
   image: imageQuestion,
   description: descriptionQuestion,
   number: numberQuestion,
   build: buildQuestion,
+  counterItem: counterItemQuestion,
+  counterHero: counterHeroQuestion,
 }
 
-export function makeQuestion(kind: QuizKind, item: ItemCard, pool: readonly ItemCard[], rng: Rng = Math.random): QuizQuestion | null {
-  return GENERATORS[kind](item, pool, rng)
+export function makeQuestion(
+  kind: QuizKind,
+  item: ItemCard,
+  pool: readonly ItemCard[],
+  rng: Rng = Math.random,
+  ctx: QuizContext = quizContext(pool),
+): QuizQuestion | null {
+  return GENERATORS[kind](item, ctx, rng)
 }
 
 /**
@@ -208,10 +320,13 @@ export function buildRound(
   kinds: readonly QuizKind[],
   rng: Rng = Math.random,
   size = ROUND_SIZE,
+  extra: { counters?: readonly CounterCard[]; items?: ReadonlyMap<string, ItemCard> } = {},
 ): QuizQuestion[] {
   if (cards.length < 4 || kinds.length === 0) return []
   const questions: QuizQuestion[] = []
   const used = new Set<string>()
+  const usedHeroes = new Set<number>()
+  const ctx: QuizContext = { ...quizContext(cards, extra), usedHeroes }
   const exhausted = new Set<QuizKind>()
   let queue: QuizKind[] = []
   while (questions.length < size && exhausted.size < kinds.length) {
@@ -219,7 +334,7 @@ export function buildRound(
     const kind = queue.shift()!
     let question: QuizQuestion | null = null
     for (const item of shuffle(cards.filter(c => !used.has(c.id)), rng)) {
-      question = makeQuestion(kind, item, cards, rng)
+      question = makeQuestion(kind, item, cards, rng, ctx)
       if (question) break
     }
     if (!question) {
@@ -227,6 +342,7 @@ export function buildRound(
       continue
     }
     used.add(question.itemId)
+    if (question.heroId !== undefined) usedHeroes.add(question.heroId)
     questions.push(question)
   }
   return questions

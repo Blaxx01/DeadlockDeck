@@ -14,12 +14,13 @@ export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
  * 4: Hero-Decks (heroes, abilities) + Einheiten-Korrekturen
  * 5: Hero-Posen fürs Hero-Erraten
  * 6: Fingerprints der Spielwerte (Patch-Erkennung) – der erste Sync misst nur ein
+ * 7: Numerische Item-IDs der API (`apiId`) für die Counter-Statistiken
  */
-export const DATA_VERSION = 6
+export const DATA_VERSION = 7
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 
-async function fetchJson<T>(url: string, timeoutMs = 20000): Promise<T> {
+export async function fetchJson<T>(url: string, timeoutMs = 20000): Promise<T> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {

@@ -41,9 +41,11 @@ interface DeckStats {
   fresh: number
   newLeft: number
   learned: number
+  /** Text, solange das Deck noch keine Karten hat */
+  emptyText: string
 }
 
-function countDeck(ids: string[], reviews: Map<string, ReviewRecord>, now: number, newAllowed: number): Omit<DeckStats, 'id' | 'label'> {
+function countDeck(ids: string[], reviews: Map<string, ReviewRecord>, now: number, newAllowed: number): Omit<DeckStats, 'id' | 'label' | 'emptyText'> {
   let due = 0
   let fresh = 0
   let learned = 0
@@ -104,13 +106,22 @@ function useHomeStats() {
       items: items.map(i => i.id),
       abilities: (await db.abilities.toCollection().primaryKeys()) as string[],
       heroes: (await db.heroes.toCollection().primaryKeys()) as string[],
+      counters: (await db.counters.toCollection().primaryKeys()) as string[],
     }
+    // Counter-Daten kommen separat (wöchentlich) – eigener Hinweis, solange sie fehlen
+    const countersError = await getMeta<string | null>('countersError', null)
+    const emptyText = (deck: DeckId) => deck !== 'counters'
+      ? 'Noch keine Daten – einmal mit Internet öffnen'
+      : countersError
+        ? 'Counter-Daten konnten nicht geladen werden – neuer Versuch beim nächsten Start mit Internet'
+        : 'Counter-Daten werden geladen, sobald Internet da ist'
     const now = Date.now()
     const days = await db.days.toArray()
     const today = days.find(d => d.date === localDate())
     const decks: DeckStats[] = DECKS.map(d => ({
       id: d.id,
       label: d.label,
+      emptyText: emptyText(d.id),
       ...countDeck(ids[d.id], reviews, now, settings.newPerDay - newIntroducedToday(today, d.id)),
     }))
     return {
@@ -137,7 +148,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
         <div className="deck-name">{deck.label}</div>
         <div className="muted small">
           {deck.total === 0
-            ? 'Noch keine Daten – einmal mit Internet öffnen'
+            ? deck.emptyText
             : `${deck.due} fällig · ${deck.newLeft} neu · ${deck.learned}/${deck.total} gelernt`}
         </div>
       </div>
@@ -207,7 +218,7 @@ export function Home({ onLearn, onQuiz, onGuess, onShop, onSettings, syncing, sy
           <h2>Quiz</h2>
           <span className="muted small">Highscore {s.quizHighscore}</span>
         </div>
-        <p className="muted small">10 Fragen: Bild, Effekt, Zahlen und Build-Pfad – schnell antworten gibt Bonus.</p>
+        <p className="muted small">10 Fragen: Bild, Effekt, Zahlen, Build-Pfad und Counter – schnell antworten gibt Bonus.</p>
         <button onClick={onQuiz}>Quiz starten</button>
       </div>
 

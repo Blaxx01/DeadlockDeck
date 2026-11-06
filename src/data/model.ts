@@ -47,6 +47,8 @@ export const CORRUPTED_VARIANCE_PERCENT = 15
 export interface ItemCard {
   /** Stabile Karten-ID, z. B. "item:upgrade_headshot_booster" */
   id: string
+  /** Numerische ID der API (Statistiken wie die Counter-Daten verwenden sie) */
+  apiId: number
   className: string
   /** Englischer Name (wie ingame) */
   name: string
@@ -74,15 +76,48 @@ export const SLOT_LABEL: Record<SlotType, string> = {
   spirit: 'Spirit',
 }
 
-export type QuizKind = 'image' | 'description' | 'number' | 'build'
+export type QuizKind = 'image' | 'description' | 'number' | 'build' | 'counterItem' | 'counterHero'
 
-export const QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build']
+export const QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build', 'counterItem', 'counterHero']
+
+/** Fragetypen, die es schon vor den Counter-Fragen gab (für gespeicherte Einstellungen ohne `knownQuizKinds`) */
+export const LEGACY_QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build']
 
 export const QUIZ_KIND_LABEL: Record<QuizKind, string> = {
   image: 'Bild → Name',
   description: 'Beschreibung → Item',
   number: 'Zahlen',
   build: 'Build-Pfad',
+  counterItem: 'Counter: Hero → Item',
+  counterHero: 'Counter: Item → Hero',
+}
+
+/** Ein Counter-Item gegen einen Hero */
+export interface CounterItem {
+  /** Item-Karten-ID, z. B. "item:upgrade_metal_skin" */
+  itemId: string
+  /** Kauf-Faktor: wird gegen den Hero so viel öfter gekauft als sonst (2.1 = 2,1×) */
+  factor: number
+}
+
+/** Counter-Karte: welche Items Spieler (ab Orakel) gegen einen Hero besonders oft kaufen */
+export interface CounterCard {
+  /** z. B. "counter:hero_haze" */
+  id: string
+  /** Numerische Hero-ID der API */
+  heroId: number
+  heroName: string
+  image?: string
+  smallImage?: string
+  color?: string
+  /** Reihenfolge neuer Karten: klarste Counter (höchster Faktor des Top-Items) zuerst */
+  order: number
+  /** Die 3 Items mit dem höchsten Kauf-Faktor */
+  top: CounterItem[]
+  /** Kauf-Faktor aller Items mit genug Daten (Item-Karten-ID → Faktor) – fürs Quiz */
+  factors: Record<string, number>
+  /** Datenstand (Zeitpunkt der Abfrage) */
+  updatedAt: number
 }
 
 export const SECTION_LABEL: Record<SectionType, string> = {

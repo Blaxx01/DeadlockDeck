@@ -4,7 +4,7 @@ import { normalizeText, searchItems, shopTiers } from './search'
 
 function card(name: string, slot: SlotType, tier: number, text = '', cost = [0, 800, 1600, 3200, 6400][tier]): ItemCard {
   return {
-    id: `item:${name}`, className: name, name, slot, tier, cost, isActive: false, timings: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
+    id: `item:${name}`, apiId: 0, className: name, name, slot, tier, cost, isActive: false, timings: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
     sections: text ? [{ type: 'passive', html: text, stats: [{ label: 'Lebensraub', value: '+10%' }] }] : [],
   }
 }

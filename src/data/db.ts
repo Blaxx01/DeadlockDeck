@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
 import type { PatchRecord } from './patches'
-import { GUESS_KINDS, QUIZ_KINDS, type AbilityCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
+import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -35,6 +35,8 @@ export interface Settings {
   slots: SlotType[]
   /** Fragetypen, die im Quiz vorkommen */
   quizKinds: QuizKind[]
+  /** Fragetypen, die es beim Speichern gab – neu hinzugekommene sind dann automatisch an */
+  knownQuizKinds?: QuizKind[]
   /** Varianten beim Hero-Erraten */
   guessKinds: GuessKind[]
 }
@@ -51,6 +53,8 @@ export class DeckDB extends Dexie {
   items!: EntityTable<ItemCard, 'id'>
   heroes!: EntityTable<HeroCard, 'id'>
   abilities!: EntityTable<AbilityCard, 'id'>
+  /** Counter-Karten (Statistik der API, wöchentlich neu) */
+  counters!: EntityTable<CounterCard, 'id'>
   /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
   patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
@@ -74,6 +78,10 @@ export class DeckDB extends Dexie {
     this.version(3).stores({
       patches: 'id, detectedAt',
     })
+    // Counter-Deck
+    this.version(4).stores({
+      counters: 'id',
+    })
   }
 }
 
@@ -89,7 +97,12 @@ export async function setMeta(key: string, value: unknown, database: DeckDB = db
 }
 
 export async function getSettings(database: DeckDB = db): Promise<Settings> {
-  return { ...DEFAULT_SETTINGS, ...(await getMeta<Partial<Settings>>('settings', {}, database)) }
+  const stored = await getMeta<Partial<Settings>>('settings', {}, database)
+  const settings = { ...DEFAULT_SETTINGS, ...stored }
+  // Fragetypen, die nach dem Speichern dazugekommen sind (z. B. Counter), sind an
+  const known = stored.knownQuizKinds ?? LEGACY_QUIZ_KINDS
+  const added = QUIZ_KINDS.filter(k => !known.includes(k) && !settings.quizKinds.includes(k))
+  return { ...settings, quizKinds: [...settings.quizKinds, ...added], knownQuizKinds: [...QUIZ_KINDS] }
 }
 
 export async function saveSettings(settings: Settings, database: DeckDB = db): Promise<void> {

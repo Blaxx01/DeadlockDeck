@@ -1,12 +1,14 @@
 # DeadlockDeck
 
 Karteikarten-App fürs Handy zum Lernen der **Deadlock**-Items, auch offline unterwegs.
-Drei Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Cooldown, Build-Pfad),
-**Fähigkeiten** (Ability-Icon → Hero, Effekt, Upgrades mit AP-Kosten) und **Heroes** (Porträt → Rolle, Fähigkeiten, Werte).
+Vier Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Cooldown, Build-Pfad),
+**Fähigkeiten** (Ability-Icon → Hero, Effekt, Upgrades mit AP-Kosten), **Heroes** (Porträt → Rolle, Fähigkeiten, Werte)
+und **Counter** (Hero → die 3 Items, die Spieler ab Orakel gegen ihn am deutlichsten öfter kaufen, mit Kauf-Faktor –
+Statistik der API, wöchentlich aktualisiert).
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
 Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Zurück** führt wieder in die Lernsession.
 
-Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad),
+Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter),
 Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
 Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ – und **Hero erraten**: Silhouette, Zoom-Ausschnitt,
 unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore.
@@ -41,9 +43,10 @@ Aufbau:
 |---|---|
 | `src/data/normalize.ts` | API-Items → Karteikarten (englische Namen, deutsche Texte) |
 | `src/data/heroes.ts` | API-Heroes + Abilities → Hero- und Fähigkeiten-Karten |
-| `src/decks.ts` | Die drei Decks, Neu-Limit je Deck |
+| `src/decks.ts` | Die vier Decks, Neu-Limit je Deck |
 | `src/guess/guess.ts`, `src/views/Guess.tsx` | Hero erraten: Runden, Aufdeck-Stufen, Joker, Punkte |
 | `src/data/fingerprint.ts`, `src/data/patches.ts` | Patch-Erkennung: Fingerprints der Spielwerte, Vergleich, „vorher → nachher“ |
+| `src/data/counters.ts`, `src/data/counterSync.ts` | Counter: Kauf-Faktor aus der API-Statistik, Top 3, wöchentliches Laden, Wechsel des Top-Counters |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
@@ -65,5 +68,5 @@ Der Workflow `.github/workflows/deploy.yml` baut und veröffentlicht bei jedem P
 
 ## Daten
 
-Item-Daten und Bilder kommen von der Community-API [deadlock-api.com](https://deadlock-api.com).
+Item-Daten, Bilder und die Counter-Statistik kommen von der Community-API [deadlock-api.com](https://deadlock-api.com).
 Inoffizielles Fan-Projekt, nicht mit Valve verbunden.

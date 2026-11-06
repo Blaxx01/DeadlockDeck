@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { ItemCard, SlotType } from '../data/model'
+import type { CounterCard, ItemCard, SlotType } from '../data/model'
 import {
   BASE_POINTS, MAX_SPEED_BONUS, buildRound, descriptionOf, makeOptions, makeQuestion, pickSimilar,
-  redactName, scoreAnswer, type QuizQuestion,
+  quizContext, redactName, scoreAnswer, type QuizQuestion,
 } from './quiz'
 
 /** Deterministischer Zufall (mulberry32) – auch benachbarte Seeds liefern verschiedene Folgen */
@@ -21,7 +21,7 @@ const COST = [0, 800, 1600, 3200, 6400]
 
 function card(name: string, slot: SlotType, tier: number, extra: Partial<ItemCard> = {}): ItemCard {
   return {
-    id: `item:${name}`, className: name, name, slot, tier, cost: COST[tier], isActive: false,
+    id: `item:${name}`, apiId: 0, className: name, name, slot, tier, cost: COST[tier], isActive: false,
     image: `https://cdn.example/${name}.png`, timings: [], sections: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
     ...extra,
   }
@@ -237,5 +237,80 @@ describe('Text-Helfer', () => {
   })
   it('descriptionOf ignoriert zu kurze Texte', () => {
     expect(descriptionOf(card('X', 'spirit', 1, { sections: desc('<b>kurz</b>') }))).toBeUndefined()
+  })
+})
+
+describe('Counter-Fragen', () => {
+  function counter(heroId: number, heroName: string, factors: Record<string, number>): CounterCard {
+    const top = Object.entries(factors).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([itemId, factor]) => ({ itemId, factor }))
+    return {
+      id: `counter:hero_${heroName.toLowerCase()}`, heroId, heroName, order: heroId, top, updatedAt: 0,
+      image: `https://cdn.example/${heroName}.png`, smallImage: `https://cdn.example/${heroName}_small.png`,
+      factors: Object.fromEntries(Object.entries(factors).map(([name, f]) => [`item:${name}`, f])),
+    }
+  }
+  const COUNTERS = [
+    counter(10, 'Haze', {
+      'Divine Barrier': 1.9, 'Rescue Beam': 1.4, 'Extra Health': 1.1, 'Basic Magazine': 0.9, 'Headshot Booster': 0.8,
+      'Monster Rounds': 1.0, 'Burst Fire': 0.7, 'Mystic Burst': 0.95, 'Extra Charge': 0.6,
+    }),
+    counter(11, 'Vindicta', { 'Burst Fire': 2.0, 'Divine Barrier': 0.9, 'Rescue Beam': 0.8, 'Basic Magazine': 1.0, 'Extra Health': 0.7, 'Mystic Burst': 1.2 }),
+    counter(12, 'Seven', { 'Mystic Burst': 1.5, 'Divine Barrier': 0.85, 'Burst Fire': 0.9, 'Rescue Beam': 1.0 }),
+    counter(13, 'Abrams', { 'Extra Charge': 1.35, 'Divine Barrier': 1.0, 'Burst Fire': 0.5, 'Rescue Beam': 0.9 }),
+    counter(14, 'Paige', { 'Divine Barrier': 0.7, 'Burst Fire': 0.95, 'Rescue Beam': 0.6, 'Mystic Burst': 0.9 }),
+  ]
+  const ctx = () => quizContext(POOL, { counters: COUNTERS })
+  const byName = (name: string) => POOL.find(c => c.name === name)!
+  const heroNamed = (name: string) => COUNTERS.find(c => c.heroName === name)!
+
+  it('Hero → Item: richtig ist ein klarer Counter, falsch nur Items ohne Counter-Verhältnis', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const q = makeQuestion('counterItem', byName('Divine Barrier'), POOL, seeded(seed), ctx())
+      expectValid(q)
+      expect(q.options[q.answer]).toBe('Divine Barrier')
+      expect(q.prompt).toBe('Welches Item wird gegen Haze besonders oft gekauft?')
+      expect(q.portrait).toBe('https://cdn.example/Haze.png')
+      expect(q.heroId).toBe(10)
+      for (const name of q.options.filter((_, i) => i !== q.answer)) {
+        // nie Rescue Beam (auch klarer Counter), Extra Health (1,1×) oder Items ohne Daten
+        expect(heroNamed('Haze').factors[`item:${name}`], name).toBeLessThanOrEqual(1)
+      }
+      expect(q.info).toBe('Klare Counter gegen Haze: Divine Barrier 1,9× · Rescue Beam 1,4×')
+    }
+  })
+
+  it('Hero → Item: kein Counter irgendwo → keine Frage', () => {
+    expect(makeQuestion('counterItem', byName('Headshot Booster'), POOL, seeded(), ctx())).toBeNull()
+  })
+
+  it('Item → Hero: richtiger Hero mit Icon, falsche nur mit bekanntem Faktor ≤ 1,0×', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const q = makeQuestion('counterHero', byName('Divine Barrier'), POOL, seeded(seed), ctx())
+      expectValid(q)
+      expect(q.options[q.answer]).toBe('Haze')
+      expect(q.subjectId).toBe('item:Divine Barrier')
+      expect(q.optionImages).toEqual(q.options.map(n => `https://cdn.example/${n}_small.png`))
+      for (const name of q.options.filter((_, i) => i !== q.answer)) {
+        expect(heroNamed(name).factors['item:Divine Barrier']).toBeLessThanOrEqual(1)
+      }
+      expect(q.info).toBe('Divine Barrier wird besonders oft gekauft gegen: Haze 1,9×')
+    }
+    // Mystic Burst: nur Haze und Paige sind sicher kein Counter (Vindicta 1,2×, Abrams ohne Daten) → zu wenige
+    expect(makeQuestion('counterHero', byName('Mystic Burst'), POOL, seeded(), ctx())).toBeNull()
+  })
+
+  it('fragt in einer Runde jeden Hero und jedes Item höchstens einmal', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const round = buildRound(POOL, ['counterItem', 'counterHero'], seeded(seed), 10, { counters: COUNTERS })
+      expect(round.length).toBeGreaterThan(0)
+      expect(round.every(q => q.kind === 'counterItem' || q.kind === 'counterHero')).toBe(true)
+      const heroes = round.map(q => q.heroId)
+      expect(new Set(heroes).size).toBe(heroes.length)
+      expect(new Set(round.map(q => q.itemId)).size).toBe(round.length)
+    }
+  })
+
+  it('ohne Counter-Daten gibt es keine Counter-Fragen', () => {
+    expect(buildRound(POOL, ['counterItem', 'counterHero'], seeded(), 10)).toEqual([])
   })
 })

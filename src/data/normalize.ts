@@ -258,6 +258,7 @@ export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[], 
     const text = germanById.get(en.id) ?? en
     const card: Omit<ItemCard, 'fingerprint'> = {
       id: `item:${en.class_name}`,
+      apiId: en.id,
       className: en.class_name,
       name: en.name,
       slot: en.item_slot_type!,

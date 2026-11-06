@@ -382,3 +382,26 @@ button.link {
 .patch-values .after { color: var(--text); font-weight: 700; }
 .patch-notice { border-color: color-mix(in srgb, #4fb3d9 55%, var(--line)); }
 .patch-notice h2 { color: #7fcbe6; }
+
+/* ---------- Counter-Deck ---------- */
+.counter-question { margin: 0; font-size: 1.15rem; text-align: center; padding: 0 16px; }
+.counter-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.counter-list li { display: flex; gap: 12px; align-items: flex-start; }
+.counter-icon {
+  flex: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line);
+  display: grid; place-items: center;
+}
+.counter-icon img { width: 36px; height: 36px; object-fit: contain; pointer-events: none; }
+.counter-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.counter-name { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 1.02rem; }
+.counter-name > b, .counter-name > button.link { font-weight: 700; text-align: left; }
+.counter-factor { flex: none; font-weight: 800; color: var(--accent); }
+.counter-effect { margin: 0; font-size: 0.86rem; color: var(--muted); }
+.counter-foot { margin: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.patch-note .counter-change { font-size: 0.92rem; }
+.counter-change .before { color: var(--muted); text-decoration: line-through; }
+.counter-change .after { font-weight: 700; }
+
+/* Counter-Fragen im Quiz */
+.quiz-portrait { max-height: 92%; max-width: min(60%, 220px); object-fit: contain; filter: drop-shadow(0 8px 24px rgba(0,0,0,.6)); }
+.option-img { flex: none; width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }

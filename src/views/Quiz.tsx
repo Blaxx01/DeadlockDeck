@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, getQuizHighscore, getSettings, submitQuizScore } from '../data/db'
 import { SLOT_LABEL, type ItemCard } from '../data/model'
 import { sanitizeHtml } from '../data/sanitize'
-import { buildRound, scoreAnswer, type QuizQuestion } from '../quiz/quiz'
+import { buildRound, ROUND_SIZE, scoreAnswer, type QuizQuestion } from '../quiz/quiz'
 
 interface Props {
   onExit: () => void
@@ -35,6 +35,9 @@ function QuestionMedia({ question, subject }: { question: QuizQuestion; subject?
   if (question.kind === 'image' && question.image) {
     return <img className="quiz-image" src={question.image} alt="Item-Bild" draggable={false} />
   }
+  if (question.portrait) {
+    return <img className="quiz-portrait" src={question.portrait} alt="" draggable={false} />
+  }
   if (question.kind === 'description') {
     return (
       <div className="quiz-desc">
@@ -64,8 +67,11 @@ export function Quiz({ onExit }: Props) {
     const ctrl = new AbortController()
     ;(async () => {
       const settings = await getSettings()
-      const items = (await db.items.toArray()).filter(i => settings.slots.includes(i.slot))
-      const qs = buildRound(items, settings.quizKinds)
+      const all = await db.items.toArray()
+      const items = all.filter(i => settings.slots.includes(i.slot))
+      // Counter-Fragen brauchen die Counter-Daten; alle Items für die Namen in der Auflösung
+      const counters = await db.counters.toArray()
+      const qs = buildRound(items, settings.quizKinds, Math.random, ROUND_SIZE, { counters, items: new Map(all.map(i => [i.id, i])) })
       const best = await getQuizHighscore()
       if (ctrl.signal.aborted) return
       finishing.current = false
@@ -90,7 +96,7 @@ export function Quiz({ onExit }: Props) {
   // Bilder der nächsten Fragen vorladen
   useEffect(() => {
     for (const q of questions.slice(index + 1, index + 3)) {
-      const src = q.image ?? (q.subjectId ? cards.get(q.subjectId)?.image : undefined)
+      const src = q.image ?? q.portrait ?? (q.subjectId ? cards.get(q.subjectId)?.image : undefined)
       if (src) new Image().src = src
     }
   }, [questions, index, cards])
@@ -219,6 +225,7 @@ export function Quiz({ onExit }: Props) {
           return (
             <button key={`${index}-${i}`} className={`option${state}`} disabled={!!answered} onClick={() => pick(i)}>
               <span className="option-key">{i + 1}</span>
+              {question.optionImages?.[i] && <img className="option-img" src={question.optionImages[i]} alt="" draggable={false} />}
               <span>{option}</span>
             </button>
           )
@@ -231,7 +238,7 @@ export function Quiz({ onExit }: Props) {
             <p className={answered.points ? 'good' : 'error'}>
               {answered.points ? `Richtig! +${answered.points}` : `Falsch – richtig: ${question.options[question.answer]}`}
             </p>
-            <p className="muted small">{itemInfo(cards.get(question.itemId))}</p>
+            <p className="muted small">{question.info ?? itemInfo(cards.get(question.itemId))}</p>
             <button className="primary" autoFocus onClick={() => void next()}>
               {index + 1 < questions.length ? 'Weiter' : 'Ergebnis'}
             </button>
