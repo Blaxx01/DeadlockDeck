@@ -44,7 +44,7 @@ export function Weakness({ onExit }: Props) {
       </header>
       <p className="muted small">
         Karten, bei denen du dich in den letzten {WEAK_DAYS} Tagen vertan hast – egal ob beim Lernen, im Quiz, beim
-        Hero erraten oder im Build-Quiz. „Gewusst“ im Training behebt die Schwäche.
+        Hero erraten, im Build-Quiz, im Sprint oder beim Überleben. „Gewusst“ im Training behebt die Schwäche.
       </p>
 
       {list.length === 0 ? (

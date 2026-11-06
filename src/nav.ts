@@ -12,6 +12,10 @@ export type View =
   | { name: 'quiz' }
   | { name: 'guess' }
   | { name: 'builds' }
+  /** 60-Sekunden-Sprint */
+  | { name: 'sprint' }
+  /** Überleben (3 Leben) */
+  | { name: 'survival' }
   | { name: 'weak' }
   | { name: 'shop' }
   /** Hero-Meisterschaft (Sterne je Hero) */

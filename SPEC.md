@@ -172,7 +172,8 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   - Karteikarte bewertet: **+10**, egal ob gewusst oder nicht (sonst lohnt Schummeln beim Wischen) –
     je Karte einmal pro Tag (wie beim Tagesziel)
   - **Tagesziel erreicht: +100** (einmal pro Tag)
-  - Quiz: Punkte ÷ 10 · Hero erraten: Punkte ÷ 10 · Build-Quiz: +5 je Item, +50 ohne Fehler
+  - Quiz: Punkte ÷ 10 · Hero erraten: Punkte ÷ 10 · Build-Quiz: +5 je Item, +50 ohne Fehler ·
+    Sprint: +5 je richtige Antwort · Überleben: +10 je überlebte Frage
   - Je Modus und Tag bringen die **ersten 3 Runden** volle Souls, ab der 4. nur noch **¼**
 - **Rang-Verfall**: ab dem **6. Tag ohne Lernen −50 Souls pro Tag** (nie unter 0); ab dem 4. Tag warnt die
   Startseite; als Lerntag zählt jede Aktivität, die Souls bringt. Abgerechnet werden nur vergangene Tage
@@ -181,7 +182,8 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 ### Tagesmissionen & Streak (Etappe 1)
 - **3 Tagesmissionen** pro Tag, fest ausgelost (gleiche Missionen den ganzen Tag), in ~10–15 Minuten machbar:
   eine Lern-Mission (z. B. „10 Fähigkeiten-Karten lernen“, „5 neue Karten lernen“) und zwei Spiel-Missionen
-  („Quiz mit mind. 7 richtig“, „Hero erraten mit mind. 600 Punkten“, „Build-Quiz ohne Fehler“) – nur aus Modi,
+  („Quiz mit mind. 7 richtig“, „Hero erraten mit mind. 600 Punkten“, „Build-Quiz ohne Fehler“, ab Etappe 4 auch
+  Sprint und Überleben) – nur aus Modi,
   für die Daten da sind; je **+100 ◆**, alle drei **+150 ◆ Bonus**
 - **Streak-Schutz**: alle 7 Streak-Tage einer (höchstens 2). Ein verpasster Tag (Tagesziel nicht erreicht) verbraucht
   einen, statt den Streak zu beenden. Wird aus der Tageshistorie berechnet (auch nach Import korrekt)
@@ -199,6 +201,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   - Quiz: jede falsche Antwort – zählt fürs Item, bei Counter-Fragen für die **Counter-Karte** des Heroes
   - Hero erraten: Hero mit Fehltipp oder „aufgelöst“ (einmal je Frage) → Hero-Karte
   - Build-Quiz: erster Fehlversuch je Icon → Item
+  - Sprint: falsche Antwort → Item-, Fähigkeiten- bzw. Hero-Karte · Überleben: falsch oder Zeit abgelaufen (wie im Quiz)
 - Startseite: Zeile **„Schwächen“** unter den Decks mit Anzahl und Knopf **„Schwächen üben (n)“**
 - Übersicht: die bis zu **15 Karten** mit den meisten Fehlern der letzten **14 Tage** (bei Gleichstand die jüngsten),
   mit Bild, Häufigkeit und Quelle; nur Karten, die es noch gibt
@@ -235,10 +238,23 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 - Farben: eine Bernstein-Reihe (heller = mehr) für Stufen und Kalender, Medaillen bzw. Beschriftung als zweites Merkmal
 
 ### Sprint & Überleben (Etappe 4)
-- **60-Sekunden-Sprint**: Items, Fähigkeiten und Heroes am Bild erkennen (4 Antworten), umschaltbar auf eine Sorte;
-  falsch kostet 3 s; Highscore je Auswahl
-- **Überleben**: 3 Leben, alle Quiz-Fragetypen gemischt; 15 s pro Frage, alle 5 Fragen 1 s weniger (bis 6 s);
-  Zeit abgelaufen = Leben weg; Highscore = überlebte Fragen
+- **60-Sekunden-Sprint**: Items, Fähigkeiten und Heroes am Bild erkennen (4 Antworten), umschaltbar auf eine Sorte
+  (Alle / Items / Fähigkeiten / Heroes; bei „Alle“ kommt jede Sorte gleich oft)
+  - Items: Bild → Name (falsche Antworten ähnlich: Kategorie, Tier, Kosten) · Fähigkeiten: Icon → Name (falsche
+    bevorzugt von gleicher Art: Ultimate oder nicht), Auflösung mit Hero · Heroes: zufällige Kartenpose → Name
+  - falsch kostet **3 s** („−3 s“), die richtige Antwort wird kurz gezeigt; jede Karte erst wieder, wenn alle ihrer
+    Sorte dran waren; Item-Kategorien wie im Quiz
+  - Highscore = richtige Antworten, **je Auswahl**; Ergebnis mit „Vertan bei“ und „Fehler lernen“
+- **Überleben**: 3 Leben, Quiz-Fragetypen gemischt (Auswahl und Kategorien wie im Quiz); 15 s pro Frage, alle
+  5 Fragen 1 s weniger (bis 6 s); falsch oder Zeit abgelaufen = Leben weg
+  - richtig: kurz grün, dann von selbst weiter · falsch: Auflösung wie im Quiz, dann „Weiter“
+  - Highscore = überlebte Fragen; Ergebnis mit „Zum Merken“
+- In beiden Modi steht die Uhr, solange die App im Hintergrund ist (Anruf, App gewechselt)
+- Souls mit Rundenregel (siehe oben), Fehler zählen als Schwächen, Highscores im Backup
+- Neue Tagesmissionen: „60-Sekunden-Sprint mit mindestens 15 richtigen“, „Überleben: mindestens 10 Fragen“
+- Startseite: **Spielen** (Quiz, Sprint, Überleben, Hero erraten, Build-Quiz) und **Nachschlagen & Fortschritt**
+  (Shop, Heroes, Statistik)
+- Offline: alle Hero-Posen werden mit vorgeladen (auch für Hero erraten)
 
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
@@ -254,11 +270,11 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 7. ✅ Patch-Erkennung (Reset + Badge + vorher → nachher)
 8. ✅ Counter-Deck + Counter-Quiz (Statistik der Deadlock-API)
 9. ✅ Build-Quiz (typische und Community-Builds)
-10. Fortschritt & Motivation in 4 Etappen:
+10. ✅ Fortschritt & Motivation in 4 Etappen:
     1. ✅ Souls & Rang, Tagesmissionen, Streak-Schutz, Rang-Verfall, neue Startseite, Effekte
     2. ✅ Schwächen-Training
     3. ✅ Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
-    4. Sprint, Überleben
+    4. ✅ Sprint, Überleben
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

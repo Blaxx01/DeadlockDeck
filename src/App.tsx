@@ -21,6 +21,14 @@ import { Weakness } from './views/Weakness'
 import { Shop } from './views/Shop'
 import { Heroes } from './views/Heroes'
 import { Stats } from './views/Stats'
+import { Sprint } from './views/Sprint'
+import { Survival } from './views/Survival'
+
+/**
+ * Welche Bilder offline vorgeladen werden – erhöhen, wenn neue dazukommen, damit auch bestehende
+ * Installationen sie einmal nachladen (2: alle Hero-Posen)
+ */
+const IMAGE_SET = 2
 
 /** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
 async function rankImageUrls(): Promise<string[]> {
@@ -65,15 +73,19 @@ export default function App() {
       if (!(await waitForServiceWorker())) return
       const lastSync = await getMeta<number>('lastSync', 0)
       const [items, heroes, abilities] = await Promise.all([db.items.toArray(), db.heroes.toArray(), db.abilities.toArray()])
-      const urls = [
+      const urls = [...new Set([
         ...items.map(i => i.image),
-        ...heroes.flatMap(h => [h.image, h.smallImage]),
+        // Kartenbild, Kopf und alle Posen (Hero erraten, Sprint)
+        ...heroes.flatMap(h => [h.image, h.smallImage, ...(h.poses ?? [])]),
         ...abilities.map(a => a.image),
         ...(await rankImageUrls()),
-      ].filter((u): u is string => !!u)
+      ])].filter((u): u is string => !!u)
       setImageProgress({ done: 0, total: urls.length })
       const { failed } = await prewarmImages(urls, (done, total) => setImageProgress({ done, total }))
-      if (failed === 0) await setMeta('imagesCachedFor', lastSync)
+      if (failed === 0) {
+        await setMeta('imagesCachedFor', lastSync)
+        await setMeta('imagesCachedSet', IMAGE_SET)
+      }
     } finally {
       cachingRef.current = false
     }
@@ -116,8 +128,10 @@ export default function App() {
       if (await needsAutoSync()) return void sync()
       syncStatistics()
       // Bilder fehlen noch im Offline-Cache (z. B. erster Start oder abgebrochen)?
-      const [lastSync, cachedFor] = await Promise.all([getMeta('lastSync', 0), getMeta('imagesCachedFor', -1)])
-      if (lastSync && cachedFor !== lastSync) void cacheImages()
+      const [lastSync, cachedFor, cachedSet] = await Promise.all([
+        getMeta('lastSync', 0), getMeta('imagesCachedFor', -1), getMeta('imagesCachedSet', 1),
+      ])
+      if (lastSync && (cachedFor !== lastSync || cachedSet !== IMAGE_SET)) void cacheImages()
     }
     void maybeSync()
     window.addEventListener('online', maybeSync)
@@ -150,6 +164,8 @@ export default function App() {
           onQuiz={() => navigate({ name: 'quiz' })}
           onGuess={() => navigate({ name: 'guess' })}
           onBuilds={() => navigate({ name: 'builds' })}
+          onSprint={() => navigate({ name: 'sprint' })}
+          onSurvival={() => navigate({ name: 'survival' })}
           onWeak={() => navigate({ name: 'weak' })}
           onShop={() => navigate({ name: 'shop' })}
           onHeroes={() => navigate({ name: 'heroes' })}
@@ -165,6 +181,8 @@ export default function App() {
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'guess' && <Guess onExit={goBack} />}
       {view.name === 'builds' && <BuildQuiz onExit={goBack} />}
+      {view.name === 'sprint' && <Sprint onExit={goBack} />}
+      {view.name === 'survival' && <Survival onExit={goBack} />}
       {view.name === 'weak' && <Weakness onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'heroes' && <Heroes onBack={goBack} />}

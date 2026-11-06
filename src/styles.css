@@ -689,3 +689,49 @@ button.link {
 
 /* Meilensteine am Ende einer Session/Runde */
 .milestone-summary { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
+/* ---------- Sprint & Überleben (Etappe 4) ---------- */
+.segmented.four { grid-template-columns: repeat(4, 1fr); }
+.segmented.four button { padding: 9px 4px; font-size: 0.86rem; }
+.sprint-page { display: flex; flex-direction: column; gap: 12px; }
+.sprint-page .home-head { margin-bottom: 0; }
+.sprint-intro { align-items: center; text-align: center; }
+.sprint-intro p { max-width: 34ch; }
+.survival-rules { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+
+.sprint { display: flex; flex-direction: column; min-height: 0; height: calc(100dvh - 24px); }
+.sprint-stage {
+  /* nur die Farbe: die Kategorie-Farbverläufe (slot-bg-*) liegen darüber */
+  position: relative; flex: 1; min-height: 170px; border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--line); background-color: var(--panel); display: grid; place-items: center;
+}
+.sprint-stage img { max-width: min(62%, 260px); max-height: 82%; object-fit: contain; filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6)); }
+.sprint-stage.kind-ability { background: radial-gradient(circle at 50% 42%, #3a3127 0%, var(--panel) 72%); }
+.sprint-stage.kind-ability img { max-width: min(44%, 180px); }
+.sprint-stage.kind-hero img { max-height: 96%; max-width: min(80%, 340px); align-self: end; filter: none; }
+.sprint-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.sprint-options .option { min-height: 58px; padding: 10px 12px; gap: 8px; font-weight: 600; }
+.sprint-hint { margin: 10px 0 0; min-height: 2.6em; }
+.sprint-time { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.sprint-penalty { color: var(--bad); font-weight: 800; animation: sprint-penalty 0.9s ease-out forwards; }
+@keyframes sprint-penalty {
+  0% { opacity: 0; transform: translateY(4px); }
+  20% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.goal-bar.sprint-bar > div, .goal-bar.survival-bar > div { transition: width 0.1s linear; }
+.goal-bar.low > div { background: var(--bad); }
+.sprint-thumb {
+  flex: none; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); overflow: hidden;
+  display: grid; place-items: center; background: var(--panel-2);
+}
+.mistakes .sprint-thumb img { width: 80%; height: 80%; object-fit: contain; }
+.mistakes .sprint-thumb.kind-hero img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+.lives { display: inline-flex; gap: 2px; font-size: 1.05rem; line-height: 1; }
+.lives .on { color: var(--bad); }
+.lives .off { color: var(--star-off); }
+.survival .quiz-media { min-height: 110px; }
+
+.mode-tiles.three { grid-template-columns: repeat(3, 1fr); }
+.mode-tiles.three .mode-tile { min-height: 58px; padding: 10px; }

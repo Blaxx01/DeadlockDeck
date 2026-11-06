@@ -1,11 +1,11 @@
 /**
- * Schwächen: Fehler aus allen Modi („nicht gewusst“, Quiz, Hero erraten, Build-Quiz) der letzten 14 Tage.
+ * Schwächen: Fehler aus allen Modi („nicht gewusst“, Quiz, Hero erraten, Build-Quiz, Sprint, Überleben) der letzten 14 Tage.
  * „Schwächen üben“ zeigt die Karten mit den meisten Fehlern; „gewusst“ im Training behebt die Schwäche.
  */
 import { addDays, localDate } from '../data/dates'
 import { db, type DeckDB } from '../data/db'
 
-export type MistakeSource = 'learn' | 'quiz' | 'guess' | 'build'
+export type MistakeSource = 'learn' | 'quiz' | 'guess' | 'build' | 'sprint' | 'survival'
 
 export interface MistakeEntry {
   id: number
@@ -25,6 +25,8 @@ export const MISTAKE_SOURCE_LABEL: Record<MistakeSource, string> = {
   quiz: 'Quiz',
   guess: 'Hero erraten',
   build: 'Build-Quiz',
+  sprint: 'Sprint',
+  survival: 'Überleben',
 }
 
 /** Erster Tag, der noch zählt (heute und die 13 Tage davor) */

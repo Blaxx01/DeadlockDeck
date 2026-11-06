@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { db, getQuizHighscore, getSettings, submitQuizScore } from '../data/db'
-import { SLOT_LABEL, type ItemCard } from '../data/model'
-import { sanitizeHtml } from '../data/sanitize'
+import type { ItemCard } from '../data/model'
+import { QuestionMedia, QuizOptions, SoulsEarned } from '../components/QuizParts'
+import { itemInfo, plainText } from '../quiz/format'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
 import { logMistake } from '../game/weakness'
@@ -19,50 +20,6 @@ interface Answer {
 }
 
 type Phase = 'loading' | 'empty' | 'playing' | 'done'
-
-function SoulsEarned({ earned }: { earned: RoundAward | null }) {
-  if (!earned) return null
-  return (
-    <p className="souls-earned center-text">
-      +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
-    </p>
-  )
-}
-
-function itemInfo(card: ItemCard | undefined): string {
-  if (!card) return ''
-  const parts = [card.name, SLOT_LABEL[card.slot], `Tier ${card.tier}`]
-  if (card.cost) parts.push(`${card.cost.toLocaleString('de-DE')} Souls`)
-  const cd = card.timings.find(t => t.kind === 'cooldown')
-  if (cd) parts.push(`Cooldown ${cd.value}`)
-  return parts.join(' · ')
-}
-
-function plainText(html: string, max = 90): string {
-  const text = html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text
-}
-
-function QuestionMedia({ question, subject }: { question: QuizQuestion; subject?: ItemCard }) {
-  const html = useMemo(() => (question.html ? sanitizeHtml(question.html) : ''), [question.html])
-  if (question.kind === 'image' && question.image) {
-    return <img className="quiz-image" src={question.image} alt="Item-Bild" draggable={false} />
-  }
-  if (question.portrait) {
-    return <img className="quiz-portrait" src={question.portrait} alt="" draggable={false} />
-  }
-  if (question.kind === 'description') {
-    return (
-      <div className="quiz-desc">
-        <div className="desc" dangerouslySetInnerHTML={{ __html: html }} />
-      </div>
-    )
-  }
-  if (subject?.image) {
-    return <img className="quiz-subject" src={subject.image} alt={subject.name} draggable={false} />
-  }
-  return null
-}
 
 export function Quiz({ onExit }: Props) {
   const [round, setRound] = useState(0)
@@ -242,18 +199,7 @@ export function Quiz({ onExit }: Props) {
 
       <p className="quiz-prompt">{question.prompt}</p>
 
-      <div className="options">
-        {question.options.map((option, i) => {
-          const state = !answered ? '' : i === question.answer ? ' correct' : i === answered.picked ? ' wrong' : ' dim'
-          return (
-            <button key={`${index}-${i}`} className={`option${state}`} disabled={!!answered} onClick={() => pick(i)}>
-              <span className="option-key">{i + 1}</span>
-              {question.optionImages?.[i] && <img className="option-img" src={question.optionImages[i]} alt="" draggable={false} />}
-              <span>{option}</span>
-            </button>
-          )
-        })}
-      </div>
+      <QuizOptions question={question} picked={answered?.picked} onPick={pick} keyPrefix={String(index)} />
 
       <div className="quiz-footer">
         {answered ? (

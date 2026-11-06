@@ -127,7 +127,7 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             </button>
           ))}
         </div>
-        <p className="muted small">Die Kategorien von oben gelten auch fürs Quiz.</p>
+        <p className="muted small">Fragetypen und Kategorien von oben gelten auch für Überleben; die Kategorien auch für den Sprint.</p>
       </div>
 
       <div className="panel">

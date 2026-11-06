@@ -61,6 +61,10 @@ export const MISSIONS: readonly MissionDef[] = [
     available: c => c.heroCount >= 4, progress: c => bestOf(c, 'guess', 'score') },
   { id: 'build-clean', kind: 'play', group: 'build', title: 'Build-Quiz ohne Fehler', target: 1,
     available: c => c.buildCount > 0, progress: c => (c.entries.some(e => e.reason === 'build' && e.data?.errors === 0) ? 1 : 0) },
+  { id: 'sprint-15', kind: 'play', group: 'sprint', title: '60-Sekunden-Sprint mit mindestens 15 richtigen', target: 15,
+    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'sprint', 'score') },
+  { id: 'survival-10', kind: 'play', group: 'survival', title: 'Überleben: mindestens 10 Fragen', target: 10,
+    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'survival', 'score') },
 ]
 
 const byId = new Map(MISSIONS.map(m => [m.id, m]))

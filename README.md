@@ -13,7 +13,9 @@ Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgeba
 Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ –, **Hero erraten**: Silhouette, Zoom-Ausschnitt,
 unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore – und das **Build-Quiz**: alle Items
 eines Hero-Builds (typischer Build aus den Kaufdaten oder meistgespielter Community-Build) Icon für Icon benennen,
-mit Bestwert je Hero und „Fehler-Items lernen“.
+mit Bestwert je Hero und „Fehler-Items lernen“. Für Tempo sorgen der **60-Sekunden-Sprint** (Items, Fähigkeiten und
+Heroes am Bild erkennen, falsch kostet 3 Sekunden, Highscore je Auswahl) und **Überleben** (3 Leben, alle
+Quiz-Fragetypen gemischt, die Zeit pro Frage wird immer knapper).
 
 Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
@@ -61,6 +63,8 @@ Aufbau:
 | `src/data/counters.ts`, `src/data/counterSync.ts` | Counter: Kauf-Faktor aus der API-Statistik, Top 3, wöchentliches Laden, Wechsel des Top-Counters |
 | `src/data/builds.ts`, `src/data/buildSync.ts` | Builds: typischer Build (meistgekauft, nach Kaufzeit) und meistgespielter Community-Build, wöchentlich |
 | `src/builds/buildQuiz.ts`, `src/views/BuildQuiz.tsx` | Build-Quiz: Runde Icon für Icon, Extra-Namen, Fehler, Bestwerte |
+| `src/sprint/sprint.ts`, `src/views/Sprint.tsx` | 60-Sekunden-Sprint: Fragen je Sorte, Uhr mit −3 s und Pause, Highscore je Auswahl |
+| `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
 | `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, Rangfolge, Training |
@@ -73,7 +77,7 @@ Aufbau:
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
 | `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
-| `src/views/Quiz.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis |
+| `src/views/Quiz.tsx`, `src/components/QuizParts.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis; Fragen-Bausteine (auch für Überleben) |
 | `src/views/Shop.tsx`, `src/views/ItemDetail.tsx` | Shop (Tabs, Tiers, Suche, Sammelalbum) und Item-Detailseite |
 | `src/shop/search.ts` | Shop-Aufbau und Suche (Name + Effekttext) |
 | `src/nav.ts` | Navigation über den Browser-Verlauf (Zurück-Geste) |

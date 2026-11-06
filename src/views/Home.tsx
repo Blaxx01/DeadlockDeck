@@ -2,7 +2,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
 import { RankBadge } from '../components/RankBadge'
-import { db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, setMeta, type LastPatch, type ReviewRecord } from '../data/db'
+import {
+  db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, getSprintHighscores, getSurvivalHighscore, setMeta,
+  type LastPatch, type ReviewRecord,
+} from '../data/db'
 import { DECKS, newIntroducedToday, type DeckId } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
@@ -16,6 +19,8 @@ interface Props {
   onQuiz: () => void
   onGuess: () => void
   onBuilds: () => void
+  onSprint: () => void
+  onSurvival: () => void
   onWeak: () => void
   onShop: () => void
   onHeroes: () => void
@@ -238,6 +243,9 @@ function useHomeStats() {
       // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
       patch: await recentPatch(now),
       guessHighscore: await getGuessHighscore(),
+      // Sprint: bester Wert über alle Auswahlen
+      sprintHighscore: Math.max(0, ...Object.values(await getSprintHighscores())),
+      survivalHighscore: await getSurvivalHighscore(),
       // Build-Quiz: Heroes mit typischem Build (kommen wöchentlich mit der Statistik)
       buildCount: await db.builds.where('source').equals('typical').count(),
       heroCount: ids.heroes.length,
@@ -269,7 +277,10 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
   )
 }
 
-export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onHeroes, onStats, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({
+  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onSettings,
+  syncing, syncError, imageProgress, onSync,
+}: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -323,7 +334,15 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onHer
         <div className="mode-tiles">
           <button className="mode-tile" onClick={onQuiz} aria-label="Quiz starten">
             <span className="mode-name">Quiz</span>
-            <span className="muted small">10 Fragen · Highscore {s.quizHighscore.toLocaleString('de-DE')}</span>
+            <span className="muted small">Highscore {s.quizHighscore.toLocaleString('de-DE')}</span>
+          </button>
+          <button className="mode-tile" onClick={onSprint} aria-label="Sprint starten">
+            <span className="mode-name">Sprint</span>
+            <span className="muted small">60 s · Highscore {s.sprintHighscore.toLocaleString('de-DE')}</span>
+          </button>
+          <button className="mode-tile" onClick={onSurvival} aria-label="Überleben starten">
+            <span className="mode-name">Überleben</span>
+            <span className="muted small">3 Leben · Highscore {s.survivalHighscore.toLocaleString('de-DE')}</span>
           </button>
           {s.heroCount >= 4 && (
             <button className="mode-tile" onClick={onGuess} aria-label="Hero erraten starten">
@@ -337,19 +356,25 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onHer
               {s.buildCount === 0 ? 'Daten werden geladen' : `${s.buildBests} Bestwert${s.buildBests === 1 ? '' : 'e'}`}
             </span>
           </button>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Nachschlagen &amp; Fortschritt</h2>
+        <div className="mode-tiles three">
           <button className="mode-tile" onClick={onShop} aria-label="Shop öffnen">
             <span className="mode-name">Shop</span>
-            <span className="muted small">Nachschlagen · Sammelalbum</span>
+            <span className="muted small">Sammelalbum</span>
           </button>
           {s.heroCount > 0 && (
             <button className="mode-tile" onClick={onHeroes} aria-label="Hero-Meisterschaft öffnen">
               <span className="mode-name">Heroes</span>
-              <span className="muted small"><span className="star-on">★</span> {s.heroStars.toLocaleString('de-DE')} / {(s.heroCount * MAX_STARS).toLocaleString('de-DE')} Sterne</span>
+              <span className="muted small"><span className="star-on">★</span> {s.heroStars.toLocaleString('de-DE')} / {(s.heroCount * MAX_STARS).toLocaleString('de-DE')}</span>
             </button>
           )}
           <button className="mode-tile" onClick={onStats} aria-label="Statistik öffnen">
             <span className="mode-name">Statistik</span>
-            <span className="muted small">Lerntage · Souls · Decks</span>
+            <span className="muted small">Lerntage</span>
           </button>
         </div>
       </div>

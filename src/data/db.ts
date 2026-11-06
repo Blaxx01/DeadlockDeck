@@ -3,6 +3,7 @@ import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
 import type { SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
+import type { SprintHighscores, SprintPool } from '../sprint/sprint'
 import type { PatchRecord } from './patches'
 import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
@@ -134,7 +135,7 @@ export async function saveSettings(settings: Settings, database: DeckDB = db): P
   await setMeta('settings', settings, database)
 }
 
-export type HighscoreKey = 'quizHighscore' | 'guessHighscore'
+export type HighscoreKey = 'quizHighscore' | 'guessHighscore' | 'survivalHighscore'
 
 export async function getHighscore(key: HighscoreKey, database: DeckDB = db): Promise<number> {
   return getMeta<number>(key, 0, database)
@@ -154,6 +155,23 @@ export const getQuizHighscore = (database: DeckDB = db) => getHighscore('quizHig
 export const submitQuizScore = (score: number, database: DeckDB = db) => submitHighscore('quizHighscore', score, database)
 export const getGuessHighscore = (database: DeckDB = db) => getHighscore('guessHighscore', database)
 export const submitGuessScore = (score: number, database: DeckDB = db) => submitHighscore('guessHighscore', score, database)
+export const getSurvivalHighscore = (database: DeckDB = db) => getHighscore('survivalHighscore', database)
+export const submitSurvivalScore = (score: number, database: DeckDB = db) => submitHighscore('survivalHighscore', score, database)
+
+/** 60-Sekunden-Sprint: Highscore je Auswahl (Alle, Items, Fähigkeiten, Heroes) */
+export async function getSprintHighscores(database: DeckDB = db): Promise<SprintHighscores> {
+  return getMeta<SprintHighscores>('sprintHighscore', {}, database)
+}
+
+/** Speichert den Sprint-Punktestand, wenn er für diese Auswahl ein neuer Highscore ist. */
+export async function submitSprintScore(pool: SprintPool, score: number, database: DeckDB = db): Promise<boolean> {
+  return database.transaction('rw', database.meta, async () => {
+    const bests = await getSprintHighscores(database)
+    if (score <= (bests[pool] ?? 0)) return false
+    await setMeta('sprintHighscore', { ...bests, [pool]: score }, database)
+    return true
+  })
+}
 
 /** Zusammenfassung des letzten erkannten Patches (für den Hinweis auf der Startseite) */
 export interface LastPatch {
