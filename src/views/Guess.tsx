@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, getGuessHighscore, getSettings, submitGuessScore } from '../data/db'
 import { vibrate } from '../game/effects'
+import { markGuessClean } from '../game/milestones'
 import { finishRound } from '../game/missions'
 import { logMistake } from '../game/weakness'
-import type { RoundAward } from '../game/souls'
+import type { RoundAward, SoulsGain } from '../game/souls'
+import { MilestoneSummary } from '../components/MilestoneSummary'
 import { GUESS_KIND_LABEL, type HeroCard } from '../data/model'
 import {
   MAX_REVEAL, START_POINTS, abilityReveal, applyAction, buildGuessRound, jokerOptions, stageStyle, type GuessQuestion,
@@ -89,6 +91,8 @@ export function Guess({ onExit }: Props) {
   const [highscore, setHighscore] = useState(0)
   const [isNewHighscore, setIsNewHighscore] = useState(false)
   const [earned, setEarned] = useState<RoundAward | null>(null)
+  /** Neue Hero-Sterne der Runde (erraten ohne Aufdecken, Joker und Fehltipp) */
+  const [achieved, setAchieved] = useState<SoulsGain[]>([])
   const finishing = useRef(false)
 
   /** Zustand für eine neue Frage */
@@ -117,6 +121,7 @@ export function Guess({ onExit }: Props) {
       setHighscore(best)
       setIsNewHighscore(false)
       setEarned(null)
+      setAchieved([])
       setPhase(qs.length ? 'playing' : 'empty')
     })()
     return () => ctrl.abort()
@@ -137,9 +142,13 @@ export function Guess({ onExit }: Props) {
   const finish = useCallback((q: GuessQuestion, how: Outcome, pts: number) => {
     // Schwächen-Training: Hero mit Fehltipp oder aufgelöst
     if (how === 'gaveup' || wrong.length > 0) void logMistake(q.heroId, 'guess')
+    // Hero-Stern: einmal ohne Aufdecken, Joker und Fehltipp erkannt
+    if (how === 'correct' && level === 0 && !joker && wrong.length === 0) {
+      void markGuessClean(q.heroId).then(gains => { if (gains.length > 0) setAchieved(a => [...a, ...gains]) })
+    }
     setOutcome(how)
     setResults(prev => (prev.length === index ? [...prev, { q, outcome: how, points: pts, wrong: wrong.length }] : prev))
-  }, [index, wrong.length])
+  }, [index, wrong.length, level, joker])
 
   const pick = useCallback((id: string) => {
     if (!q || outcome || wrong.includes(id)) return
@@ -232,6 +241,7 @@ export function Guess({ onExit }: Props) {
             +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
           </p>
         )}
+        <MilestoneSummary gains={achieved} />
         <div className="panel">
           <h2>Deine Runde</h2>
           <ul className="mistakes">

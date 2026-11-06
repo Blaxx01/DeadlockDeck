@@ -80,13 +80,13 @@ describe('Streak-Schutz', () => {
 
   it('ein verpasster Tag verbraucht einen Schutz, statt den Streak zu beenden', () => {
     const state = computeStreakState(run(1, 10, [8]), 20, at(11))
-    expect(state).toEqual({ streak: 9, shields: 0, protectedDays: ['2026-10-08'] })
+    expect(state).toEqual({ streak: 9, shields: 0, protectedDays: ['2026-10-08'], longest: 9 })
   })
 
   it('ohne Schutz ist der Streak weg', () => {
-    expect(computeStreakState(run(1, 10, [5]), 20, at(11))).toMatchObject({ streak: 5, shields: 0, protectedDays: [] })
+    expect(computeStreakState(run(1, 10, [5]), 20, at(11))).toMatchObject({ streak: 5, shields: 0, protectedDays: [], longest: 5 })
     // Schutz verbraucht, zweiter verpasster Tag beendet den Streak
-    expect(computeStreakState(run(1, 12, [8, 9]), 20, at(13))).toMatchObject({ streak: 3, protectedDays: ['2026-10-08'] })
+    expect(computeStreakState(run(1, 12, [8, 9]), 20, at(13))).toMatchObject({ streak: 3, protectedDays: ['2026-10-08'], longest: 7 })
   })
 
   it('heute zählt erst mit erreichtem Ziel – ein offener Tag bricht nichts', () => {

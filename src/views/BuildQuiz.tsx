@@ -8,9 +8,11 @@ import { buildBestKey, db, getBuildBests, getMeta, setMeta, submitBuildResult, t
 import { BUILD_SOURCE_LABEL, BUILD_SOURCES, type BuildItem, type BuildRecord, type BuildSource } from '../data/model'
 import { currentNav, pushNav, type NavState } from '../nav'
 import { vibrate } from '../game/effects'
+import { checkHeroStars } from '../game/milestones'
 import { finishRound } from '../game/missions'
 import { logMistake } from '../game/weakness'
-import type { RoundAward } from '../game/souls'
+import type { RoundAward, SoulsGain } from '../game/souls'
+import { MilestoneSummary } from '../components/MilestoneSummary'
 import { requestLearn } from '../srs/srs'
 import { ItemDetail } from './ItemDetail'
 
@@ -21,7 +23,7 @@ interface Props {
 type Phase =
   | { name: 'start' }
   | { name: 'round'; round: BuildRound; no: number }
-  | { name: 'result'; round: BuildRound; progress: BuildProgress; ms: number; newBest: boolean; earned: RoundAward }
+  | { name: 'result'; round: BuildRound; progress: BuildProgress; ms: number; newBest: boolean; earned: RoundAward; stars: SoulsGain[] }
 
 const SOURCE_HINT: Record<BuildSource, string> = {
   typical: 'Die 16 meistgekauften Items des Heroes ab Orakel (letzte 30 Tage), nach Kaufzeit.',
@@ -213,6 +215,8 @@ interface ResultProps {
   ms: number
   newBest: boolean
   earned: RoundAward
+  /** Neuer Hero-Stern (typischer Build ohne Fehler) */
+  stars: SoulsGain[]
   best?: BuildBest
   onOpenItem: (id: string) => void
   onAgain: () => void
@@ -220,7 +224,7 @@ interface ResultProps {
   onExit: () => void
 }
 
-function ResultView({ round, progress, ms, newBest, earned, best, onOpenItem, onAgain, onOther, onExit }: ResultProps) {
+function ResultView({ round, progress, ms, newBest, earned, stars, best, onOpenItem, onAgain, onOther, onExit }: ResultProps) {
   const mistakes = useMemo(() => buildMistakes(round, progress), [round, progress])
   const missed = new Set(mistakes.map(m => m.item.id))
   const buildItems = new Map(round.build.sections.flatMap(s => s.items).map(i => [i.itemId, i]))
@@ -247,6 +251,7 @@ function ResultView({ round, progress, ms, newBest, earned, best, onOpenItem, on
       <p className="souls-earned center-text">
         +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
       </p>
+      <MilestoneSummary gains={stars} />
 
       {mistakes.length > 0 && (
         <div className="panel">
@@ -354,11 +359,13 @@ export function BuildQuiz({ onExit }: Props) {
   async function finish(round: BuildRound, progress: BuildProgress, ms: number) {
     const key = buildBestKey(round.build.source, round.build.heroId)
     const newBest = await submitBuildResult(key, { errors: progress.errors, ms })
+    // Hero-Stern: typischer Build ohne Fehler
+    const stars = round.build.source === 'typical' ? await checkHeroStars([round.build.heroId]) : []
     // Souls: +5 je Item, +50 ohne Fehler (ab der 4. Runde des Tages ¼)
     const earned = await finishRound('build', 5 * round.order.length + (progress.errors === 0 ? 50 : 0), {
       errors: progress.errors, items: round.order.length, heroId: round.build.heroId, source: round.build.source,
     })
-    setPhase({ name: 'result', round, progress, ms, newBest, earned })
+    setPhase({ name: 'result', round, progress, ms, newBest, earned, stars })
   }
 
   if (!source || !builds || !allItems || !bests) return <div className="center muted">Lade…</div>
@@ -386,6 +393,7 @@ export function BuildQuiz({ onExit }: Props) {
           ms={phase.ms}
           newBest={phase.newBest}
           earned={phase.earned}
+          stars={phase.stars}
           best={bests[buildBestKey(phase.round.build.source, phase.round.build.heroId)]}
           onOpenItem={openItem}
           onAgain={() => start(phase.round.build)}

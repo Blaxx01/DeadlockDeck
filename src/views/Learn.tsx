@@ -12,6 +12,8 @@ import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches
 import { newIntroducedToday, type DeckId } from '../decks'
 import { currentNav, pushNav, type NavState, type View } from '../nav'
 import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import type { SoulsGain } from '../game/souls'
+import { MilestoneSummary } from '../components/MilestoneSummary'
 import { ItemDetail } from './ItemDetail'
 
 interface Props {
@@ -141,6 +143,8 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
   const [busy, setBusy] = useState(false)
   /** Schwächen-Training: hier mit „gewusst“ behobene Karten */
   const [resolved, setResolved] = useState<string[]>([])
+  /** Meilensteine der Session (Silber, Gold, Hero-Sterne) */
+  const [achieved, setAchieved] = useState<SoulsGain[]>([])
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
   // Detailseite eines Items (aus dem Build-Pfad) über der Session – als Verlaufseintrag,
@@ -209,7 +213,8 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
     if (!current || busy) return
     setBusy(true)
     try {
-      await rateCard(current.id, known, undefined, undefined, weakIds ? { weak: true } : undefined)
+      const result = await rateCard(current.id, known, undefined, undefined, weakIds ? { weak: true } : undefined)
+      if (result.milestones.length > 0) setAchieved(a => [...a, ...result.milestones])
       if (weakIds && known) setResolved(r => (r.includes(current.id) ? r : [...r, current.id]))
       const next = afterRating(queue, current.id, known)
       setQueue(next.queue)
@@ -290,6 +295,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
             <p className="muted small">Die nicht gewusste Karte kommt in ein paar Minuten wieder – schau dann nochmal rein.</p>
           )}
           {reviewedToday >= settings.dailyGoal && <p className="good">Tagesziel erreicht.</p>}
+          <MilestoneSummary gains={achieved} />
           <button className="primary" onClick={onExit}>Zurück</button>
         </div>
       )}

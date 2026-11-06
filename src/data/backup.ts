@@ -1,3 +1,4 @@
+import { checkAllMilestones, getMilestones, resetMilestonesInTx, type MilestoneMap, type StarMap } from '../game/milestones'
 import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import { db, getBuildBests, getMeta, getSettings, saveSettings, setMeta, type BuildBest, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
@@ -19,6 +20,12 @@ export interface BackupFile {
   soulsStart?: string
   /** Fehler der letzten 14 Tage (Schwächen-Training) */
   mistakes?: MistakeEntry[]
+  /** Schon belohnte Meilensteine: Karte → Silber/Gold */
+  milestones?: MilestoneMap
+  /** Schon belohnte Hero-Sterne */
+  heroStars?: StarMap
+  /** Heroes, die einmal ohne Aufdecken, Joker und Fehltipp erraten wurden */
+  guessClean?: string[]
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -35,6 +42,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     souls: await database.souls.toArray(),
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
     mistakes: await database.mistakes.toArray(),
+    ...(await getMilestones(database)),
   }
 }
 
@@ -87,10 +95,22 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     if (typeof backup.quizHighscore === 'number') await setMeta('quizHighscore', backup.quizHighscore, database)
     if (typeof backup.guessHighscore === 'number') await setMeta('guessHighscore', backup.guessHighscore, database)
     if (backup.buildBest && typeof backup.buildBest === 'object') await setMeta('buildBest', backup.buildBest, database)
+    // Meilensteine gehören zum Souls-Verlauf des Backups (alte Backups: keine – werden unten neu berechnet)
+    await resetMilestonesInTx(database, {
+      milestones: isRecord(backup.milestones) ? backup.milestones : undefined,
+      heroStars: isRecord(backup.heroStars) ? backup.heroStars : undefined,
+      guessClean: Array.isArray(backup.guessClean) ? backup.guessClean : undefined,
+    })
   })
   if (!Array.isArray(backup.souls) || backup.souls.length === 0) {
     await seedSoulsFromHistory((await getSettings(database)).dailyGoal, database)
   }
+  // Meilensteine, die der Fortschritt hergibt, aber noch nicht belohnt sind (z. B. Backup von vor den Meilensteinen)
+  await checkAllMilestones(new Date(), database)
+}
+
+function isRecord<T>(value: T | undefined): value is T {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export function downloadBackup(backup: BackupFile): void {

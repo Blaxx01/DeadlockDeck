@@ -14,12 +14,18 @@ export type View =
   | { name: 'builds' }
   | { name: 'weak' }
   | { name: 'shop' }
+  /** Hero-Meisterschaft (Sterne je Hero) */
+  | { name: 'heroes' }
+  /** Statistik (über die Rang-Karte) */
+  | { name: 'stats' }
   | { name: 'settings' }
 
 export interface NavState {
   view?: View
   /** Geöffnete Item-Detailseite (Karten-ID) – im Shop, über der Lernsession oder im Build-Quiz */
   item?: string
+  /** Geöffnete Hero-Seite der Meisterschaft (Hero-Karten-ID) */
+  hero?: string
 }
 
 export function currentNav(): NavState {

@@ -1,11 +1,14 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { createBackup, parseBackup, restoreBackup } from './backup'
-import { DeckDB, getBuildBests, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitBuildResult, submitGuessScore, submitQuizScore } from './db'
+import { DeckDB, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, saveSettings, submitBuildResult, submitGuessScore, submitQuizScore } from './db'
 import { QUIZ_KINDS } from './model'
 import { rateCard } from '../srs/srs'
 import { awardRound, getSoulsTotal } from '../game/souls'
 import { logMistake } from '../game/weakness'
+import { checkAllMilestones } from '../game/milestones'
+import { item } from '../test/counterFixtures'
+import { review } from '../test/masteryFixtures'
 
 describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
@@ -74,6 +77,33 @@ describe('Backup', () => {
     })
     await restoreBackup(parseBackup(old), dst)
     expect(await getSoulsTotal(dst)).toBe(3 * 10 + 100)
+  })
+
+  it('nimmt Meilensteine mit (keine doppelten Souls); alte Backups ohne Meilensteine werden neu berechnet', async () => {
+    const src = new DeckDB(`b-${Math.random()}`)
+    await src.items.put(item(1, 'Item 1'))
+    await src.reviews.put(review('item:item_1', 30))
+    await checkAllMilestones(new Date(2026, 10, 5), src)
+    await src.meta.put({ key: 'guessClean', value: ['hero:hero_haze'] })
+    const backup = await createBackup(src)
+    expect(backup.milestones).toEqual({ 'item:item_1': 'silver' })
+    expect(backup.guessClean).toEqual(['hero:hero_haze'])
+
+    const dst = new DeckDB(`b-${Math.random()}`)
+    await dst.items.put(item(1, 'Item 1'))
+    await restoreBackup(parseBackup(JSON.stringify(backup)), dst)
+    expect(await getSoulsTotal(dst)).toBe(25)
+    expect(await getMeta('milestones', {}, dst)).toEqual({ 'item:item_1': 'silver' })
+    expect(await getMeta('guessClean', [], dst)).toEqual(['hero:hero_haze'])
+
+    const old = JSON.stringify({
+      app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(), settings: { dailyGoal: 20, newPerDay: 3, slots: ['weapon'] },
+      reviews: [review('item:item_1', 70)], days: [],
+    })
+    await restoreBackup(parseBackup(old), dst)
+    // Silber + Gold neu berechnet; der erratene Hero gehörte nicht zu diesem Backup
+    expect(await getSoulsTotal(dst)).toBe(75)
+    expect(await getMeta('guessClean', [], dst)).toEqual([])
   })
 
   it('lehnt fremde Dateien ab', () => {

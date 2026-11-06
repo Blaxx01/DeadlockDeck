@@ -6,6 +6,7 @@ import { showPatchNote } from '../data/patches'
 import { db } from '../data/db'
 import { CORRUPTED_VARIANCE_PERCENT, type CorruptedInfo, type ItemCard } from '../data/model'
 import { describeLearnState, requestLearn } from '../srs/srs'
+import { MASTERY_LABEL, MASTERY_MEDAL, MASTERY_NEXT, masteryOf } from '../game/mastery'
 
 interface Props {
   card: ItemCard
@@ -66,6 +67,7 @@ export function ItemDetail({ card, cards, onBack, onOpen, backLabel = 'Shop' }: 
   useEffect(() => { pageRef.current?.focus({ preventScroll: true }) }, [card.id])
   const byName = useMemo(() => new Map(cards.map(c => [c.name, c])), [cards])
   const state = loaded ? describeLearnState(loaded.review) : undefined
+  const level = loaded ? masteryOf(loaded.review) : undefined
 
   function openByName(name: string) {
     const target = byName.get(name)
@@ -100,6 +102,12 @@ export function ItemDetail({ card, cards, onBack, onOpen, backLabel = 'Shop' }: 
             <p>
               <b>{state.label}</b>
               {state.detail && <span className="muted"> – {state.detail}</span>}
+            </p>
+          )}
+          {level && (
+            <p className="small album-line">
+              Sammelalbum: <b>{MASTERY_MEDAL[level]} {MASTERY_LABEL[level]}</b>
+              <span className="muted"> – {level === 'gold' ? 'höchste Stufe' : `nächste Stufe: ${MASTERY_NEXT[level]}`}</span>
             </p>
           )}
           {loaded && !loaded.review?.requested && (

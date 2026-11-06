@@ -209,12 +209,30 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 - Neue Tagesmission **„5 Schwächen-Karten üben“** (sobald es mind. 5 Schwächen gibt)
 
 ### Sammelalbum, Hero-Meisterschaft, Statistik (Etappe 3)
-- **Sammelalbum im Shop**: Rahmen **Bronze** (gelernt), **Silber** (nächste Wiederholung in ≥ 3 Wochen),
-  **Gold** (≥ 2 Monate); „x/58 gemeistert“ je Kategorie
-- **Hero-Meisterschaft**: 5 Sterne – Hero-Karte mind. Silber · alle 4 Fähigkeiten-Karten mind. Silber ·
-  Counter-Karte mind. Silber · Build-Quiz (Typisch) ohne Fehler · Hero erraten einmal ohne Aufdecken, Joker und Fehltipp
-- **Statistik-Seite** (über die Rang-Karte): Kalender der Lerntage, Souls-Verlauf, gelernte/gemeisterte Karten je Deck
-- **Meilenstein-Souls**: Karte erstmals Silber +25, erstmals Gold +50, neuer Hero-Stern +100
+- **Stufe einer Karte** aus dem Abstand, den das Lernsystem bei der letzten Wiederholung gewählt hat („Jetzt lernen“
+  und Patch-Fälligkeit ändern ihn nicht): **Bronze** = gelernt, **Silber** = nächste Wiederholung in ≥ 3 Wochen,
+  **Gold** = in ≥ 2 Monaten („gemeistert“). Eine vergessene Karte verliert ihre Stufe wieder
+- **Sammelalbum im Shop**: Item-Kacheln mit Rahmen und Medaille (🥉🥈🥇) nach Stufe; je Kategorie „x/y gemeistert“
+  (Gold) mit Balken und Anzahl je Stufe; die Detailseite zeigt die Stufe und was zur nächsten fehlt
+- **Hero-Meisterschaft** (Kachel „Heroes“ auf der Startseite): Raster aller Heroes mit Sternen, je Hero 5 –
+  Hero-Karte mind. Silber · alle 4 Fähigkeiten-Karten mind. Silber · Counter-Karte mind. Silber · Build-Quiz
+  (Typisch) ohne Fehler (Bestwert) · Hero erraten einmal ohne Aufdecken, Joker und Fehltipp
+  - Die Sterne der Karten zeigen den aktuellen Stand (Karte vergessen → Stern weg, bis sie wieder sitzt)
+  - Hero-Seite: Stand je Stern (Fähigkeiten einzeln mit Stufe) und „Neue Karten von … lernen“ – merkt die noch nie
+    gelernten Karten des Heroes für die nächste Session ihres Decks vor
+- **Statistik-Seite** (Rang-Karte antippen oder Kachel „Statistik“):
+  - Kennzahlen: Streak (und längster), Lerntage, Bewertungen, Hero-Sterne
+  - **Kalender der Lerntage**: 20 Wochen wie bei GitHub – gelernt / Tagesziel / doppeltes Tagesziel, verbrauchter
+    Streak-Schutz markiert; Tag antippen zeigt die Details; auch als Liste
+  - **Souls-Verlauf**: Stand am Ende jedes Tages seit dem ersten Eintrag; antippen/überfahren zeigt Tag, Stand und
+    Änderung; auch als Tabelle
+  - **Karten je Deck**: gelernt und gemeistert, Balken nach Stufe
+- **Meilenstein-Souls**: Karte erstmals Silber +25, erstmals Gold +50 (direkt Gold: beides), jeder neue Hero-Stern +100 –
+  jeweils nur einmal, auch wenn eine Karte vergessen und wieder gefestigt wird
+  - Einblendung „🥈 Silber +25 ◆“ bzw. „★ Haze +100 ◆“, am Ende der Lern-Session bzw. Runde zusammengefasst
+  - Bisheriger Fortschritt wird beim ersten Start einmalig still gutgeschrieben (zählt nicht als Lerntag für den
+    Rang-Verfall); im Backup enthalten
+- Farben: eine Bernstein-Reihe (heller = mehr) für Stufen und Kalender, Medaillen bzw. Beschriftung als zweites Merkmal
 
 ### Sprint & Überleben (Etappe 4)
 - **60-Sekunden-Sprint**: Items, Fähigkeiten und Heroes am Bild erkennen (4 Antworten), umschaltbar auf eine Sorte;
@@ -223,7 +241,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   Zeit abgelaufen = Leben weg; Highscore = überlebte Fragen
 
 ## Daten & Fortschritt
-- Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf und Screenshots: lokal in IndexedDB
+- Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
 
 ## Reihenfolge
@@ -239,7 +257,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 10. Fortschritt & Motivation in 4 Etappen:
     1. ✅ Souls & Rang, Tagesmissionen, Streak-Schutz, Rang-Verfall, neue Startseite, Effekte
     2. ✅ Schwächen-Training
-    3. Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
+    3. ✅ Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
     4. Sprint, Überleben
 
 ## Offene Punkte / Risiken

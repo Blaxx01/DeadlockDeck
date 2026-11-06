@@ -19,7 +19,11 @@ Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Ka
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
 täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
 ab dem 6. Tag ohne Lernen. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
-häufigsten gezielt – „gewusst“ im Training behebt die Schwäche.
+häufigsten gezielt – „gewusst“ im Training behebt die Schwäche. Was wirklich sitzt, zeigt das **Sammelalbum** im Shop
+(Rahmen Bronze/Silber/Gold je nach Abstand bis zur nächsten Wiederholung), die **Hero-Meisterschaft** (5 Sterne je Hero:
+Hero-, Fähigkeiten- und Counter-Karte, Build-Quiz ohne Fehler, Hero erraten ohne Hilfe) und die **Statistik** mit
+Kalender der Lerntage, Souls-Verlauf und Karten je Deck. Neue Silber- und Gold-Karten und neue Sterne bringen
+**Meilenstein-Souls**.
 
 Nach einem **Spiel-Patch** erkennt die App beim nächsten Sync geänderte und neue Karten, zeigt „vorher → nachher“
 und holt schon gelernte geänderte Karten sofort in die Wiederholung.
@@ -60,13 +64,17 @@ Aufbau:
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
 | `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, Rangfolge, Training |
+| `src/game/mastery.ts`, `src/game/heroMastery.ts` | Stufe einer Karte (Bronze/Silber/Gold), Sterne je Hero |
+| `src/game/milestones.ts` | Meilenstein-Souls (Silber, Gold, Hero-Sterne), nachträgliches Gutschreiben |
+| `src/game/stats.ts`, `src/views/Stats.tsx` | Statistik: Kalender der Lerntage, Souls-Verlauf, Karten je Deck |
+| `src/views/Heroes.tsx` | Hero-Meisterschaft: Raster mit Sternen, Hero-Seite |
 | `src/components/SoulsFx.tsx` | „+10 ◆“-Animation und Aufstieg mit Konfetti |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
 | `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
 | `src/views/Quiz.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis |
-| `src/views/Shop.tsx`, `src/views/ItemDetail.tsx` | Shop (Tabs, Tiers, Suche) und Item-Detailseite |
+| `src/views/Shop.tsx`, `src/views/ItemDetail.tsx` | Shop (Tabs, Tiers, Suche, Sammelalbum) und Item-Detailseite |
 | `src/shop/search.ts` | Shop-Aufbau und Suche (Name + Effekttext) |
 | `src/nav.ts` | Navigation über den Browser-Verlauf (Zurück-Geste) |
 | `src/components/FlashCard.tsx` | Karte mit Umdrehen + Swipe |

@@ -1,6 +1,7 @@
 import { createEmptyCard, fsrs, Rating, State, type Card } from 'ts-fsrs'
 import { db, type DayRecord, type DeckDB, type ReviewRecord } from '../data/db'
 import { addCardSoulsInTx, announceGain, type SoulsGain } from '../game/souls'
+import { checkCardMilestones } from '../game/milestones'
 import { checkDailyBonuses } from '../game/missions'
 import { logMistakeInTx, resolveWeaknessInTx } from '../game/weakness'
 import { deckOfCardId } from '../decks'
@@ -69,6 +70,8 @@ export function nextCard(card: Card, known: boolean, now: Date): Card {
 export interface RateResult {
   wasNew: boolean
   due: Date
+  /** Meilensteine dieser Bewertung (Karte erstmals Silber/Gold, neuer Hero-Stern) */
+  milestones: SoulsGain[]
 }
 
 export interface RateOptions {
@@ -121,9 +124,10 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     return { wasNew, due: updated.due }
   })
   if (gain) announceGain(gain)
-  // Tagesziel-Bonus und Tagesmissionen
+  // Meilensteine (Silber, Gold, Hero-Sterne), dann Tagesziel-Bonus und Tagesmissionen
+  const milestones = await checkCardMilestones([id], now, database)
   await checkDailyBonuses(now, database)
-  return result
+  return { ...result, milestones }
 }
 
 /** Alle 7 Streak-Tage gibt es einen Streak-Schutz, höchstens 2 */
@@ -137,6 +141,8 @@ export interface StreakState {
   shields: number
   /** Tage, an denen ein Schutz verbraucht wurde */
   protectedDays: string[]
+  /** Längster Streak bisher (für die Statistik) */
+  longest: number
 }
 
 /**
@@ -150,9 +156,11 @@ export function computeStreakState(days: DayRecord[], goal: number, today: Date 
   const first = [...met].sort()[0]
   let streak = 0
   let shields = 0
+  let longest = 0
   const protectedDays: string[] = []
   const reached = () => {
     streak++
+    longest = Math.max(longest, streak)
     if (streak % SHIELD_EVERY === 0) shields = Math.min(MAX_SHIELDS, shields + 1)
   }
   for (let d = first; d !== undefined && d < todayKey; d = addDays(d, 1)) {
@@ -163,7 +171,7 @@ export function computeStreakState(days: DayRecord[], goal: number, today: Date 
     } else streak = 0
   }
   if (met.has(todayKey)) reached()
-  return { streak, shields, protectedDays }
+  return { streak, shields, protectedDays, longest }
 }
 
 /** Anzahl aufeinanderfolgender Tage mit erreichtem Tagesziel (mit Streak-Schutz). */

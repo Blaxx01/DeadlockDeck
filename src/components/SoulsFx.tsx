@@ -65,7 +65,7 @@ export function SoulsFx() {
       const gain = (e as CustomEvent<SoulsGain>).detail
       if (gain.amount > 0 && effectsEnabled()) {
         const id = ++nextId.current
-        setFloats(f => [...f.slice(-3), { id, text: `+${gain.amount} ◆` }])
+        setFloats(f => [...f.slice(-3), { id, text: `${gain.label ? `${gain.label} ` : ''}+${gain.amount} ◆` }])
         window.setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), 1300)
       }
       const before = rankForSouls(gain.before)

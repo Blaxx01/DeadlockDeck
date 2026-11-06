@@ -4,6 +4,7 @@ import { syncCounters } from './data/counterSync'
 import { SoulsFx } from './components/SoulsFx'
 import { db, getMeta, getSettings, setMeta } from './data/db'
 import { setEffectsEnabled } from './game/effects'
+import { checkAllMilestones } from './game/milestones'
 import { checkDailyBonuses } from './game/missions'
 import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
 import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
@@ -18,6 +19,8 @@ import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
 import { Weakness } from './views/Weakness'
 import { Shop } from './views/Shop'
+import { Heroes } from './views/Heroes'
+import { Stats } from './views/Stats'
 
 /** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
 async function rankImageUrls(): Promise<string[]> {
@@ -27,7 +30,7 @@ async function rankImageUrls(): Promise<string[]> {
   return [rankImage(rank, assets), next && rankImage(next, assets)].filter((u): u is string => !!u)
 }
 
-/** Souls beim Start: einmalig rückwirkend gutschreiben, dann fälligen Rang-Verfall buchen */
+/** Souls beim Start: einmalig rückwirkend gutschreiben, fälligen Rang-Verfall buchen, offene Meilensteine */
 async function startSouls() {
   const settings = await getSettings()
   setEffectsEnabled(settings.effects)
@@ -35,6 +38,8 @@ async function startSouls() {
   await applyDecay()
   // Fehler älter als 14 Tage zählen nicht mehr als Schwäche
   await pruneMistakes()
+  // Meilensteine (Silber, Gold, Hero-Sterne), die noch nicht gutgeschrieben sind – z. B. bisheriger Fortschritt
+  await checkAllMilestones()
 }
 
 /** Counter- und Build-Statistik: höchstens wöchentlich, im Hintergrund, nacheinander (schont die API) */
@@ -147,6 +152,8 @@ export default function App() {
           onBuilds={() => navigate({ name: 'builds' })}
           onWeak={() => navigate({ name: 'weak' })}
           onShop={() => navigate({ name: 'shop' })}
+          onHeroes={() => navigate({ name: 'heroes' })}
+          onStats={() => navigate({ name: 'stats' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
@@ -160,6 +167,8 @@ export default function App() {
       {view.name === 'builds' && <BuildQuiz onExit={goBack} />}
       {view.name === 'weak' && <Weakness onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
+      {view.name === 'heroes' && <Heroes onBack={goBack} />}
+      {view.name === 'stats' && <Stats onBack={goBack} onHeroes={() => navigate({ name: 'heroes' })} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}

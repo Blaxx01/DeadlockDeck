@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
 import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/db'
+import { resetMilestonesInTx } from '../game/milestones'
 import { setEffectsEnabled } from '../game/effects'
 import { GUESS_KIND_LABEL, GUESS_KINDS, QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type GuessKind, type QuizKind, type SlotType } from '../data/model'
 
@@ -73,6 +74,7 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       await db.souls.clear()
       await setMeta('soulsTotal', 0)
       await setMeta('missions', null)
+      await resetMilestonesInTx(db)
     })
     setMessage('Fortschritt gelöscht.')
   }

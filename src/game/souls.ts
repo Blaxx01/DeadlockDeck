@@ -5,7 +5,18 @@
 import { addDays, daysBetween, localDate } from '../data/dates'
 import { db, getMeta, setMeta, type DeckDB } from '../data/db'
 
-export type SoulsReason = 'card' | 'goal' | 'quiz' | 'guess' | 'build' | 'mission' | 'missions' | 'decay' | 'history'
+export type SoulsReason =
+  | 'card' | 'goal' | 'quiz' | 'guess' | 'build' | 'mission' | 'missions' | 'decay' | 'history'
+  /** Karte erstmals Silber/Gold (milestones.ts) */
+  | 'milestone'
+  /** Neuer Hero-Stern (milestones.ts) */
+  | 'star'
+
+/**
+ * Zählen nicht als Lerntag (Rang-Verfall): Verfall und Meilensteine. Meilensteine kommen sonst immer mit
+ * einer Aktivität – nur das nachträgliche Gutschreiben beim Start wäre sonst ein Lerntag ohne Lernen.
+ */
+const NOT_ACTIVITY: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'milestone', 'star'])
 
 /** Spielmodi mit Runden (je Modus und Tag: die ersten 3 Runden voll, danach ¼) */
 export type RoundMode = 'quiz' | 'guess' | 'build'
@@ -43,6 +54,8 @@ export interface SoulsGain {
   reason: SoulsReason
   before: number
   after: number
+  /** Kurzer Text vor „+N ◆“, z. B. „🥈 Silber“ oder „★ Haze“ */
+  label?: string
 }
 
 /** Für Animationen: „+10 ◆“ und Aufstieg */
@@ -67,7 +80,8 @@ export async function addSoulsInTx(database: DeckDB, entry: NewSoulsEntry): Prom
 }
 
 export async function awardSouls(entry: NewSoulsEntry, database: DeckDB = db): Promise<SoulsGain> {
-  const gain = await database.transaction('rw', database.souls, database.meta, () => addSoulsInTx(database, entry))
+  // async-Funktion als Rahmen: nur dann hält Dexie die Transaktion über native awaits hinweg
+  const gain = await database.transaction('rw', database.souls, database.meta, async () => addSoulsInTx(database, entry))
   emitGain(gain)
   return gain
 }
@@ -122,7 +136,7 @@ export async function awardRound(
  * zählt mit – eine Pause von vor dem Update führt nicht sofort zu Verfall.
  */
 export async function lastActiveDate(database: DeckDB = db): Promise<string | undefined> {
-  const last = (await database.souls.orderBy('date').reverse().filter(e => e.reason !== 'decay').first())?.date
+  const last = (await database.souls.orderBy('date').reverse().filter(e => !NOT_ACTIVITY.has(e.reason)).first())?.date
   const start = await getMeta<string | undefined>('soulsStart', undefined, database)
   if (!last) return undefined
   return start && start > last ? start : last

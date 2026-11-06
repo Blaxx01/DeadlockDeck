@@ -4,6 +4,7 @@ import { State } from 'ts-fsrs'
 import { RankBadge } from '../components/RankBadge'
 import { db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, setMeta, type LastPatch, type ReviewRecord } from '../data/db'
 import { DECKS, newIntroducedToday, type DeckId } from '../decks'
+import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
@@ -17,6 +18,8 @@ interface Props {
   onBuilds: () => void
   onWeak: () => void
   onShop: () => void
+  onHeroes: () => void
+  onStats: () => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -114,29 +117,43 @@ function decayWarning(daysWithout: number): string | undefined {
   return `Rang-Verfall: −${DECAY_SOULS} ◆ pro Tag ohne Lernen – heute lernen stoppt ihn.`
 }
 
-function RankCard({ souls, assets, streak, warning }: { souls: number; assets: RankAsset[]; streak: StreakState; warning?: string }) {
+interface RankCardProps {
+  souls: number
+  assets: RankAsset[]
+  streak: StreakState
+  warning?: string
+  onStats: () => void
+}
+
+/** Rang-Karte – antippen öffnet die Statistik */
+function RankCard({ souls, assets, streak, warning, onStats }: RankCardProps) {
   const rank = rankForSouls(souls)
   return (
     <div className="panel rank-card">
-      <div className="rank-row">
-        <RankBadge rank={rank} assets={assets} />
-        <div className="rank-info">
-          <div className="rank-name">{rankLabel(rank, assets)}</div>
-          <div className="muted small">◆ {souls.toLocaleString('de-DE')} Souls</div>
-        </div>
-        <div className="streak" title="Tage in Folge mit erreichtem Tagesziel – Streak-Schutz fängt einen verpassten Tag ab">
-          <div className="big">🔥 {streak.streak}</div>
-          <div className="muted small">
-            {streak.shields > 0 ? <span aria-label={`${streak.shields} Streak-Schutz`}>{'🛡'.repeat(streak.shields)}</span> : 'Streak'}
-          </div>
-        </div>
-      </div>
-      <div className="goal-bar rank-bar"><div style={{ width: `${Math.round(rank.progress * 100)}%` }} /></div>
-      <div className="muted small">
-        {rank.next
-          ? `noch ${(rank.next.souls - souls).toLocaleString('de-DE')} ◆ bis ${rankLabel(rank.next, assets)}`
-          : 'Höchster Rang erreicht'}
-      </div>
+      <button className="rank-main" onClick={onStats}>
+        <span className="rank-row">
+          <RankBadge rank={rank} assets={assets} />
+          <span className="rank-info">
+            <span className="rank-name">{rankLabel(rank, assets)}</span>
+            <span className="muted small">◆ {souls.toLocaleString('de-DE')} Souls</span>
+          </span>
+          <span className="streak" title="Tage in Folge mit erreichtem Tagesziel – Streak-Schutz fängt einen verpassten Tag ab">
+            <span className="big">🔥 {streak.streak}</span>
+            <span className="muted small">
+              {streak.shields > 0 ? <span aria-label={`${streak.shields} Streak-Schutz`}>{'🛡'.repeat(streak.shields)}</span> : 'Streak'}
+            </span>
+          </span>
+        </span>
+        <span className="goal-bar rank-bar"><span style={{ width: `${Math.round(rank.progress * 100)}%` }} /></span>
+        <span className="rank-foot muted small">
+          <span>
+            {rank.next
+              ? `noch ${(rank.next.souls - souls).toLocaleString('de-DE')} ◆ bis ${rankLabel(rank.next, assets)}`
+              : 'Höchster Rang erreicht'}
+          </span>
+          <span className="rank-more">Statistik ›</span>
+        </span>
+      </button>
       {warning && <p className="rank-warning">⚠ {warning}</p>}
     </div>
   )
@@ -224,6 +241,7 @@ function useHomeStats() {
       // Build-Quiz: Heroes mit typischem Build (kommen wöchentlich mit der Statistik)
       buildCount: await db.builds.where('source').equals('typical').count(),
       heroCount: ids.heroes.length,
+      heroStars: (await allHeroMastery()).reduce((sum, m) => sum + m.stars.length, 0),
     }
   }, [tick])
 }
@@ -251,7 +269,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
   )
 }
 
-export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onHeroes, onStats, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -280,7 +298,7 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onSet
 
       {s.patch && <PatchNotice patch={s.patch} />}
 
-      <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} />
+      <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
 
       <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} />
 
@@ -321,7 +339,17 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onSet
           </button>
           <button className="mode-tile" onClick={onShop} aria-label="Shop öffnen">
             <span className="mode-name">Shop</span>
-            <span className="muted small">Nachschlagen</span>
+            <span className="muted small">Nachschlagen · Sammelalbum</span>
+          </button>
+          {s.heroCount > 0 && (
+            <button className="mode-tile" onClick={onHeroes} aria-label="Hero-Meisterschaft öffnen">
+              <span className="mode-name">Heroes</span>
+              <span className="muted small"><span className="star-on">★</span> {s.heroStars.toLocaleString('de-DE')} / {(s.heroCount * MAX_STARS).toLocaleString('de-DE')} Sterne</span>
+            </button>
+          )}
+          <button className="mode-tile" onClick={onStats} aria-label="Statistik öffnen">
+            <span className="mode-name">Statistik</span>
+            <span className="muted small">Lerntage · Souls · Decks</span>
           </button>
         </div>
       </div>
