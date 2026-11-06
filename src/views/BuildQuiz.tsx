@@ -7,6 +7,9 @@ import {
 import { buildBestKey, db, getBuildBests, getMeta, setMeta, submitBuildResult, type BuildBest } from '../data/db'
 import { BUILD_SOURCE_LABEL, BUILD_SOURCES, type BuildItem, type BuildRecord, type BuildSource } from '../data/model'
 import { currentNav, pushNav, type NavState } from '../nav'
+import { vibrate } from '../game/effects'
+import { finishRound } from '../game/missions'
+import type { RoundAward } from '../game/souls'
 import { requestLearn } from '../srs/srs'
 import { ItemDetail } from './ItemDetail'
 
@@ -17,7 +20,7 @@ interface Props {
 type Phase =
   | { name: 'start' }
   | { name: 'round'; round: BuildRound; no: number }
-  | { name: 'result'; round: BuildRound; progress: BuildProgress; ms: number; newBest: boolean }
+  | { name: 'result'; round: BuildRound; progress: BuildProgress; ms: number; newBest: boolean; earned: RoundAward }
 
 const SOURCE_HINT: Record<BuildSource, string> = {
   typical: 'Die 16 meistgekauften Items des Heroes ab Orakel (letzte 30 Tage), nach Kaufzeit.',
@@ -117,6 +120,7 @@ function RoundView({ round, onFinish, onCancel }: RoundProps) {
     const result = pickName(round, progress, id)
     setProgress(result.progress)
     if (!result.correct) {
+      vibrate()
       setFlash(id)
       window.setTimeout(() => setFlash(f => (f === id ? null : f)), 600)
     }
@@ -205,6 +209,7 @@ interface ResultProps {
   progress: BuildProgress
   ms: number
   newBest: boolean
+  earned: RoundAward
   best?: BuildBest
   onOpenItem: (id: string) => void
   onAgain: () => void
@@ -212,7 +217,7 @@ interface ResultProps {
   onExit: () => void
 }
 
-function ResultView({ round, progress, ms, newBest, best, onOpenItem, onAgain, onOther, onExit }: ResultProps) {
+function ResultView({ round, progress, ms, newBest, earned, best, onOpenItem, onAgain, onOther, onExit }: ResultProps) {
   const mistakes = useMemo(() => buildMistakes(round, progress), [round, progress])
   const missed = new Set(mistakes.map(m => m.item.id))
   const buildItems = new Map(round.build.sections.flatMap(s => s.items).map(i => [i.itemId, i]))
@@ -236,6 +241,9 @@ function ResultView({ round, progress, ms, newBest, best, onOpenItem, onAgain, o
       {newBest
         ? <p className="good center-text">Neuer Bestwert! 🎉</p>
         : best && <p className="muted small center-text">Bestwert: {best.errors} Fehler · {formatDuration(best.ms)}</p>}
+      <p className="souls-earned center-text">
+        +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
+      </p>
 
       {mistakes.length > 0 && (
         <div className="panel">
@@ -343,7 +351,11 @@ export function BuildQuiz({ onExit }: Props) {
   async function finish(round: BuildRound, progress: BuildProgress, ms: number) {
     const key = buildBestKey(round.build.source, round.build.heroId)
     const newBest = await submitBuildResult(key, { errors: progress.errors, ms })
-    setPhase({ name: 'result', round, progress, ms, newBest })
+    // Souls: +5 je Item, +50 ohne Fehler (ab der 4. Runde des Tages ¼)
+    const earned = await finishRound('build', 5 * round.order.length + (progress.errors === 0 ? 50 : 0), {
+      errors: progress.errors, items: round.order.length, heroId: round.build.heroId, source: round.build.source,
+    })
+    setPhase({ name: 'result', round, progress, ms, newBest, earned })
   }
 
   if (!source || !builds || !allItems || !bests) return <div className="center muted">Lade…</div>
@@ -370,6 +382,7 @@ export function BuildQuiz({ onExit }: Props) {
           progress={phase.progress}
           ms={phase.ms}
           newBest={phase.newBest}
+          earned={phase.earned}
           best={bests[buildBestKey(phase.round.build.source, phase.round.build.heroId)]}
           onOpenItem={openItem}
           onAgain={() => start(phase.round.build)}

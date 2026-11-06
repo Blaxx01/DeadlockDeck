@@ -1,3 +1,4 @@
+import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
 import { db, getBuildBests, getMeta, getSettings, saveSettings, setMeta, type BuildBest, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
 
 export interface BackupFile {
@@ -11,6 +12,10 @@ export interface BackupFile {
   guessHighscore?: number
   /** Build-Quiz-Bestwerte je Hero und Build-Art */
   buildBest?: Record<string, BuildBest>
+  /** Souls-Verlauf (Rang) */
+  souls?: SoulsEntry[]
+  /** Start der Souls-Funktion (für den Rang-Verfall) */
+  soulsStart?: string
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -24,6 +29,8 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     quizHighscore: await getMeta<number>('quizHighscore', 0, database),
     guessHighscore: await getMeta<number>('guessHighscore', 0, database),
     buildBest: await getBuildBests(database),
+    souls: await database.souls.toArray(),
+    soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
   }
 }
 
@@ -57,9 +64,17 @@ export function parseBackup(json: string): BackupFile {
 
 /** Ersetzt Fortschritt und Einstellungen durch den Inhalt des Backups. */
 export async function restoreBackup(backup: BackupFile, database: DeckDB = db): Promise<void> {
-  await database.transaction('rw', database.reviews, database.days, database.meta, async () => {
+  await database.transaction('rw', [database.reviews, database.days, database.meta, database.souls], async () => {
     await database.reviews.clear()
     await database.days.clear()
+    await database.souls.clear()
+    // Souls: aus dem Backup – bei alten Backups ohne Souls aus der Tageshistorie neu berechnen (unten)
+    const souls = Array.isArray(backup.souls) ? backup.souls : []
+    await database.souls.bulkAdd(souls)
+    await setMeta('soulsTotal', souls.reduce((sum, e) => sum + (Number(e.amount) || 0), 0), database)
+    await setMeta('soulsSeeded', souls.length > 0, database)
+    if (backup.soulsStart) await setMeta('soulsStart', backup.soulsStart, database)
+    await setMeta('missions', null, database)
     await database.reviews.bulkPut(backup.reviews)
     await database.days.bulkPut(backup.days)
     if (backup.settings) await saveSettings(backup.settings, database)
@@ -67,6 +82,9 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     if (typeof backup.guessHighscore === 'number') await setMeta('guessHighscore', backup.guessHighscore, database)
     if (backup.buildBest && typeof backup.buildBest === 'object') await setMeta('buildBest', backup.buildBest, database)
   })
+  if (!Array.isArray(backup.souls) || backup.souls.length === 0) {
+    await seedSoulsFromHistory((await getSettings(database)).dailyGoal, database)
+  }
 }
 
 export function downloadBackup(backup: BackupFile): void {

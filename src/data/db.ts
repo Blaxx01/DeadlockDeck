@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
+import type { SoulsEntry } from '../game/souls'
 import type { PatchRecord } from './patches'
 import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
@@ -39,6 +40,8 @@ export interface Settings {
   knownQuizKinds?: QuizKind[]
   /** Varianten beim Hero-Erraten */
   guessKinds: GuessKind[]
+  /** Animationen und Vibration (Souls, Aufstieg, Fehler) */
+  effects: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   slots: ['weapon', 'vitality', 'spirit'],
   quizKinds: [...QUIZ_KINDS],
   guessKinds: [...GUESS_KINDS],
+  effects: true,
 }
 
 export class DeckDB extends Dexie {
@@ -57,6 +61,8 @@ export class DeckDB extends Dexie {
   counters!: EntityTable<CounterCard, 'id'>
   /** Builds fürs Build-Quiz (typisch + Community, wöchentlich neu) */
   builds!: EntityTable<BuildRecord, 'id'>
+  /** Souls-Verlauf (Rang, Statistik, Tagesmissionen) */
+  souls!: EntityTable<SoulsEntry, 'id'>
   /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
   patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
@@ -87,6 +93,10 @@ export class DeckDB extends Dexie {
     // Build-Quiz
     this.version(5).stores({
       builds: 'id, source',
+    })
+    // Souls & Rang
+    this.version(6).stores({
+      souls: '++id, date, reason',
     })
   }
 }

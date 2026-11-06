@@ -1,16 +1,14 @@
 import { createEmptyCard, fsrs, Rating, State, type Card } from 'ts-fsrs'
 import { db, type DayRecord, type DeckDB, type ReviewRecord } from '../data/db'
+import { addCardSoulsInTx, announceGain, type SoulsGain } from '../game/souls'
+import { checkDailyBonuses } from '../game/missions'
 import { deckOfCardId } from '../decks'
+import { addDays, localDate } from '../data/dates'
 
 export const scheduler = fsrs({ enable_fuzz: true, request_retention: 0.9 })
 
 /** Lokales Datum als YYYY-MM-DD */
-export function localDate(d: Date = new Date()): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+export { localDate } from '../data/dates'
 
 export interface QueueInput {
   /** Kandidaten (bereits gefiltert); `order` bestimmt die Reihenfolge neuer Karten (z. B. Tier) */
@@ -74,7 +72,8 @@ export interface RateResult {
 
 /** Speichert eine Bewertung (Swipe) und zählt die Karte fürs Tagesziel – jede Karte nur einmal pro Tag. */
 export async function rateCard(id: string, known: boolean, now = new Date(), database: DeckDB = db): Promise<RateResult> {
-  return database.transaction('rw', database.reviews, database.days, async () => {
+  let gain: SoulsGain | undefined
+  const result = await database.transaction('rw', [database.reviews, database.days, database.souls, database.meta], async () => {
     const existing = await database.reviews.get(id)
     const wasNew = !existing || existing.state === State.New
     const base: Card = existing ?? createEmptyCard(now)
@@ -91,6 +90,8 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     if (!cards.includes(id)) {
       cards.push(id)
       day.reviewed += 1
+      // +10 Souls je Karte und Tag – gewusst oder nicht (ehrliches Bewerten soll sich lohnen)
+      gain = await addCardSoulsInTx(database, now)
     }
     day.cards = cards
     if (!existing) {
@@ -104,19 +105,55 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     await database.days.put(day)
     return { wasNew, due: updated.due }
   })
+  if (gain) announceGain(gain)
+  // Tagesziel-Bonus und Tagesmissionen
+  await checkDailyBonuses(now, database)
+  return result
 }
 
-/** Anzahl aufeinanderfolgender Tage mit erreichtem Tagesziel. Heute zählt mit, wenn erreicht; sonst ab gestern. */
-export function computeStreak(days: DayRecord[], goal: number, today: Date = new Date()): number {
+/** Alle 7 Streak-Tage gibt es einen Streak-Schutz, höchstens 2 */
+export const SHIELD_EVERY = 7
+export const MAX_SHIELDS = 2
+
+export interface StreakState {
+  /** Tage in Folge mit erreichtem Tagesziel (geschützte Tage zählen nicht mit, brechen ihn aber nicht) */
+  streak: number
+  /** Verfügbare Streak-Schutze */
+  shields: number
+  /** Tage, an denen ein Schutz verbraucht wurde */
+  protectedDays: string[]
+}
+
+/**
+ * Streak mit Streak-Schutz, aus der Tageshistorie berechnet (auch nach einem Import korrekt):
+ * erreichtes Tagesziel → Streak +1 (alle 7 Tage ein Schutz); verpasster Tag → ein Schutz wird
+ * verbraucht, sonst ist der Streak weg. Heute zählt erst, wenn das Ziel erreicht ist.
+ */
+export function computeStreakState(days: DayRecord[], goal: number, today: Date = new Date()): StreakState {
   const met = new Set(days.filter(d => d.reviewed >= goal).map(d => d.date))
-  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  if (!met.has(localDate(cursor))) cursor.setDate(cursor.getDate() - 1)
+  const todayKey = localDate(today)
+  const first = [...met].sort()[0]
   let streak = 0
-  while (met.has(localDate(cursor))) {
+  let shields = 0
+  const protectedDays: string[] = []
+  const reached = () => {
     streak++
-    cursor.setDate(cursor.getDate() - 1)
+    if (streak % SHIELD_EVERY === 0) shields = Math.min(MAX_SHIELDS, shields + 1)
   }
-  return streak
+  for (let d = first; d !== undefined && d < todayKey; d = addDays(d, 1)) {
+    if (met.has(d)) reached()
+    else if (streak > 0 && shields > 0) {
+      shields--
+      protectedDays.push(d)
+    } else streak = 0
+  }
+  if (met.has(todayKey)) reached()
+  return { streak, shields, protectedDays }
+}
+
+/** Anzahl aufeinanderfolgender Tage mit erreichtem Tagesziel (mit Streak-Schutz). */
+export function computeStreak(days: DayRecord[], goal: number, today: Date = new Date()): number {
+  return computeStreakState(days, goal, today).streak
 }
 
 /**

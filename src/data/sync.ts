@@ -4,6 +4,7 @@ import { db, getMeta, setMeta, type DeckDB, type LastPatch } from './db'
 import { buildHeroDecks } from './heroes'
 import { buildItemCards } from './normalize'
 import { cardLabel, detectChanges, detectRemoved, type AnyCard } from './patches'
+import { parseRanks, type ApiRank } from '../game/ranks'
 
 export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
 /**
@@ -52,13 +53,15 @@ export function assertPlausible(oldCount: number, newCount: number, label: strin
 
 /** Lädt alle Items (englisch + deutsch) und speichert die Karten in IndexedDB. */
 export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
-  const [english, german, generic, heroesEn, heroesDe] = await Promise.all([
+  const [english, german, generic, heroesEn, heroesDe, ranks] = await Promise.all([
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=english`),
     fetchJson<ApiItem[]>(`${API_BASE}/items?language=german`).catch(() => [] as ApiItem[]),
     // Broker-Nachteile und Corrupted-Preise – ohne sie fehlen nur diese Angaben
     fetchJson<ApiGenericData>(`${API_BASE}/generic-data`).catch(() => undefined),
     fetchJson<ApiHero[]>(`${API_BASE}/heroes?language=english`),
     fetchJson<ApiHero[]>(`${API_BASE}/heroes?language=german`).catch(() => [] as ApiHero[]),
+    // Rang-Namen und -Abzeichen für Souls & Rang – ohne sie bleiben die alten (oder die Standardnamen)
+    fetchJson<ApiRank[]>(`${API_BASE}/ranks?language=german`).catch(() => undefined),
   ])
   const cards = buildItemCards(english, german, generic)
   if (cards.length === 0) throw new Error('Die API hat keine Items geliefert.')
@@ -107,6 +110,7 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
     await database.heroes.bulkPut(heroes)
     await database.abilities.clear()
     await database.abilities.bulkPut(abilities)
+    if (ranks?.length) await setMeta('ranks', parseRanks(ranks), database)
     await setMeta('lastSync', Date.now(), database)
     await setMeta('dataVersion', DATA_VERSION, database)
   })

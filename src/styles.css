@@ -458,3 +458,74 @@ button.link {
 .bq-list li { display: flex; align-items: center; gap: 10px; }
 .bq-list li.missed button.link { color: var(--bad); }
 .bq-meta { margin-left: auto; white-space: nowrap; }
+
+/* ---------- Souls & Rang ---------- */
+.rank-card { display: flex; flex-direction: column; gap: 6px; }
+.rank-row { display: flex; align-items: center; gap: 12px; }
+.rank-badge { flex: none; width: 64px; height: 52px; display: grid; place-items: center; }
+.rank-badge img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+.rank-badge-fallback { font-size: 1.8rem; color: var(--accent); }
+.rank-badge.big { width: 180px; height: 145px; }
+.rank-badge.big .rank-badge-fallback { font-size: 4rem; }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 1.2rem; font-weight: 800; }
+.rank-bar > div { background: linear-gradient(90deg, #8e7cf0, var(--accent)); }
+.rank-warning { margin: 4px 0 0; font-size: 0.82rem; color: #e8a33c; }
+.toggle-field input[type=checkbox] { width: 24px; height: 24px; padding: 0; accent-color: var(--accent); flex: none; }
+
+/* Tagesmissionen */
+.missions { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.missions li { display: grid; grid-template-columns: 18px 1fr auto auto; align-items: baseline; gap: 8px; font-size: 0.92rem; }
+.missions li.done .mission-title { color: var(--muted); text-decoration: line-through; }
+.mission-check { color: var(--muted); font-weight: 800; }
+.missions li.done .mission-check { color: var(--good); }
+.mission-reward { color: var(--accent); font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+.missions li.done .mission-reward { color: var(--good); }
+.mission-bonus { margin: 6px 0 0; }
+
+/* Spielmodi als Kacheln */
+.mode-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.mode-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px; text-align: left; min-height: 64px; }
+.mode-name { font-weight: 700; font-size: 1rem; }
+.souls-earned { margin: 0; color: var(--accent); font-weight: 700; }
+
+/* „+10 ◆“ */
+.souls-floats {
+  position: fixed; top: max(12px, env(safe-area-inset-top)); right: 16px; z-index: 40; pointer-events: none;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+}
+.souls-float {
+  font-weight: 800; color: var(--accent); background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 99px; padding: 3px 10px;
+  animation: souls-float 1.3s ease-out forwards;
+}
+@keyframes souls-float {
+  0% { opacity: 0; transform: translateY(8px) scale(0.9); }
+  15% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-18px); }
+}
+
+/* Aufstieg */
+.rankup {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 80%, transparent); backdrop-filter: blur(3px);
+}
+.rankup-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 28px;
+  background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line)); border-radius: 22px;
+  animation: rankup-in 0.5s cubic-bezier(.2,1.4,.4,1) both;
+}
+.rankup-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 800; }
+.rankup-rank { font-size: 1.6rem; font-weight: 800; }
+.rankup-confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetto { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; animation: confetti-fall linear forwards; }
+@keyframes rankup-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(540deg); opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .souls-float, .rankup-card { animation: none; }
+  .rankup-confetti { display: none; }
+}

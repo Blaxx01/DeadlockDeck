@@ -34,7 +34,9 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Item-/Hero-Bilder vom Deadlock-API-CDN: einmal laden, dann aus dem Cache
-            urlPattern: ({ url }) => url.hostname.endsWith('deadlock-api.com') && /\.(png|webp|jpe?g|svg)$/i.test(url.pathname),
+            // Rang-Abzeichen mit Unterstufe kommen ohne Dateiendung (/v1/assets/ranks/8/3/image)
+            urlPattern: ({ url }) => url.hostname.endsWith('deadlock-api.com')
+              && (/\.(png|webp|jpe?g|svg)$/i.test(url.pathname) || /^\/v1\/assets\/ranks\/\d+\/\d+\/image$/.test(url.pathname)),
             handler: 'CacheFirst',
             options: {
               cacheName: 'deadlock-images',

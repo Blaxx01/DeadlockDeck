@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, getGuessHighscore, getSettings, submitGuessScore } from '../data/db'
+import { vibrate } from '../game/effects'
+import { finishRound } from '../game/missions'
+import type { RoundAward } from '../game/souls'
 import { GUESS_KIND_LABEL, type HeroCard } from '../data/model'
 import {
   MAX_REVEAL, START_POINTS, abilityReveal, applyAction, buildGuessRound, jokerOptions, stageStyle, type GuessQuestion,
@@ -84,6 +87,7 @@ export function Guess({ onExit }: Props) {
   const [results, setResults] = useState<Result[]>([])
   const [highscore, setHighscore] = useState(0)
   const [isNewHighscore, setIsNewHighscore] = useState(false)
+  const [earned, setEarned] = useState<RoundAward | null>(null)
   const finishing = useRef(false)
 
   /** Zustand für eine neue Frage */
@@ -111,6 +115,7 @@ export function Guess({ onExit }: Props) {
       setResults([])
       setHighscore(best)
       setIsNewHighscore(false)
+      setEarned(null)
       setPhase(qs.length ? 'playing' : 'empty')
     })()
     return () => ctrl.abort()
@@ -138,6 +143,7 @@ export function Guess({ onExit }: Props) {
     if (id === q.heroId) {
       finish(q, 'correct', points)
     } else {
+      vibrate()
       setWrong(w => [...w, id])
       setPoints(p => applyAction(p, 'wrong'))
     }
@@ -173,6 +179,7 @@ export function Guess({ onExit }: Props) {
     const best = await submitGuessScore(sum)
     setIsNewHighscore(best)
     if (best) setHighscore(sum)
+    setEarned(await finishRound('guess', sum / 10, { score: sum, recognized: results.filter(r => r.outcome === 'correct').length }))
     setPhase('done')
   }, [outcome, index, questions.length, results])
 
@@ -217,6 +224,11 @@ export function Guess({ onExit }: Props) {
         {isNewHighscore
           ? <p className="good center-text">Neuer Highscore! 🎉</p>
           : <p className="muted small center-text">Highscore: {highscore}</p>}
+        {earned && (
+          <p className="souls-earned center-text">
+            +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
+          </p>
+        )}
         <div className="panel">
           <h2>Deine Runde</h2>
           <ul className="mistakes">

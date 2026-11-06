@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
 import { deckOfCardId, newIntroducedToday } from '../decks'
-import { afterRating, buildQueue, computeStreak, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
+import { afterRating, buildQueue, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
 
 const now = new Date('2026-11-05T12:00:00')
 const past = new Date('2026-11-04T12:00:00')
@@ -62,6 +62,36 @@ describe('computeStreak', () => {
   it('bricht bei einer Lücke ab', () => {
     expect(computeStreak([day('2026-11-02', 25), day('2026-11-04', 25)], 20, now)).toBe(1)
     expect(computeStreak([], 20, now)).toBe(0)
+  })
+})
+
+describe('Streak-Schutz', () => {
+  const day = (date: string, reviewed = 25) => ({ date, reviewed, newIntroduced: 0 })
+  /** Tagesziel an allen Tagen von `from` bis `to` (2026-10-…) außer `skip` */
+  const run = (from: number, to: number, skip: number[] = []) =>
+    Array.from({ length: to - from + 1 }, (_, i) => from + i).filter(d => !skip.includes(d)).map(d => day(`2026-10-${String(d).padStart(2, '0')}`))
+  const at = (d: number) => new Date(2026, 9, d, 12)
+
+  it('gibt alle 7 Tage einen Schutz, höchstens 2', () => {
+    expect(computeStreakState(run(1, 6), 20, at(7))).toMatchObject({ streak: 6, shields: 0 })
+    expect(computeStreakState(run(1, 7), 20, at(7))).toMatchObject({ streak: 7, shields: 1 })
+    expect(computeStreakState(run(1, 21), 20, at(22))).toMatchObject({ streak: 21, shields: 2 })
+  })
+
+  it('ein verpasster Tag verbraucht einen Schutz, statt den Streak zu beenden', () => {
+    const state = computeStreakState(run(1, 10, [8]), 20, at(11))
+    expect(state).toEqual({ streak: 9, shields: 0, protectedDays: ['2026-10-08'] })
+  })
+
+  it('ohne Schutz ist der Streak weg', () => {
+    expect(computeStreakState(run(1, 10, [5]), 20, at(11))).toMatchObject({ streak: 5, shields: 0, protectedDays: [] })
+    // Schutz verbraucht, zweiter verpasster Tag beendet den Streak
+    expect(computeStreakState(run(1, 12, [8, 9]), 20, at(13))).toMatchObject({ streak: 3, protectedDays: ['2026-10-08'] })
+  })
+
+  it('heute zählt erst mit erreichtem Ziel – ein offener Tag bricht nichts', () => {
+    expect(computeStreakState(run(1, 9), 20, at(10))).toMatchObject({ streak: 9, shields: 1 })
+    expect(computeStreakState([...run(1, 9), day('2026-10-10', 5)], 20, at(10)).streak).toBe(9)
   })
 })
 

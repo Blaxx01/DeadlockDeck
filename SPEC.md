@@ -160,8 +160,60 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
 - Daten: wöchentlich im Hintergrund nach den Counter-Daten (typisch: 2 Abfragen für alle Heroes; Community: je Hero
   2 Abfragen); fehlt ein Hero diesmal, bleibt sein alter Build. Offline nutzbar
 
+## Fortschritt & Motivation
+Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt üben, mehr Tempo und Abwechslung.
+
+### Souls & Rang (Etappe 1)
+- Jede Lern-Aktion bringt **Souls** (◆), die Summe bestimmt den **Rang** – mit den echten Deadlock-Abzeichen aus
+  der API (`/v1/assets/ranks`, deutsche Namen, Abzeichen mit Unterstufe; offline im Cache)
+  - Start bei **Unwissender** (Obscurus), **Novize 1** ab 100 Souls (nach der ersten kleinen Session),
+    dann 65 Stufen bis **Ewiger 6** (Eternus) – erst schnell, später langsamer: bei täglichem Lernen etwa **6 Monate**
+- Souls (alle Werte ganzzahlig):
+  - Karteikarte bewertet: **+10**, egal ob gewusst oder nicht (sonst lohnt Schummeln beim Wischen) –
+    je Karte einmal pro Tag (wie beim Tagesziel)
+  - **Tagesziel erreicht: +100** (einmal pro Tag)
+  - Quiz: Punkte ÷ 10 · Hero erraten: Punkte ÷ 10 · Build-Quiz: +5 je Item, +50 ohne Fehler
+  - Je Modus und Tag bringen die **ersten 3 Runden** volle Souls, ab der 4. nur noch **¼**
+- **Rang-Verfall**: ab dem **6. Tag ohne Lernen −50 Souls pro Tag** (nie unter 0); ab dem 4. Tag warnt die
+  Startseite; als Lerntag zählt jede Aktivität, die Souls bringt. Abgerechnet werden nur vergangene Tage
+- Souls werden als **Verlauf** gespeichert (Datum, Menge, Grund) – für die Statistik und die Rundenregel
+
+### Tagesmissionen & Streak (Etappe 1)
+- **3 Tagesmissionen** pro Tag, fest ausgelost (gleiche Missionen den ganzen Tag), in ~10–15 Minuten machbar:
+  eine Lern-Mission (z. B. „10 Fähigkeiten-Karten lernen“, „5 neue Karten lernen“) und zwei Spiel-Missionen
+  („Quiz mit mind. 7 richtig“, „Hero erraten mit mind. 600 Punkten“, „Build-Quiz ohne Fehler“) – nur aus Modi,
+  für die Daten da sind; je **+100 ◆**, alle drei **+150 ◆ Bonus**
+- **Streak-Schutz**: alle 7 Streak-Tage einer (höchstens 2). Ein verpasster Tag (Tagesziel nicht erreicht) verbraucht
+  einen, statt den Streak zu beenden. Wird aus der Tageshistorie berechnet (auch nach Import korrekt)
+
+### Startseite & Effekte (Etappe 1)
+- Oben die **Rang-Karte** (Abzeichen, Rang, Souls, Fortschritt bis zur nächsten Stufe, Streak + Schutz, Verfall-Hinweis),
+  darunter **Tagesmissionen** mit Tagesziel, dann die **Karteikarten**, dann alle Spielmodi als **Kacheln** mit Highscore
+- **Effekte** (in den Einstellungen abschaltbar, ohne Ton): „+10 ◆“ fliegt kurz hoch, **Aufstieg** mit Abzeichen und
+  Konfetti, kurze **Vibration bei Fehlern** in Quiz, Hero erraten und Build-Quiz (nicht bei „nicht gewusst“ –
+  ehrliches Bewerten soll sich nicht schlecht anfühlen)
+
+### Schwächen-Training (Etappe 2)
+- Fehler aus allen Modi werden gesammelt („nicht gewusst“, falsche Quiz-Antworten, Fehltipps beim Hero erraten,
+  Fehler im Build-Quiz); Knopf **„Schwächen üben“**: bis zu 15 Karten aus allen Decks mit den meisten Fehlern der
+  letzten 14 Tage; „gewusst“ im Training behebt die Schwäche, nach 14 Tagen verfallen Fehler
+
+### Sammelalbum, Hero-Meisterschaft, Statistik (Etappe 3)
+- **Sammelalbum im Shop**: Rahmen **Bronze** (gelernt), **Silber** (nächste Wiederholung in ≥ 3 Wochen),
+  **Gold** (≥ 2 Monate); „x/58 gemeistert“ je Kategorie
+- **Hero-Meisterschaft**: 5 Sterne – Hero-Karte mind. Silber · alle 4 Fähigkeiten-Karten mind. Silber ·
+  Counter-Karte mind. Silber · Build-Quiz (Typisch) ohne Fehler · Hero erraten einmal ohne Aufdecken, Joker und Fehltipp
+- **Statistik-Seite** (über die Rang-Karte): Kalender der Lerntage, Souls-Verlauf, gelernte/gemeisterte Karten je Deck
+- **Meilenstein-Souls**: Karte erstmals Silber +25, erstmals Gold +50, neuer Hero-Stern +100
+
+### Sprint & Überleben (Etappe 4)
+- **60-Sekunden-Sprint**: Items, Fähigkeiten und Heroes am Bild erkennen (4 Antworten), umschaltbar auf eine Sorte;
+  falsch kostet 3 s; Highscore je Auswahl
+- **Überleben**: 3 Leben, alle Quiz-Fragetypen gemischt; 15 s pro Frage, alle 5 Fragen 1 s weniger (bis 6 s);
+  Zeit abgelaufen = Leben weg; Highscore = überlebte Fragen
+
 ## Daten & Fortschritt
-- Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte und Screenshots: lokal in IndexedDB
+- Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
 
 ## Reihenfolge
@@ -174,6 +226,11 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
 7. ✅ Patch-Erkennung (Reset + Badge + vorher → nachher)
 8. ✅ Counter-Deck + Counter-Quiz (Statistik der Deadlock-API)
 9. ✅ Build-Quiz (typische und Community-Builds)
+10. Fortschritt & Motivation in 4 Etappen:
+    1. ✅ Souls & Rang, Tagesmissionen, Streak-Schutz, Rang-Verfall, neue Startseite, Effekte
+    2. Schwächen-Training
+    3. Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
+    4. Sprint, Überleben
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

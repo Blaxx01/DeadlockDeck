@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { syncBuilds } from './data/buildSync'
 import { syncCounters } from './data/counterSync'
-import { db, getMeta, setMeta } from './data/db'
+import { SoulsFx } from './components/SoulsFx'
+import { db, getMeta, getSettings, setMeta } from './data/db'
+import { setEffectsEnabled } from './game/effects'
+import { checkDailyBonuses } from './game/missions'
+import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
+import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
@@ -11,6 +16,22 @@ import { Guess } from './views/Guess'
 import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
 import { Shop } from './views/Shop'
+
+/** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
+async function rankImageUrls(): Promise<string[]> {
+  const assets = await getMeta<RankAsset[]>('ranks', [])
+  const rank = rankForSouls(await getSoulsTotal())
+  const next = RANK_STEPS[rank.index + 1]
+  return [rankImage(rank, assets), next && rankImage(next, assets)].filter((u): u is string => !!u)
+}
+
+/** Souls beim Start: einmalig rückwirkend gutschreiben, dann fälligen Rang-Verfall buchen */
+async function startSouls() {
+  const settings = await getSettings()
+  setEffectsEnabled(settings.effects)
+  await seedSoulsFromHistory(settings.dailyGoal)
+  await applyDecay()
+}
 
 /** Counter- und Build-Statistik: höchstens wöchentlich, im Hintergrund, nacheinander (schont die API) */
 function syncStatistics() {
@@ -39,6 +60,7 @@ export default function App() {
         ...items.map(i => i.image),
         ...heroes.flatMap(h => [h.image, h.smallImage]),
         ...abilities.map(a => a.image),
+        ...(await rankImageUrls()),
       ].filter((u): u is string => !!u)
       setImageProgress({ done: 0, total: urls.length })
       const { failed } = await prewarmImages(urls, (done, total) => setImageProgress({ done, total }))
@@ -56,6 +78,8 @@ export default function App() {
     try {
       await syncItems()
       void cacheImages()
+      // Tagesmissionen festlegen, sobald es Daten gibt (sonst ändern sie sich, wenn später Builds dazukommen)
+      void checkDailyBonuses()
       // Statistik (Counter, Builds) höchstens wöchentlich, im Hintergrund – Fehler stehen auf der Startseite
       syncStatistics()
     } catch (e) {
@@ -68,6 +92,14 @@ export default function App() {
       setSyncing(false)
     }
   }, [cacheImages])
+
+  // Souls & Rang: beim Start und bei Rückkehr in die App (neuer Tag → Verfall prüfen)
+  useEffect(() => {
+    void startSouls()
+    const onVisible = () => { if (document.visibilityState === 'visible') void applyDecay() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   useEffect(() => {
     async function maybeSync() {
@@ -102,6 +134,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <SoulsFx />
       {view.name === 'home' && (
         <Home
           onLearn={(deck, extraNew) => navigate({ name: 'learn', deck, extraNew })}

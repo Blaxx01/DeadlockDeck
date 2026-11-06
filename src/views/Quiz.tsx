@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, getQuizHighscore, getSettings, submitQuizScore } from '../data/db'
 import { SLOT_LABEL, type ItemCard } from '../data/model'
 import { sanitizeHtml } from '../data/sanitize'
+import { vibrate } from '../game/effects'
+import { finishRound } from '../game/missions'
+import type { RoundAward } from '../game/souls'
 import { buildRound, ROUND_SIZE, scoreAnswer, type QuizQuestion } from '../quiz/quiz'
 
 interface Props {
@@ -15,6 +18,15 @@ interface Answer {
 }
 
 type Phase = 'loading' | 'empty' | 'playing' | 'done'
+
+function SoulsEarned({ earned }: { earned: RoundAward | null }) {
+  if (!earned) return null
+  return (
+    <p className="souls-earned center-text">
+      +{earned.amount} ◆ Souls{earned.reduced && <span className="muted small"> · ab der 4. Runde heute nur ¼</span>}
+    </p>
+  )
+}
 
 function itemInfo(card: ItemCard | undefined): string {
   if (!card) return ''
@@ -60,6 +72,7 @@ export function Quiz({ onExit }: Props) {
   const [answers, setAnswers] = useState<Answer[]>([])
   const [highscore, setHighscore] = useState(0)
   const [isNewHighscore, setIsNewHighscore] = useState(false)
+  const [earned, setEarned] = useState<RoundAward | null>(null)
   const shownAt = useRef(0)
   const finishing = useRef(false)
 
@@ -81,6 +94,7 @@ export function Quiz({ onExit }: Props) {
       setAnswers([])
       setHighscore(best)
       setIsNewHighscore(false)
+      setEarned(null)
       setPhase(qs.length ? 'playing' : 'empty')
     })()
     return () => ctrl.abort()
@@ -103,6 +117,7 @@ export function Quiz({ onExit }: Props) {
 
   const pick = useCallback((choice: number) => {
     if (!question || answered) return
+    if (choice !== question.answer) vibrate()
     const points = scoreAnswer(choice === question.answer, performance.now() - shownAt.current)
     setAnswers(prev => (prev.length === index ? [...prev, { question, picked: choice, points }] : prev))
   }, [question, answered, index])
@@ -119,6 +134,8 @@ export function Quiz({ onExit }: Props) {
     const isBest = await submitQuizScore(total)
     setIsNewHighscore(isBest)
     if (isBest) setHighscore(total)
+    // Souls: Punkte ÷ 10 (ab der 4. Runde des Tages ¼) – Ergebnis zählt für die Tagesmissionen
+    setEarned(await finishRound('quiz', total / 10, { score: total, correct: answers.filter(a => a.points > 0).length }))
     setPhase('done')
   }, [answered, index, questions.length, answers])
 
@@ -169,6 +186,7 @@ export function Quiz({ onExit }: Props) {
         {isNewHighscore
           ? <p className="good center-text">Neuer Highscore! 🎉</p>
           : <p className="muted small center-text">Highscore: {highscore}</p>}
+        <SoulsEarned earned={earned} />
 
         {mistakes.length > 0 && (
           <div className="panel">

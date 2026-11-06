@@ -1,9 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
-import { db, getGuessHighscore, getMeta, getQuizHighscore, getSettings, setMeta, type LastPatch, type ReviewRecord } from '../data/db'
+import { RankBadge } from '../components/RankBadge'
+import { db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, setMeta, type LastPatch, type ReviewRecord } from '../data/db'
 import { DECKS, newIntroducedToday, type DeckId } from '../decks'
-import { computeStreak, isInLearnScope, localDate } from '../srs/srs'
+import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
+import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
+import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
+import { computeStreakState, isInLearnScope, localDate, type StreakState } from '../srs/srs'
 
 interface Props {
   onLearn: (deck: DeckId, extraNew?: number) => void
@@ -97,8 +101,81 @@ function PatchNotice({ patch }: { patch: LastPatch }) {
   )
 }
 
+/** Warnung vor dem Rang-Verfall ab dem 4. Tag ohne Lernen */
+function decayWarning(daysWithout: number): string | undefined {
+  const start = DECAY_GRACE_DAYS + 1
+  if (daysWithout < 4) return undefined
+  if (daysWithout < start) {
+    const left = start - daysWithout
+    return `Noch ${left} Tag${left > 1 ? 'e' : ''} ohne Lernen, dann beginnt der Rang-Verfall (−${DECAY_SOULS} ◆ pro Tag).`
+  }
+  return `Rang-Verfall: −${DECAY_SOULS} ◆ pro Tag ohne Lernen – heute lernen stoppt ihn.`
+}
+
+function RankCard({ souls, assets, streak, warning }: { souls: number; assets: RankAsset[]; streak: StreakState; warning?: string }) {
+  const rank = rankForSouls(souls)
+  return (
+    <div className="panel rank-card">
+      <div className="rank-row">
+        <RankBadge rank={rank} assets={assets} />
+        <div className="rank-info">
+          <div className="rank-name">{rankLabel(rank, assets)}</div>
+          <div className="muted small">◆ {souls.toLocaleString('de-DE')} Souls</div>
+        </div>
+        <div className="streak" title="Tage in Folge mit erreichtem Tagesziel – Streak-Schutz fängt einen verpassten Tag ab">
+          <div className="big">🔥 {streak.streak}</div>
+          <div className="muted small">
+            {streak.shields > 0 ? <span aria-label={`${streak.shields} Streak-Schutz`}>{'🛡'.repeat(streak.shields)}</span> : 'Streak'}
+          </div>
+        </div>
+      </div>
+      <div className="goal-bar rank-bar"><div style={{ width: `${Math.round(rank.progress * 100)}%` }} /></div>
+      <div className="muted small">
+        {rank.next
+          ? `noch ${(rank.next.souls - souls).toLocaleString('de-DE')} ◆ bis ${rankLabel(rank.next, assets)}`
+          : 'Höchster Rang erreicht'}
+      </div>
+      {warning && <p className="rank-warning">⚠ {warning}</p>}
+    </div>
+  )
+}
+
+function Missions({ daily, reviewed, goal }: { daily: DailyStatus; reviewed: number; goal: number }) {
+  const goalPct = Math.min(100, Math.round((reviewed / goal) * 100))
+  return (
+    <div className="panel today">
+      <div className="row">
+        <h2>Heute</h2>
+        <span className="muted small">Tagesziel {reviewed} / {goal}{daily.goalReached ? ' ✓' : ''}</span>
+      </div>
+      <div className="goal-bar"><div style={{ width: `${goalPct}%` }} /></div>
+      {daily.missions.length > 0 && (
+        <>
+          <ul className="missions">
+            {daily.missions.map(m => (
+              <li key={m.def.id} className={m.done ? 'done' : undefined}>
+                <span className="mission-check" aria-hidden="true">{m.done ? '✓' : '○'}</span>
+                <span className="mission-title">{m.def.title}</span>
+                <span className="mission-progress muted small">
+                  {m.done ? '' : `${m.progress.toLocaleString('de-DE')} / ${m.def.target.toLocaleString('de-DE')}`}
+                </span>
+                <span className="mission-reward">+{MISSION_SOULS} ◆</span>
+              </li>
+            ))}
+          </ul>
+          <p className="muted small mission-bonus">
+            {daily.bonus ? `🎉 Alle Missionen geschafft – +${ALL_MISSIONS_BONUS} ◆ Bonus` : `Alle drei: +${ALL_MISSIONS_BONUS} ◆ Bonus`}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function useHomeStats() {
   const tick = useClockTick()
+  // Missionen des Tages festhalten und offene Boni gutschreiben (z. B. nach dem ersten Sync)
+  useEffect(() => { void checkDailyBonuses() }, [tick])
   return useLiveQuery(async () => {
     const settings = await getSettings()
     const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
@@ -130,7 +207,12 @@ function useHomeStats() {
       decks,
       totalAll: await db.items.count(),
       reviewedToday: today?.reviewed ?? 0,
-      streak: computeStreak(days, settings.dailyGoal),
+      streak: computeStreakState(days, settings.dailyGoal),
+      souls: await getSoulsTotal(),
+      ranks: await getMeta<RankAsset[]>('ranks', []),
+      daily: await dailyStatus(),
+      decayWarning: decayWarning(daysWithoutLearning(await lastActiveDate(), localDate())),
+      buildBests: Object.keys(await getBuildBests()).length,
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
       // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
@@ -186,8 +268,6 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onShop, onSettings, s
     )
   }
 
-  const goalPct = Math.min(100, Math.round((s.reviewedToday / s.settings.dailyGoal) * 100))
-
   return (
     <div className="home">
       <header className="home-head">
@@ -197,59 +277,39 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onShop, onSettings, s
 
       {s.patch && <PatchNotice patch={s.patch} />}
 
-      <div className="panel today">
-        <div className="row">
-          <div>
-            <div className="big">{s.reviewedToday}<span className="muted"> / {s.settings.dailyGoal}</span></div>
-            <div className="muted small">Tagesziel</div>
-          </div>
-          <div className="streak" title="Tage in Folge mit erreichtem Tagesziel">
-            <div className="big">🔥 {s.streak}</div>
-            <div className="muted small">Streak</div>
-          </div>
-        </div>
-        <div className="goal-bar"><div style={{ width: `${goalPct}%` }} /></div>
-      </div>
+      <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} />
+
+      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} />
 
       <div className="panel">
         <h2>Karteikarten</h2>
         {s.decks.map(d => <DeckRow key={d.id} deck={d} onLearn={onLearn} />)}
       </div>
 
-      <div className="panel deck">
-        <div className="row">
-          <h2>Quiz</h2>
-          <span className="muted small">Highscore {s.quizHighscore}</span>
+      <div className="panel">
+        <h2>Spielen</h2>
+        <div className="mode-tiles">
+          <button className="mode-tile" onClick={onQuiz} aria-label="Quiz starten">
+            <span className="mode-name">Quiz</span>
+            <span className="muted small">10 Fragen · Highscore {s.quizHighscore.toLocaleString('de-DE')}</span>
+          </button>
+          {s.heroCount >= 4 && (
+            <button className="mode-tile" onClick={onGuess} aria-label="Hero erraten starten">
+              <span className="mode-name">Hero erraten</span>
+              <span className="muted small">Highscore {s.guessHighscore.toLocaleString('de-DE')}</span>
+            </button>
+          )}
+          <button className="mode-tile" onClick={onBuilds} disabled={s.buildCount === 0} aria-label="Build-Quiz starten">
+            <span className="mode-name">Build-Quiz</span>
+            <span className="muted small">
+              {s.buildCount === 0 ? 'Daten werden geladen' : `${s.buildBests} Bestwert${s.buildBests === 1 ? '' : 'e'}`}
+            </span>
+          </button>
+          <button className="mode-tile" onClick={onShop} aria-label="Shop öffnen">
+            <span className="mode-name">Shop</span>
+            <span className="muted small">Nachschlagen</span>
+          </button>
         </div>
-        <p className="muted small">10 Fragen: Bild, Effekt, Zahlen, Build-Pfad und Counter – schnell antworten gibt Bonus.</p>
-        <button onClick={onQuiz}>Quiz starten</button>
-      </div>
-
-      {s.heroCount >= 4 && (
-        <div className="panel deck">
-          <div className="row">
-            <h2>Hero erraten</h2>
-            <span className="muted small">Highscore {s.guessHighscore}</span>
-          </div>
-          <p className="muted small">10 Heroes pro Runde – als Silhouette, Ausschnitt, unscharf oder an einer Fähigkeit. Aufdecken und Joker kosten Punkte.</p>
-          <button onClick={onGuess}>Hero erraten starten</button>
-        </div>
-      )}
-
-      <div className="panel deck">
-        <h2>Build-Quiz</h2>
-        <p className="muted small">
-          Alle Items eines Hero-Builds an ihren Icons erkennen – typischer Build oder meistgespielter Community-Build.
-        </p>
-        {s.buildCount > 0
-          ? <button onClick={onBuilds}>Build-Quiz starten</button>
-          : <p className="muted small">Build-Daten werden geladen, sobald Internet da ist.</p>}
-      </div>
-
-      <div className="panel deck">
-        <h2>Shop</h2>
-        <p className="muted small">Alle Items wie im Ingame-Shop zum Nachschlagen – mit Suche nach Name oder Effekt.</p>
-        <button onClick={onShop}>Shop öffnen</button>
       </div>
 
       <footer className="muted small sync-info">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
-import { db, getSettings, saveSettings, type Settings } from '../data/db'
+import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/db'
+import { setEffectsEnabled } from '../game/effects'
 import { GUESS_KIND_LABEL, GUESS_KINDS, QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type GuessKind, type QuizKind, type SlotType } from '../data/model'
 
 interface Props {
@@ -64,9 +65,13 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
 
   async function resetProgress() {
     if (!confirm('Gesamten Lernfortschritt löschen? Das kann nicht rückgängig gemacht werden (außer mit einem Backup).')) return
-    await db.transaction('rw', db.reviews, db.days, async () => {
+    await db.transaction('rw', [db.reviews, db.days, db.souls, db.meta], async () => {
       await db.reviews.clear()
       await db.days.clear()
+      // Souls & Rang gehören zum Fortschritt
+      await db.souls.clear()
+      await setMeta('soulsTotal', 0)
+      await setMeta('missions', null)
     })
     setMessage('Fortschritt gelöscht.')
   }
@@ -135,6 +140,15 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="panel">
+        <h2>Effekte</h2>
+        <label className="field toggle-field">
+          <span>Animationen und Vibration<br /><span className="muted small">„+10 ◆“, Aufstieg mit Konfetti, Vibration bei Fehlern</span></span>
+          <input type="checkbox" checked={settings.effects}
+            onChange={e => { setEffectsEnabled(e.target.checked); void update({ effects: e.target.checked }) }} />
+        </label>
       </div>
 
       <div className="panel">

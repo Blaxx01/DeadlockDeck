@@ -4,12 +4,13 @@ import { createBackup, parseBackup, restoreBackup } from './backup'
 import { DeckDB, getBuildBests, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitBuildResult, submitGuessScore, submitQuizScore } from './db'
 import { QUIZ_KINDS } from './model'
 import { rateCard } from '../srs/srs'
+import { awardRound, getSoulsTotal } from '../game/souls'
 
 describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
     const src = new DeckDB(`b-${Math.random()}`)
     await rateCard('item:x', true, new Date('2026-11-05T12:00:00'), src)
-    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'] }, src)
+    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'], effects: false }, src)
     await submitQuizScore(870, src)
     await submitGuessScore(640, src)
     await submitBuildResult('typical:13', { errors: 1, ms: 72_000 }, src)
@@ -51,6 +52,25 @@ describe('Backup', () => {
     })
     await restoreBackup(parseBackup(old), dst)
     expect((await getSettings(dst)).quizKinds).toEqual(['image', 'build', 'counterItem', 'counterHero'])
+  })
+
+  it('nimmt den Souls-Verlauf mit; alte Backups ohne Souls werden aus der Tageshistorie neu berechnet', async () => {
+    const src = new DeckDB(`b-${Math.random()}`)
+    await rateCard('item:x', true, new Date(2026, 10, 5, 12), src)
+    await awardRound('quiz', 120, { score: 1200, correct: 9 }, new Date(2026, 10, 5, 13), src)
+    const json = JSON.stringify(await createBackup(src))
+    const dst = new DeckDB(`b-${Math.random()}`)
+    await awardRound('build', 999, {}, new Date(), dst) // wird ersetzt
+    await restoreBackup(parseBackup(json), dst)
+    expect(await getSoulsTotal(dst)).toBe(130)
+    expect((await dst.souls.toArray()).map(e => e.reason).sort()).toEqual(['card', 'quiz'])
+
+    const old = JSON.stringify({
+      app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(), settings: { dailyGoal: 2, newPerDay: 3, slots: ['weapon'] },
+      reviews: [], days: [{ date: '2026-10-01', reviewed: 3, newIntroduced: 3 }],
+    })
+    await restoreBackup(parseBackup(old), dst)
+    expect(await getSoulsTotal(dst)).toBe(3 * 10 + 100)
   })
 
   it('lehnt fremde Dateien ab', () => {
