@@ -5,7 +5,7 @@ import { RankBadge } from '../components/RankBadge'
 import { daysAgoText, exportBackup, getBackupStatus, prefersShare, snoozeBackupReminder, BACKUP_EVERY_DAYS, type BackupStatus } from '../data/backup'
 import { ensurePersistentStorage } from '../data/persist'
 import {
-  db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, getSprintHighscores, getSurvivalHighscore, setMeta,
+  db, getBuildBests, getGuessHighscore, getMapHighscore, getMeta, getQuizHighscore, getSettings, getSprintHighscores, getSurvivalHighscore, setMeta,
   type DayRecord, type LastPatch, type ReviewRecord,
 } from '../data/db'
 import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId, type LearnDeck } from '../decks'
@@ -27,6 +27,8 @@ interface Props {
   onShop: () => void
   onHeroes: () => void
   onStats: () => void
+  onMap: () => void
+  onMapQuiz: () => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -313,6 +315,9 @@ function useHomeStats() {
       heroCount: ids.heroes.length,
       heroStars: (await allHeroMastery()).reduce((sum, m) => sum + m.stars.length, 0),
       backup: await getBackupStatus(),
+      // Map-Daten (kommen mit dem Sync)
+      mapReady: (await db.meta.get('mapData')) !== undefined,
+      mapHighscore: await getMapHighscore(),
     }
   }, [tick])
 }
@@ -370,7 +375,7 @@ function DeckRow({ deck, onLearn, primary }: { deck: DeckStats; onLearn: Props['
 }
 
 export function Home({
-  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onSettings,
+  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onSettings,
   syncing, syncError, imageProgress, onSync,
 }: Props) {
   const s = useHomeStats()
@@ -447,6 +452,10 @@ export function Home({
               <span className="muted small">Highscore {s.guessHighscore.toLocaleString('de-DE')}</span>
             </button>
           )}
+          <button className="mode-tile" onClick={onMapQuiz} disabled={!s.mapReady} aria-label="Map-Quiz starten">
+            <span className="mode-name">Map-Quiz</span>
+            <span className="muted small">{s.mapReady ? `Highscore ${s.mapHighscore.toLocaleString('de-DE')}` : 'Daten werden geladen'}</span>
+          </button>
           <button className="mode-tile" onClick={onBuilds} disabled={s.buildCount === 0} aria-label="Build-Quiz starten">
             <span className="mode-name">Build-Quiz</span>
             <span className="muted small">
@@ -458,7 +467,7 @@ export function Home({
 
       <div className="panel">
         <h2>Nachschlagen &amp; Fortschritt</h2>
-        <div className="mode-tiles three">
+        <div className="mode-tiles">
           <button className="mode-tile" onClick={onShop} aria-label="Shop öffnen">
             <span className="mode-name">Shop</span>
             <span className="muted small">Sammelalbum</span>
@@ -472,6 +481,10 @@ export function Home({
           <button className="mode-tile" onClick={onStats} aria-label="Statistik öffnen">
             <span className="mode-name">Statistik</span>
             <span className="muted small">Lerntage</span>
+          </button>
+          <button className="mode-tile" onClick={onMap} aria-label="Map öffnen">
+            <span className="mode-name">Map</span>
+            <span className="muted small">{s.mapReady ? 'Ebenen & Legende' : 'Daten werden geladen'}</span>
           </button>
         </div>
       </div>

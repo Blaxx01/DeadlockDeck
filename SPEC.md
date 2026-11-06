@@ -334,6 +334,33 @@ Hero erraten zur Hero-Karte. Die falschen Antworten kommen immer aus allen Karte
   weiter gelernte Fähigkeiten)
 - Startseiten von Sprint und Überleben nennen die Einstellung („Gefragt wird: …“)
 
+## Map-Wissen
+Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Minimap und Positionen der Objekte
+(relativ zur Karte); geladen mit dem normalen Sync, offline gespeichert (Minimap im Bild-Cache).
+- Objekte in **Bereichen** (englische Namen wie ingame, dazu ein Satz auf Deutsch – wo unsicher, nur der Name):
+  - **Lanes & Ziele**: Lanes Gelb (links), Blau (Mitte), Grün (rechts) – Farbe aus den Ziplines der API –,
+    Guardian, Walker, Patron je Lane/Basis; **Mid Boss** von Hand in der Kartenmitte (fehlt in der API)
+  - **Camps & Vaults**: kleine, mittlere, große Camps, Sinner's Sacrifice
+  - **Orientierung**: Lane-Shops, Basis-Shop, Secret Shops, Teleporter (mit Ziel), Urne (Spawn, Abgabe), Brücken-Buffs
+  - **Bewegung**: Ziplines (als Linien in Lane-Farbe), Kletterseile, Sprungpads, Dampfdüsen, Veils
+  - **Kisten & Statuen** (nur auf der Map-Seite): Kisten, harte Kisten, goldene Statuen, Heil-Pickups
+  - nicht übernommen: „Base Sentries“ und „Cores“ der API (keinem Spielobjekt sicher zuzuordnen), Glocken, Rifts
+- **Map-Seite** (Nachschlagen): Ebenen je Bereich ein/aus (Kisten & Statuen standardmäßig aus); Antippen eines
+  Symbols zeigt Name, Erklärung und Anzahl und hebt alle gleichen hervor; Legende mit den Symbolen der gewählten
+  Ebenen (antippbar); Lupe vergrößert, dann mit dem Finger verschieben
+- **Map-Quiz** (Spielen): Runden à 10 Fragen, Punkte wie im Quiz (100 + bis 50 Zeitbonus), Highscore
+  - **Wo ist …?**: auf die Map tippen – richtig, wenn der Tipp höchstens etwa einen Fingerbreit (5 % der Kartenbreite)
+    neben einem passenden Objekt liegt; danach zeigt die Map alle passenden Stellen und den Tipp. Nur für Objekte,
+    die es höchstens 20-mal gibt
+  - **Was ist hier?**: eine Stelle ist markiert, 4 Antworten (falsche bevorzugt aus demselben Bereich, nie eine Art,
+    die ebenfalls an dieser Stelle liegt – z. B. Urnen-Spawn und -Abgabe)
+  - beide Seiten zählen gleich (die Map steht immer gleich herum); die Lanes sind immer zu sehen
+  - jede Objektart möglichst nur einmal pro Runde – bei wenigen gewählten Bereichen auch öfter, nie direkt hintereinander
+  - Souls nach Rundenregel (Punkte ÷ 10), Tagesmission „Map-Quiz mit mindestens 7 richtigen Antworten“
+  - Ergebnis mit „Zum Merken“ und „Auf der Map zeigen“; Fehler zählen nicht als Schwächen (keine Lernkarten)
+  - Einstellungen: Bereiche (Lanes & Ziele, Camps & Vaults, Orientierung, Bewegung) und die beiden Fragetypen
+    abwählbar; „Gefragt wird“ gilt hier nicht
+
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
@@ -368,6 +395,7 @@ Hero erraten zur Hero-Karte. Die falschen Antworten kommen immer aus allen Karte
     3. ✅ Eintippen, Rückrichtung
 12. ✅ Gelerntes zuerst (einstellbar: Gelerntes zuerst / Nur Gelerntes / Alles)
 13. ✅ Fortschritt absichern (dauerhafter Speicher, Backup-Erinnerung, Sichern übers Teilen-Menü), „Alles lernen“
+14. ✅ Map-Wissen: Map-Seite (Ebenen, Antippen, Zoom) und Map-Quiz („Wo ist …?“, „Was ist hier?“)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

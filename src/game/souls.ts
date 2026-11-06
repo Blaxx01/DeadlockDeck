@@ -6,7 +6,7 @@ import { addDays, daysBetween, localDate } from '../data/dates'
 import { db, getMeta, setMeta, type DeckDB } from '../data/db'
 
 export type SoulsReason =
-  | 'card' | 'goal' | 'quiz' | 'guess' | 'build' | 'sprint' | 'survival' | 'mission' | 'missions' | 'decay' | 'history'
+  | 'card' | 'goal' | 'quiz' | 'guess' | 'build' | 'sprint' | 'survival' | 'map' | 'mission' | 'missions' | 'decay' | 'history'
   /** Karte erstmals Silber/Gold (milestones.ts) */
   | 'milestone'
   /** Neuer Hero-Stern (milestones.ts) */
@@ -19,7 +19,7 @@ export type SoulsReason =
 const NOT_ACTIVITY: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'milestone', 'star'])
 
 /** Spielmodi mit Runden (je Modus und Tag: die ersten 3 Runden voll, danach ¼) */
-export type RoundMode = 'quiz' | 'guess' | 'build' | 'sprint' | 'survival'
+export type RoundMode = 'quiz' | 'guess' | 'build' | 'sprint' | 'survival' | 'map'
 
 export interface SoulsEntry {
   id: number

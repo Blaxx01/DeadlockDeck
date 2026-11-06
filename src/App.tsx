@@ -9,6 +9,7 @@ import { checkDailyBonuses } from './game/missions'
 import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
 import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
 import { pruneMistakes } from './game/weakness'
+import { getMapData, syncMap } from './data/mapSync'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
@@ -23,12 +24,14 @@ import { Heroes } from './views/Heroes'
 import { Stats } from './views/Stats'
 import { Sprint } from './views/Sprint'
 import { Survival } from './views/Survival'
+import { MapView } from './views/MapView'
+import { MapQuiz } from './views/MapQuiz'
 
 /**
  * Welche Bilder offline vorgeladen werden – erhöhen, wenn neue dazukommen, damit auch bestehende
- * Installationen sie einmal nachladen (2: alle Hero-Posen)
+ * Installationen sie einmal nachladen (2: alle Hero-Posen, 3: Minimap)
  */
-const IMAGE_SET = 2
+const IMAGE_SET = 3
 
 /** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
 async function rankImageUrls(): Promise<string[]> {
@@ -79,6 +82,7 @@ export default function App() {
         ...heroes.flatMap(h => [h.image, h.smallImage, ...(h.poses ?? [])]),
         ...abilities.map(a => a.image),
         ...(await rankImageUrls()),
+        (await getMapData())?.image,
       ])].filter((u): u is string => !!u)
       setImageProgress({ done: 0, total: urls.length })
       const { failed } = await prewarmImages(urls, (done, total) => setImageProgress({ done, total }))
@@ -98,6 +102,8 @@ export default function App() {
     setSyncError(null)
     try {
       await syncItems()
+      // Map (Minimap und Objekte) – Fehler sind egal, der alte Stand bleibt
+      await syncMap().catch(() => {})
       void cacheImages()
       // Tagesmissionen festlegen, sobald es Daten gibt (sonst ändern sie sich, wenn später Builds dazukommen)
       void checkDailyBonuses()
@@ -127,6 +133,8 @@ export default function App() {
       if (!navigator.onLine) return
       if (await needsAutoSync()) return void sync()
       syncStatistics()
+      // Map noch nie geladen (z. B. nach dem Update, das sie eingeführt hat)
+      if (!(await getMapData())) await syncMap().catch(() => {})
       // Bilder fehlen noch im Offline-Cache (z. B. erster Start oder abgebrochen)?
       const [lastSync, cachedFor, cachedSet] = await Promise.all([
         getMeta('lastSync', 0), getMeta('imagesCachedFor', -1), getMeta('imagesCachedSet', 1),
@@ -170,6 +178,8 @@ export default function App() {
           onShop={() => navigate({ name: 'shop' })}
           onHeroes={() => navigate({ name: 'heroes' })}
           onStats={() => navigate({ name: 'stats' })}
+          onMap={() => navigate({ name: 'map' })}
+          onMapQuiz={() => navigate({ name: 'mapquiz' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
@@ -187,6 +197,8 @@ export default function App() {
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'heroes' && <Heroes onBack={goBack} />}
       {view.name === 'stats' && <Stats onBack={goBack} onHeroes={() => navigate({ name: 'heroes' })} />}
+      {view.name === 'map' && <MapView key={view.focus ?? ''} onBack={goBack} focus={view.focus} />}
+      {view.name === 'mapquiz' && <MapQuiz onExit={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}

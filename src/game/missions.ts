@@ -26,6 +26,8 @@ export interface MissionContext {
   weakCount: number
   /** Einstellung „Nur Gelerntes“: gelernte Karten je Sorte (sonst fehlt das – dann zählt es nicht) */
   learnedOnly?: LearnedCounts
+  /** Map-Daten vorhanden (Map-Quiz) */
+  mapReady?: boolean
 }
 
 export interface LearnedCounts {
@@ -77,6 +79,8 @@ export const MISSIONS: readonly MissionDef[] = [
     available: c => c.buildCount > 0, progress: c => (c.entries.some(e => e.reason === 'build' && e.data?.errors === 0) ? 1 : 0) },
   { id: 'sprint-15', kind: 'play', group: 'sprint', title: '60-Sekunden-Sprint mit mindestens 15 richtigen', target: 15,
     available: c => deck(c, 'items') >= 4 && learned(c, 'items', 'abilities', 'heroes'), progress: c => bestOf(c, 'sprint', 'score') },
+  { id: 'map-7', kind: 'play', group: 'map', title: 'Map-Quiz mit mindestens 7 richtigen Antworten', target: 7,
+    available: c => !!c.mapReady, progress: c => bestOf(c, 'map', 'correct') },
   { id: 'survival-10', kind: 'play', group: 'survival', title: 'Überleben: mindestens 10 Fragen', target: 10,
     available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'survival', 'score') },
 ]
@@ -143,7 +147,7 @@ export async function learnedOnlyCounts(database: DeckDB = db): Promise<LearnedC
 
 export async function missionContext(now: Date, database: DeckDB = db): Promise<MissionContext> {
   const date = localDate(now)
-  const [day, entries, items, abilities, heroes, counters, builds, weakCount] = await Promise.all([
+  const [day, entries, items, abilities, heroes, counters, builds, weakCount, map] = await Promise.all([
     database.days.get(date),
     database.souls.where('date').equals(date).toArray(),
     database.items.count(),
@@ -152,8 +156,12 @@ export async function missionContext(now: Date, database: DeckDB = db): Promise<
     database.counters.count(),
     database.builds.where('source').equals('typical').count(),
     weakCardCount(now, database),
+    database.meta.get('mapData'),
   ])
-  return { day, entries, deckSizes: { items, abilities, heroes, counters }, heroCount: heroes, buildCount: builds, weakCount }
+  return {
+    day, entries, deckSizes: { items, abilities, heroes, counters }, heroCount: heroes, buildCount: builds, weakCount,
+    mapReady: map !== undefined && map.value !== null,
+  }
 }
 
 interface StoredMissions {

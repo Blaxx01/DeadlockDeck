@@ -4,6 +4,7 @@
  * statt die App zu schließen.
  */
 import type { LearnDeck } from './decks'
+import type { MapKind } from './map/mapData'
 
 export type View =
   | { name: 'home' }
@@ -22,6 +23,10 @@ export type View =
   | { name: 'heroes' }
   /** Statistik (über die Rang-Karte) */
   | { name: 'stats' }
+  /** Map zum Nachschlagen; `focus`: diese Art gleich hervorheben */
+  | { name: 'map'; focus?: MapKind }
+  /** Map-Quiz */
+  | { name: 'mapquiz' }
   | { name: 'settings' }
 
 export interface NavState {
@@ -32,6 +37,8 @@ export interface NavState {
   hero?: string
   /** Merkhilfe bearbeiten (Karten-ID) – über der Lernsession */
   note?: string
+  /** Map über dem Map-Quiz-Ergebnis („Auf der Map zeigen“) mit dieser Art */
+  mapFocus?: MapKind
 }
 
 export function currentNav(): NavState {

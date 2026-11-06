@@ -4,6 +4,8 @@ import type { DeckId } from '../decks'
 import type { SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import type { SprintHighscores, SprintPool } from '../sprint/sprint'
+import { MAP_QUIZ_GROUPS, type MapGroup } from '../map/mapData'
+import { MAP_QUESTION_TYPES, type MapQuestionType } from '../map/mapQuiz'
 import type { PatchRecord } from './patches'
 import {
   GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard,
@@ -63,6 +65,9 @@ export interface Settings {
   typeAnswers: DeckId[]
   /** Wonach Quiz, Überleben, Sprint und Hero erraten fragen (gelernte Karten zuerst, nur gelernte, alle) */
   quizScope: QuizScope
+  /** Map-Quiz: Bereiche und Fragetypen */
+  mapGroups: MapGroup[]
+  mapQuestionTypes: MapQuestionType[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -74,6 +79,8 @@ export const DEFAULT_SETTINGS: Settings = {
   effects: true,
   typeAnswers: [],
   quizScope: 'learned-first',
+  mapGroups: [...MAP_QUIZ_GROUPS],
+  mapQuestionTypes: [...MAP_QUESTION_TYPES],
 }
 
 export class DeckDB extends Dexie {
@@ -160,7 +167,7 @@ export async function saveSettings(settings: Settings, database: DeckDB = db): P
   await setMeta('settings', settings, database)
 }
 
-export type HighscoreKey = 'quizHighscore' | 'guessHighscore' | 'survivalHighscore'
+export type HighscoreKey = 'quizHighscore' | 'guessHighscore' | 'survivalHighscore' | 'mapHighscore'
 
 export async function getHighscore(key: HighscoreKey, database: DeckDB = db): Promise<number> {
   return getMeta<number>(key, 0, database)
@@ -182,6 +189,8 @@ export const getGuessHighscore = (database: DeckDB = db) => getHighscore('guessH
 export const submitGuessScore = (score: number, database: DeckDB = db) => submitHighscore('guessHighscore', score, database)
 export const getSurvivalHighscore = (database: DeckDB = db) => getHighscore('survivalHighscore', database)
 export const submitSurvivalScore = (score: number, database: DeckDB = db) => submitHighscore('survivalHighscore', score, database)
+export const getMapHighscore = (database: DeckDB = db) => getHighscore('mapHighscore', database)
+export const submitMapScore = (score: number, database: DeckDB = db) => submitHighscore('mapHighscore', score, database)
 
 /** 60-Sekunden-Sprint: Highscore je Auswahl (Alle, Items, Fähigkeiten, Heroes) */
 export async function getSprintHighscores(database: DeckDB = db): Promise<SprintHighscores> {

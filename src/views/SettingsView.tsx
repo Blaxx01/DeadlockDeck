@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { daysAgoText, exportBackup, getBackupStatus, parseBackup, prefersShare, restoreBackup, type BackupStatus } from '../data/backup'
 import { isStoragePersisted } from '../data/persist'
+import { MAP_GROUP_LABEL, MAP_QUIZ_GROUPS, type MapGroup } from '../map/mapData'
+import { MAP_QUESTION_LABEL, MAP_QUESTION_TYPES, type MapQuestionType } from '../map/mapQuiz'
 import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/db'
 import { deckLabel, type DeckId } from '../decks'
 import { resetMilestonesInTx } from '../game/milestones'
@@ -77,6 +79,22 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
     const guessKinds = has ? settings.guessKinds.filter(k => k !== kind) : GUESS_KINDS.filter(k => k === kind || settings.guessKinds.includes(k))
     if (guessKinds.length === 0) return
     update({ guessKinds })
+  }
+
+  function toggleMapGroup(group: MapGroup) {
+    if (!settings) return
+    const on = settings.mapGroups.includes(group)
+    const mapGroups = on ? settings.mapGroups.filter(g => g !== group) : MAP_QUIZ_GROUPS.filter(g => g === group || settings.mapGroups.includes(g))
+    if (mapGroups.length === 0) return
+    update({ mapGroups })
+  }
+
+  function toggleMapType(type: MapQuestionType) {
+    if (!settings) return
+    const on = settings.mapQuestionTypes.includes(type)
+    const mapQuestionTypes = on ? settings.mapQuestionTypes.filter(t => t !== type) : MAP_QUESTION_TYPES.filter(t => t === type || settings.mapQuestionTypes.includes(t))
+    if (mapQuestionTypes.length === 0) return
+    update({ mapQuestionTypes })
   }
 
   function toggleSlot(slot: SlotType) {
@@ -213,6 +231,32 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             <button key={kind} className={`chip toggle${settings.guessKinds.includes(kind) ? ' on' : ''}`}
               onClick={() => toggleGuessKind(kind)} aria-pressed={settings.guessKinds.includes(kind)}>
               {GUESS_KIND_LABEL[kind]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Map-Quiz</h2>
+        <div className="field">
+          <span>Bereiche</span>
+        </div>
+        <div className="chips" role="group" aria-label="Map-Quiz: Bereiche">
+          {MAP_QUIZ_GROUPS.map(group => (
+            <button key={group} className={`chip toggle${settings.mapGroups.includes(group) ? ' on' : ''}`}
+              onClick={() => toggleMapGroup(group)} aria-pressed={settings.mapGroups.includes(group)}>
+              {MAP_GROUP_LABEL[group]}
+            </button>
+          ))}
+        </div>
+        <div className="field">
+          <span>Fragetypen</span>
+        </div>
+        <div className="chips" role="group" aria-label="Map-Quiz: Fragetypen">
+          {MAP_QUESTION_TYPES.map(type => (
+            <button key={type} className={`chip toggle${settings.mapQuestionTypes.includes(type) ? ' on' : ''}`}
+              onClick={() => toggleMapType(type)} aria-pressed={settings.mapQuestionTypes.includes(type)}>
+              {MAP_QUESTION_LABEL[type]}
             </button>
           ))}
         </div>

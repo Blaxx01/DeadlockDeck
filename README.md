@@ -24,6 +24,11 @@ Quiz-Fragetypen gemischt, die Zeit pro Frage wird immer knapper). Gefragt wird *
 Sprint und Hero erraten nehmen erst Karten, die man schon gelernt hat, und füllen bei Bedarf mit neuen auf (als „Neu“
 markiert, Fehler zählen dort nicht als Schwäche) – einstellbar auf „Nur Gelerntes“ oder „Alles“.
 
+Für **Map-Wissen** gibt es die **Map** zum Nachschlagen (Minimap aus der API mit Lanes, Guardians, Walkern, Patron,
+Mid Boss, Camps, Vaults, Shops, Teleportern, Urne, Brücken-Buffs, Seilen, Sprungpads … – Ebenen ein/aus, Antippen
+zeigt Name und Erklärung, Lupe zum Vergrößern) und das **Map-Quiz**: „Wo ist …?“ (auf die Map tippen) und
+„Was ist hier?“ (markierte Stelle, 4 Antworten), mit Punkten, Highscore und Souls.
+
 Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
 täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
@@ -87,6 +92,9 @@ Aufbau:
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/data/backup.ts`, `src/data/persist.ts` | Backup: Export (Teilen/Download), Import, Erinnerung; dauerhafter Speicher |
+| `src/map/mapData.ts`, `src/data/mapSync.ts` | Map: API-Daten → Objekte je Art, Lanes aus den Ziplines, Namen und Erklärungen; Laden und Speichern |
+| `src/map/mapQuiz.ts`, `src/views/MapQuiz.tsx` | Map-Quiz: „Wo ist …?“ (Tippen mit Toleranz), „Was ist hier?“, Runden |
+| `src/components/MapCanvas.tsx`, `src/views/MapView.tsx` | Map-Darstellung (Minimap, Lanes, Symbole, Zoom) und Map-Seite mit Ebenen und Legende |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange (inkl. Rückrichtung), FSRS-Bewertung, Streak |
 | `src/srs/typing.ts`, `src/components/AnswerInput.tsx` | Antwort eintippen: tolerante Prüfung, Eingabe, Ergebnis |
 | `src/components/ReverseCards.tsx` | Rückrichtung: Vorderseite mit Name, Bild auf der Rückseite |

@@ -20,6 +20,7 @@ export interface BackupFile {
   /** 60-Sekunden-Sprint: Highscore je Auswahl */
   sprintHighscore?: SprintHighscores
   survivalHighscore?: number
+  mapHighscore?: number
   /** Build-Quiz-Bestwerte je Hero und Build-Art */
   buildBest?: Record<string, BuildBest>
   /** Souls-Verlauf (Rang) */
@@ -50,6 +51,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     guessHighscore: await getMeta<number>('guessHighscore', 0, database),
     sprintHighscore: await getSprintHighscores(database),
     survivalHighscore: await getMeta<number>('survivalHighscore', 0, database),
+    mapHighscore: await getMeta<number>('mapHighscore', 0, database),
     buildBest: await getBuildBests(database),
     souls: await database.souls.toArray(),
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
@@ -114,6 +116,7 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     if (typeof backup.guessHighscore === 'number') await setMeta('guessHighscore', backup.guessHighscore, database)
     if (isRecord(backup.sprintHighscore)) await setMeta('sprintHighscore', backup.sprintHighscore, database)
     if (typeof backup.survivalHighscore === 'number') await setMeta('survivalHighscore', backup.survivalHighscore, database)
+    if (typeof backup.mapHighscore === 'number') await setMeta('mapHighscore', backup.mapHighscore, database)
     if (backup.buildBest && typeof backup.buildBest === 'object') await setMeta('buildBest', backup.buildBest, database)
     // Meilensteine gehören zum Souls-Verlauf des Backups (alte Backups: keine – werden unten neu berechnet)
     await resetMilestonesInTx(database, {
