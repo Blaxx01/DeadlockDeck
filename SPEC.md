@@ -50,11 +50,17 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 - Bei jedem Sync (automatisch alle 24 h mit Netz oder „Items neu laden“) werden alte und neue Karten verglichen:
   - **Geändert**: Patch-Eintrag mit **„vorher → nachher“** der angezeigten Werte; schon gelernte Karten werden
     **sofort fällig** (Lernverlauf bleibt)
-  - **Neu** (wenn das Deck vorher schon Karten hatte): Eintrag „Neu im Patch“
+  - **Neu** (wenn das Deck vorher schon Karten hatte): Eintrag „Neu im Patch“; neue Karten kommen beim Lernen
+    **vor allen übrigen neuen Karten**
+  - **Entfernt**: Karte verschwindet aus Deck, Shop und Quiz; der Lernstand bleibt gespeichert (kommt sie zurück,
+    ist er wieder da)
+  - **Schutz vor API-Pannen**: Fehlen plötzlich über 30 % eines Decks, wird die Aktualisierung übersprungen
+    und der alte Stand behalten
 - Anzeige:
-  - Lernkarte: Badge vorne, „vorher → nachher“ hinten – bis die Karte nach dem Patch einmal wiederholt wurde
-  - Shop: Badge „Geändert“ / „Neu“ an der Kachel (14 Tage), Hinweis auf der Detailseite (30 Tage)
-  - Startseite: Hinweis „Patch erkannt“ mit Anzahl (7 Tage, wegklickbar)
+  - Lernkarte: „Geändert“ vorne + „vorher → nachher“ hinten, bis die Karte nach dem Patch einmal wiederholt wurde;
+    „Neu im Patch“ höchstens 7 Tage
+  - Shop: Badge „Geändert“ (14 Tage) / „Neu“ (7 Tage) an der Kachel; Detailseite: Geändert 30 Tage, Neu 7 Tage
+  - Startseite: Hinweis „Patch erkannt“ mit Anzahl und Namen der neuen und entfernten Karten (7 Tage, wegklickbar)
 
 ## Quiz
 - Fragetypen: **Bild → Name**, **Beschreibung → Item** (Item-Name im Text geschwärzt),

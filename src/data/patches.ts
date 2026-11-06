@@ -95,15 +95,56 @@ export function detectChanges(oldCards: readonly AnyCard[], newCards: readonly A
   return records
 }
 
-/** Zeigt die Lernkarte das Patch-Badge? Bis die Karte nach der Änderung einmal wiederholt wurde. */
-export function showPatchOnCard(patch: PatchRecord | undefined, lastReview: Date | undefined): boolean {
+/** Karten, die es nicht mehr gibt – nur wenn ein Ausgangszustand mit gleicher Fingerprint-Version existiert */
+export function detectRemoved(oldCards: readonly AnyCard[], newCards: readonly AnyCard[]): AnyCard[] {
+  const baseline = oldCards.some(c => sameFingerprintVersion(c.fingerprint, newCards[0]?.fingerprint))
+  if (!baseline) return []
+  const ids = new Set(newCards.map(c => c.id))
+  return oldCards.filter(c => !ids.has(c.id))
+}
+
+/** Name für Hinweise; bei Fähigkeiten mit Hero, z. B. „Sleep Dagger (Haze)“ */
+export function cardLabel(card: AnyCard): string {
+  return isAbility(card) ? `${card.name} (${card.heroName})` : card.name
+}
+
+const DAY = 86_400_000
+/** „Geändert“ im Shop */
+export const CHANGED_BADGE_DAYS = 14
+/** „Geändert“ auf der Shop-Detailseite */
+export const CHANGED_NOTE_DAYS = 30
+/** „Neu“ überall */
+export const ADDED_BADGE_DAYS = 7
+
+function ageInDays(patch: PatchRecord, now: number): number {
+  return (now - patch.detectedAt) / DAY
+}
+
+/**
+ * Zeigt die Lernkarte das Patch-Badge?
+ * Geändert: bis die Karte nach der Änderung einmal wiederholt wurde. Neu: zusätzlich höchstens 7 Tage.
+ */
+export function showPatchOnCard(patch: PatchRecord | undefined, lastReview: Date | undefined, now = Date.now()): boolean {
   if (!patch) return false
+  if (patch.kind === 'added' && ageInDays(patch, now) >= ADDED_BADGE_DAYS) return false
   return !lastReview || lastReview.getTime() < patch.detectedAt
 }
 
-export const PATCH_BADGE_DAYS = 14
+/** Badge an der Shop-Kachel: Geändert 14 Tage, Neu 7 Tage */
+export function isRecentPatch(patch: PatchRecord | undefined, now = Date.now()): boolean {
+  if (!patch) return false
+  return ageInDays(patch, now) < (patch.kind === 'added' ? ADDED_BADGE_DAYS : CHANGED_BADGE_DAYS)
+}
 
-/** Badge im Shop / auf der Startseite: für ein paar Tage nach der Erkennung */
-export function isRecentPatch(patch: PatchRecord | undefined, now = Date.now(), days = PATCH_BADGE_DAYS): boolean {
-  return !!patch && now - patch.detectedAt < days * 86_400_000
+/** Hinweis auf der Shop-Detailseite: Geändert 30 Tage, Neu 7 Tage */
+export function showPatchNote(patch: PatchRecord | undefined, now = Date.now()): boolean {
+  if (!patch) return false
+  return ageInDays(patch, now) < (patch.kind === 'added' ? ADDED_BADGE_DAYS : CHANGED_NOTE_DAYS)
+}
+
+/** Neue Karten aus einem Patch kommen vor allen übrigen neuen Karten (auch nach Ablauf des Badges) */
+export const ADDED_PRIORITY = 1_000_000
+
+export function newCardOrder(order: number, patch: PatchRecord | undefined): number {
+  return patch?.kind === 'added' ? order - ADDED_PRIORITY : order
 }

@@ -66,9 +66,20 @@ async function recentPatch(now: number): Promise<LastPatch | null> {
   return dismissed === last.at ? null : last
 }
 
+/** „(A, B, C, D +2 weitere)“ */
+function nameList(names: string[] | undefined): string {
+  if (!names?.length) return ''
+  const shown = names.slice(0, 4).join(', ')
+  return ` (${shown}${names.length > 4 ? ` +${names.length - 4} weitere` : ''})`
+}
+
 function PatchNotice({ patch }: { patch: LastPatch }) {
   const date = new Date(patch.at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-  const parts = [patch.changed && `${patch.changed} geändert`, patch.added && `${patch.added} neu`].filter(Boolean).join(', ')
+  const parts = [
+    patch.changed && `${patch.changed} geändert`,
+    patch.added && `${patch.added} neu${nameList(patch.addedNames)}`,
+    patch.removed && `${patch.removed} entfernt${nameList(patch.removedNames)}`,
+  ].filter(Boolean).join(', ')
   return (
     <div className="panel patch-notice">
       <div className="row">
@@ -77,7 +88,7 @@ function PatchNotice({ patch }: { patch: LastPatch }) {
       </div>
       <p className="small">
         Am {date}: {parts}. Geänderte Karten, die du schon gelernt hast, kommen in deiner nächsten Session dran –
-        mit „vorher → nachher“ auf der Karte. Im Shop sind sie markiert.
+        mit „vorher → nachher“ auf der Karte. Neue Karten kommen vor allen anderen neuen. Im Shop sind sie markiert.
       </p>
     </div>
   )

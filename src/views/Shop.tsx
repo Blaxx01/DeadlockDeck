@@ -31,7 +31,7 @@ function ShopTile({ card, patch, onOpen }: { card: ItemCard; patch?: PatchRecord
 
 export function Shop({ onBack }: Props) {
   const cards = useLiveQuery(() => db.items.toArray(), [])
-  // Nur Patches der letzten 14 Tage bekommen ein Badge
+  // Badge: Geändert 14 Tage, Neu 7 Tage
   const patches = useLiveQuery(async () => {
     const now = Date.now()
     return new Map((await db.patches.toArray()).filter(p => isRecentPatch(p, now)).map(p => [p.id, p]))

@@ -3,7 +3,7 @@ import type { ApiGenericData, ApiHero, ApiItem } from './apiTypes'
 import { db, getMeta, setMeta, type DeckDB, type LastPatch } from './db'
 import { buildHeroDecks } from './heroes'
 import { buildItemCards } from './normalize'
-import { detectChanges } from './patches'
+import { cardLabel, detectChanges, detectRemoved, type AnyCard } from './patches'
 
 export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
 /**
@@ -35,8 +35,18 @@ export interface SyncResult {
   itemCount: number
   heroCount: number
   abilityCount: number
-  /** Im Sync erkannte Patch-Änderungen (geändert + neu) */
+  /** Im Sync erkannte Patch-Änderungen (geändert + neu + entfernt) */
   patchChanges: number
+}
+
+/**
+ * Schutz vor unvollständigen API-Daten: Fehlen plötzlich mehr als 30 % eines Decks, ist das
+ * eher eine Panne als ein Patch – dann den alten Stand behalten statt „40 entfernt“ zu melden.
+ */
+export function assertPlausible(oldCount: number, newCount: number, label: string): void {
+  if (oldCount >= 20 && newCount < oldCount * 0.7) {
+    throw new Error(`Die API hat deutlich weniger ${label} geliefert als bisher (${newCount} statt ${oldCount}) – Aktualisierung übersprungen, alter Stand bleibt.`)
+  }
 }
 
 /** Lädt alle Items (englisch + deutsch) und speichert die Karten in IndexedDB. */
@@ -57,13 +67,19 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
   const tables = [database.items, database.heroes, database.abilities, database.patches, database.reviews, database.meta]
   await database.transaction('rw', tables, async () => {
     // Patch-Erkennung: alte Karten mit den neuen vergleichen, bevor sie ersetzt werden
-    const records = [
-      ...detectChanges(await database.items.toArray(), cards, now),
-      ...detectChanges(await database.abilities.toArray(), abilities, now),
-      ...detectChanges(await database.heroes.toArray(), heroes, now),
+    const decks: [AnyCard[], AnyCard[], string][] = [
+      [await database.items.toArray(), cards, 'Items'],
+      [await database.abilities.toArray(), abilities, 'Fähigkeiten'],
+      [await database.heroes.toArray(), heroes, 'Heroes'],
     ]
-    if (records.length) {
+    for (const [before, after, label] of decks) assertPlausible(before.length, after.length, label)
+    const records = decks.flatMap(([before, after]) => detectChanges(before, after, now))
+    const removed = decks.flatMap(([before, after]) => detectRemoved(before, after))
+    if (records.length || removed.length) {
+      const newById = new Map<string, AnyCard>([...cards, ...abilities, ...heroes].map(c => [c.id, c]))
       await database.patches.bulkPut(records)
+      // Einträge entfernter Karten aufräumen (der Lernstand bleibt, falls die Karte zurückkommt)
+      await database.patches.bulkDelete(removed.map(c => c.id))
       // Schon gelernte, geänderte Karten kommen sofort wieder dran (Lernverlauf bleibt)
       for (const r of records) {
         if (r.kind !== 'changed') continue
@@ -72,13 +88,17 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
           await database.reviews.put({ ...review, due: new Date(now) })
         }
       }
+      const added = records.filter(r => r.kind === 'added')
       const summary: LastPatch = {
         at: now,
-        changed: records.filter(r => r.kind === 'changed').length,
-        added: records.filter(r => r.kind === 'added').length,
+        changed: records.length - added.length,
+        added: added.length,
+        removed: removed.length,
+        addedNames: added.map(r => newById.get(r.id)).filter((c): c is AnyCard => !!c).map(cardLabel),
+        removedNames: removed.map(cardLabel),
       }
       await setMeta('lastPatch', summary, database)
-      patchChanges = records.length
+      patchChanges = records.length + removed.length
     }
     await database.items.clear()
     await database.items.bulkPut(cards)

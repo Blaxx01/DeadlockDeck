@@ -119,4 +119,8 @@ export interface LastPatch {
   at: number
   changed: number
   added: number
+  removed?: number
+  /** Namen der neuen und entfernten Karten für den Hinweis */
+  addedNames?: string[]
+  removedNames?: string[]
 }

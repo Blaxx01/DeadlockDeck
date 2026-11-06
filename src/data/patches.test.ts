@@ -6,7 +6,12 @@ import type { ApiItem } from './apiTypes'
 import { DeckDB, getMeta, type LastPatch } from './db'
 import { makeFingerprint, normValue, sameFingerprintVersion } from './fingerprint'
 import { buildItemCards } from './normalize'
-import { detectChanges, diffValues, displayedValues, isRecentPatch, showPatchOnCard, type PatchRecord } from './patches'
+import {
+  ADDED_PRIORITY, cardLabel, detectChanges, detectRemoved, diffValues, displayedValues, isRecentPatch, newCardOrder,
+  showPatchNote, showPatchOnCard, type PatchRecord,
+} from './patches'
+import { buildQueue } from '../srs/srs'
+import { assertPlausible } from './sync'
 import { syncItems } from './sync'
 import { rateCard } from '../srs/srs'
 
@@ -114,17 +119,74 @@ describe('detectChanges', () => {
   })
 })
 
+describe('Entfernte Karten', () => {
+  const before = cardsOf(englishItems)
+  it('findet entfernte Karten – aber nur mit Ausgangszustand', () => {
+    const after = before.filter(c => c.className !== 'upgrade_titanic_magazine')
+    expect(detectRemoved(before, after).map(c => c.name)).toEqual(['Titanic Magazine'])
+    expect(detectRemoved([], after)).toEqual([])
+    const legacy = before.map(c => ({ ...c, fingerprint: undefined as unknown as string }))
+    expect(detectRemoved(legacy, after)).toEqual([])
+  })
+  it('benennt Fähigkeiten mit Hero', () => {
+    expect(cardLabel(before[0])).toBe(before[0].name)
+    const ability = { id: 'ability:x', name: 'Sleep Dagger', heroName: 'Haze' } as never
+    expect(cardLabel(ability)).toBe('Sleep Dagger (Haze)')
+  })
+})
+
 describe('Anzeige-Regeln', () => {
-  const patch: PatchRecord = { id: 'item:x', detectedAt: 1000, kind: 'changed', changes: [] }
-  it('Lernkarte: Badge bis zur ersten Wiederholung nach dem Patch', () => {
-    expect(showPatchOnCard(patch, undefined)).toBe(true)
-    expect(showPatchOnCard(patch, new Date(500))).toBe(true)
-    expect(showPatchOnCard(patch, new Date(1500))).toBe(false)
+  const DAY = 86_400_000
+  const changed: PatchRecord = { id: 'item:x', detectedAt: 1000, kind: 'changed', changes: [] }
+  const added: PatchRecord = { ...changed, kind: 'added' }
+  it('Lernkarte: Geändert bis zur ersten Wiederholung nach dem Patch', () => {
+    expect(showPatchOnCard(changed, undefined, 2000)).toBe(true)
+    expect(showPatchOnCard(changed, new Date(500), 2000)).toBe(true)
+    expect(showPatchOnCard(changed, new Date(1500), 2000)).toBe(false)
+    expect(showPatchOnCard(changed, undefined, 1000 + 60 * DAY)).toBe(true)
     expect(showPatchOnCard(undefined, undefined)).toBe(false)
   })
-  it('Shop: Badge 14 Tage', () => {
-    expect(isRecentPatch(patch, 1000 + 13 * 86_400_000)).toBe(true)
-    expect(isRecentPatch(patch, 1000 + 15 * 86_400_000)).toBe(false)
+  it('Lernkarte: Neu höchstens 7 Tage', () => {
+    expect(showPatchOnCard(added, undefined, 1000 + 6 * DAY)).toBe(true)
+    expect(showPatchOnCard(added, undefined, 1000 + 7 * DAY)).toBe(false)
+  })
+  it('Shop-Kachel: Geändert 14 Tage, Neu 7 Tage', () => {
+    expect(isRecentPatch(changed, 1000 + 13 * DAY)).toBe(true)
+    expect(isRecentPatch(changed, 1000 + 15 * DAY)).toBe(false)
+    expect(isRecentPatch(added, 1000 + 6 * DAY)).toBe(true)
+    expect(isRecentPatch(added, 1000 + 8 * DAY)).toBe(false)
+  })
+  it('Shop-Detail: Geändert 30 Tage, Neu 7 Tage', () => {
+    expect(showPatchNote(changed, 1000 + 29 * DAY)).toBe(true)
+    expect(showPatchNote(changed, 1000 + 31 * DAY)).toBe(false)
+    expect(showPatchNote(added, 1000 + 8 * DAY)).toBe(false)
+  })
+})
+
+describe('Neue Karten zuerst', () => {
+  it('neue Patch-Karten stehen vor allen übrigen neuen Karten – auch nach Ablauf des Badges', () => {
+    const added: PatchRecord = { id: 'item:new', detectedAt: 0, kind: 'added', changes: [] }
+    expect(newCardOrder(3, added)).toBe(3 - ADDED_PRIORITY)
+    expect(newCardOrder(3, { ...added, kind: 'changed' })).toBe(3)
+    expect(newCardOrder(3, undefined)).toBe(3)
+    const cards = [
+      { id: 'item:a', order: newCardOrder(1, undefined) },
+      { id: 'item:b', order: newCardOrder(1, undefined) },
+      { id: 'item:new', order: newCardOrder(4, added) },
+    ]
+    for (let s = 0; s < 10; s++) {
+      expect(buildQueue({ cards, reviews: new Map(), now: new Date(), newLimit: 2, rng: () => s / 10 })[0]).toBe('item:new')
+    }
+  })
+})
+
+describe('Schutz vor unvollständigen API-Daten', () => {
+  it('überspringt die Aktualisierung, wenn über 30 % eines Decks fehlen', () => {
+    expect(() => assertPlausible(173, 172, 'Items')).not.toThrow()
+    expect(() => assertPlausible(173, 122, 'Items')).not.toThrow()
+    expect(() => assertPlausible(173, 120, 'Items')).toThrow(/weniger Items/)
+    expect(() => assertPlausible(10, 2, 'Items')).not.toThrow() // kleine Decks (Tests) nicht prüfen
+    expect(() => assertPlausible(0, 173, 'Items')).not.toThrow()
   })
 })
 
@@ -163,10 +225,34 @@ describe('Sync mit Patch (Integration)', () => {
     const review = (await database.reviews.get('item:upgrade_healing_rite'))!
     expect(review.due.getTime()).toBeLessThanOrEqual(Date.now())
     expect(review.state).toBe(State.Review) // Lernverlauf bleibt
-    expect(await getMeta<LastPatch | null>('lastPatch', null, database)).toMatchObject({ changed: 1, added: 1 })
+    expect(await getMeta<LastPatch | null>('lastPatch', null, database)).toMatchObject({
+      changed: 1, added: 1, removed: 0, addedNames: ['Brand New'], removedNames: [],
+    })
 
     // Ein weiterer Sync ohne Änderung meldet nichts Neues, der Eintrag bleibt erhalten
     expect((await syncItems(database)).patchChanges).toBe(0)
     expect(await database.patches.count()).toBe(2)
+
+    // Item fällt weg: wird mit Namen gemeldet, sein Patch-Eintrag aufgeräumt, der Lernstand bleibt
+    mockApi(patched.filter(i => i.class_name !== 'upgrade_brand_new'), patchedDe)
+    expect((await syncItems(database)).patchChanges).toBe(1)
+    expect(await getMeta<LastPatch | null>('lastPatch', null, database)).toMatchObject({
+      changed: 0, added: 0, removed: 1, removedNames: ['Brand New'],
+    })
+    expect(await database.patches.get('item:upgrade_brand_new')).toBeUndefined()
+    expect(await database.items.get('item:upgrade_brand_new')).toBeUndefined()
+    expect(await database.reviews.get('item:upgrade_healing_rite')).toBeDefined()
+  })
+
+  it('behält den alten Stand, wenn die API plötzlich viel weniger liefert', async () => {
+    const many: ApiItem[] = Array.from({ length: 30 }, (_, i) => ({ ...clone(englishItems[0]), id: 500 + i, class_name: `upgrade_many_${i}`, name: `Many ${i}` }))
+    const database = new DeckDB(`g-${Math.random()}`)
+    mockApi(many, [])
+    await syncItems(database)
+    expect(await database.items.count()).toBe(30)
+    mockApi(many.slice(0, 10), [])
+    await expect(syncItems(database)).rejects.toThrow(/deutlich weniger Items/)
+    expect(await database.items.count()).toBe(30)
+    expect(await getMeta('lastPatch', null, database)).toBeNull()
   })
 })

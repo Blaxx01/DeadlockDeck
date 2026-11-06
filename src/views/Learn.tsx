@@ -7,7 +7,7 @@ import { ItemBack } from '../components/ItemBack'
 import { PatchBadge, PatchNote } from '../components/PatchNote'
 import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
-import { showPatchOnCard, type PatchRecord } from '../data/patches'
+import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
 import { buildQueue, isInLearnScope, localDate, rateCard, requeue } from '../srs/srs'
 
@@ -54,9 +54,12 @@ async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string
 async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
   const entries = await deckEntries(deck, settings, reviews)
   const patches = new Map((await db.patches.toArray()).map(p => [p.id, p]))
+  const now = Date.now()
   return entries.map(e => {
     const patch = patches.get(e.id)
-    return showPatchOnCard(patch, reviews.get(e.id)?.last_review) ? { ...e, patch } : e
+    // Neue Karten aus einem Patch vor den übrigen neuen; Badge nur, solange es gilt
+    const order = newCardOrder(e.order, patch)
+    return showPatchOnCard(patch, reviews.get(e.id)?.last_review, now) ? { ...e, order, patch } : { ...e, order }
   })
 }
 
