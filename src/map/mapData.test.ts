@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countKinds, laneOfColor, MID_BOSS, parseMapData, type ApiMap } from './mapData'
+import { countKinds, laneOfColor, MID_BOSS, objectiveShift, parseMapData, type ApiMap } from './mapData'
 
 const R = 10_000
 /** Welt-Koordinaten zu einer relativen Position (Umkehrung von worldToMap) */
@@ -52,6 +52,17 @@ describe('Map-Daten', () => {
     expect(counts).toEqual({ guardian: 6, walker: 6, patron: 2, midBoss: 1, campSmall: 1, vault: 1, laneShop: 1, secretShop: 1, teleporter: 1, crate: 1 })
     expect(map.points).toContainEqual(MID_BOSS)
     expect(map.points.find(p => p.kind === 'teleporter')).toEqual({ kind: 'teleporter', x: 0.3, y: 0.4, to: { x: 0.7, y: 0.6 } })
+  })
+
+  it('Ziele im verschobenen Rahmen der API (Schwerpunkt 0,45): zurück in die Kartenmitte, auf ihre Lanes', () => {
+    const shifted: ApiMap = {
+      ...API,
+      objective_positions: Object.fromEntries(Object.entries(API.objective_positions).map(([k, p]) => [k, rel(p.left_relative - 0.05, p.top_relative - 0.05)])),
+    }
+    const map = parseMapData(shifted)
+    const walkers = map.points.filter(p => p.kind === 'walker').map(p => `${p.x},${p.y}:${p.lane}`).sort()
+    expect(walkers).toEqual(['0.12,0.3:yellow', '0.12,0.7:yellow', '0.5,0.3:blue', '0.5,0.7:blue', '0.88,0.3:green', '0.88,0.7:green'])
+    expect(objectiveShift([{ x: 0.3, y: 0.3 }, { x: 0.706, y: 0.7 }])).toEqual({ x: 0, y: 0 })
   })
 
   it('ohne Bild oder Lanes: Fehler (alter Stand bleibt)', () => {

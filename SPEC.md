@@ -345,6 +345,10 @@ Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Mini
   - **Bewegung**: Ziplines (als Linien in Lane-Farbe), Kletterseile, Sprungpads, Dampfdüsen, Veils
   - **Kisten & Statuen** (nur auf der Map-Seite): Kisten, harte Kisten, goldene Statuen, Heil-Pickups
   - nicht übernommen: „Base Sentries“ und „Cores“ der API (keinem Spielobjekt sicher zuzuordnen), Glocken, Rifts
+  - Die Ziele (Guardians, Walker, Patron) liegen in der API um 5 % nach links oben verschoben (Schwerpunkt bei 0,45
+    statt in der Kartenmitte, alle anderen Objekte sind punktsymmetrisch zur Mitte). Die App schiebt sie so, dass ihr
+    Schwerpunkt in der Mitte liegt – dann sitzen sie auf ihren Lanes; ist die API korrigiert, verschiebt sich nichts.
+    Ändert sich die Aufbereitung, lädt die App die gespeicherte Map beim nächsten Start mit Netz neu
 - **Map-Seite** (Nachschlagen): Ebenen je Bereich ein/aus (Kisten & Statuen standardmäßig aus); Antippen eines
   Symbols zeigt Name, Erklärung und Anzahl und hebt alle gleichen hervor; Legende mit den Symbolen der gewählten
   Ebenen (antippbar); Lupe vergrößert, dann mit dem Finger verschieben

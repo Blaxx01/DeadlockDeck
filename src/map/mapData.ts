@@ -173,13 +173,17 @@ export function parseMapData(api: ApiMap): MapData {
   const radius = api.radius
   if (!image || !(radius > 0) || !api.objective_positions) throw new Error('Map-Daten unvollständig')
 
-  const objectives = Object.entries(api.objective_positions).flatMap(([key, rel]) => {
+  const raw = Object.entries(api.objective_positions).flatMap(([key, rel]) => {
     const m = OBJECTIVE.exec(key)
     if (!m) return []
     const kind: MapKind = m[2] === 'tier1' ? 'guardian' : m[2] === 'tier2' ? 'walker' : 'patron'
     return [{ kind, laneNo: m[3], ...posOf(rel) }]
   })
-  if (!objectives.some(o => o.kind === 'guardian')) throw new Error('Map-Daten ohne Lanes')
+  if (!raw.some(o => o.kind === 'guardian')) throw new Error('Map-Daten ohne Lanes')
+  // Die Ziele liegen in der API in einem verschobenen Rahmen (Schwerpunkt bei 0,45 statt in der Kartenmitte).
+  // Die Map ist punktsymmetrisch, beide Teams haben dieselben Ziele – also gehört ihr Schwerpunkt in die Mitte.
+  const shift = objectiveShift(raw)
+  const objectives = raw.map(o => ({ ...o, x: round(o.x + shift.x), y: round(o.y + shift.y) }))
 
   // Ziplines: Punkte relativ zur Karte, Lane über die nächsten Lane-Ziele
   const laneOfNo = new Map<string, Lane>()
@@ -223,6 +227,14 @@ export function parseMapData(api: ApiMap): MapData {
   const meanX = (line: MapLine) => line.points.reduce((sum, p) => sum + p.x, 0) / line.points.length
   ziplines.sort((a, b) => meanX(a) - meanX(b))
   return { image, points, ziplines }
+}
+
+/** Verschiebung der Ziele, damit ihr Schwerpunkt in der Kartenmitte liegt (kleine Abweichungen bleiben unverändert) */
+export function objectiveShift(objectives: readonly MapPos[]): MapPos {
+  if (!objectives.length) return { x: 0, y: 0 }
+  const dx = 0.5 - objectives.reduce((sum, o) => sum + o.x, 0) / objectives.length
+  const dy = 0.5 - objectives.reduce((sum, o) => sum + o.y, 0) / objectives.length
+  return Math.hypot(dx, dy) < 0.005 ? { x: 0, y: 0 } : { x: dx, y: dy }
 }
 
 /** Anzahl je Art */

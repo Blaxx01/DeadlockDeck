@@ -9,7 +9,7 @@ import { checkDailyBonuses } from './game/missions'
 import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
 import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
 import { pruneMistakes } from './game/weakness'
-import { getMapData, syncMap } from './data/mapSync'
+import { getMapData, mapNeedsSync, syncMap } from './data/mapSync'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
@@ -133,8 +133,8 @@ export default function App() {
       if (!navigator.onLine) return
       if (await needsAutoSync()) return void sync()
       syncStatistics()
-      // Map noch nie geladen (z. B. nach dem Update, das sie eingeführt hat)
-      if (!(await getMapData())) await syncMap().catch(() => {})
+      // Map noch nie geladen oder mit älterer Aufbereitung (z. B. nach einem Update)
+      if (await mapNeedsSync()) await syncMap().catch(() => {})
       // Bilder fehlen noch im Offline-Cache (z. B. erster Start oder abgebrochen)?
       const [lastSync, cachedFor, cachedSet] = await Promise.all([
         getMeta('lastSync', 0), getMeta('imagesCachedFor', -1), getMeta('imagesCachedSet', 1),
