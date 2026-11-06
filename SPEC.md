@@ -256,6 +256,46 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   (Shop, Heroes, Statistik)
 - Offline: alle Hero-Posen werden mit vorgeladen (auch für Hero erraten)
 
+## Lernen vertiefen
+Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalten.
+
+### Neue Quiz-Fragen, Items nach Beliebtheit (Etappe A)
+- Neuer Fragetyp **Fähigkeiten-Upgrades** (in Quiz und Überleben, in den Einstellungen abwählbar):
+  „Was macht das 5-AP-Upgrade von Sleep Dagger?“ – 4 Upgrade-Texte; falsch: die beiden anderen Stufen derselben
+  Fähigkeit und ein Upgrade einer anderen Fähigkeit des Heroes
+  - Fähigkeiten mit gelernter Karte kommen bevorzugt dran (meist), ab und zu auch andere
+  - Auflösung: alle drei Upgrades der Fähigkeit; ein Fehler zählt als Schwäche der Fähigkeiten-Karte
+- Neuer Fragetyp **Item-Effekte** (aus den Item-Werten), zwei Varianten:
+  - **Effekt → Item**: „Welches Item bringt „Kugellebensraub“?“ – genau eine Antwort hat den Effekt; nur
+    seltene, eindeutige Effekte (höchstens 8 Items), allgemeine wie „Schaden“ oder „Radius“ fallen weg
+  - **Wer gibt am meisten?**: „Welches Item bringt am meisten „Bonuslebenspunkte“?“ – alle 4 Antworten haben
+    den Effekt; nur vergleichbare Werte (gleiche Einheit, ohne Bedingung) mit eindeutigem Höchstwert;
+    die Auflösung zeigt alle 4 Werte
+- **Items nach Beliebtheit**: neue Item-Karten kommen meistgekauft zuerst (Käufe in Matches ab Orakel,
+  letzte 30 Tage – aus derselben Abfrage wie die Counter-Daten, wöchentlich); ohne Statistik wie bisher nach Tier.
+  Neue Items aus einem Patch kommen weiterhin vor allen anderen
+
+### Hartnäckige Karten & Merkhilfen (Etappe B)
+- Eine Karte ist **hartnäckig**, wenn sie nach dem Lernen **4× vergessen** wurde
+- Hartnäckige Karten stehen zusätzlich in **„Schwächen üben“**, bis sie wieder sitzen (Silber)
+- **Übersicht** aller hartnäckigen Karten mit ihren Merkhilfen auf der Statistik-Seite
+- **Merkhilfe** für jede Karte: „+ Merkhilfe“ auf der Kartenrückseite und der Detailseite; die eigene Notiz steht
+  danach bei jeder Wiederholung auf der Rückseite (vorne würde sie die Antwort verraten); bei hartnäckigen Karten
+  hervorgehoben
+
+### Eintippen & Rückrichtung (Etappe C)
+- **Antwort eintippen** bei Items und Counter, je Deck in den Einstellungen einschaltbar: statt „Tippen zum
+  Umdrehen“ ein Eingabefeld
+  - kleine Tippfehler und ein eindeutiger Anfang (ab 4 Buchstaben) zählen als richtig; keine Vorschlagsliste
+  - Counter: eins der Top-3-Items reicht; die Rückseite markiert es
+  - nach dem Umdrehen ist „Gewusst“ bzw. „Nicht gewusst“ vorgewählt – ein Tipp bestätigt, umentscheiden geht
+- **Rückrichtung** bei Items, Fähigkeiten und Heroes: vorne nur der Name („Was macht Headhunter?“), hinten Bild
+  und Wirkung
+  - eigene Karten mit eigenem Wiederholungsplan, erst wenn die normale Karte gelernt ist
+  - zusätzlich bis zu **5 neue Rückrichtungs-Karten** pro Tag und Deck (das normale Neu-Limit bleibt)
+  - Sammelalbum und Sterne zählen nur die normale Karte; die Rückrichtung bringt Souls (auch Meilensteine),
+    zählt fürs Tagesziel und in der Statistik
+
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
@@ -275,6 +315,10 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
     2. ✅ Schwächen-Training
     3. ✅ Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
     4. ✅ Sprint, Überleben
+11. Lernen vertiefen in 3 Etappen:
+    1. ✅ Neue Quiz-Fragen (Upgrades, Item-Effekte), Items nach Beliebtheit
+    2. Hartnäckige Karten, Merkhilfen
+    3. Eintippen, Rückrichtung
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

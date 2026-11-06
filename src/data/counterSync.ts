@@ -1,14 +1,14 @@
 /** Lädt die Counter-Daten (Statistik der Deadlock-API) und speichert sie – siehe counters.ts */
 import { State } from 'ts-fsrs'
-import { computeCounters, COUNTER_MIN_BADGE, detectCounterChanges, type ApiItemStat } from './counters'
+import { computeCounters, COUNTER_MIN_BADGE, detectCounterChanges, itemPurchases, type ApiItemStat } from './counters'
 import { db, getMeta, setMeta, type DeckDB } from './db'
 import { fetchJson } from './sync'
 
 export const ANALYTICS_BASE = 'https://api.deadlock-api.com/v1/analytics'
 /** Counter-Daten höchstens so oft neu laden */
 export const COUNTER_REFRESH_DAYS = 7
-/** Version der Berechnung: ändert sie sich, wird neu geladen und still neu eingemessen */
-export const COUNTER_VERSION = 1
+/** Version der Berechnung: ändert sie sich, wird neu geladen und still neu eingemessen (2: Käufe je Item) */
+export const COUNTER_VERSION = 2
 
 const DAY = 86_400_000
 /** Die Abfrage nach Gegner-Hero dauert bei der API schon mal 15 s */
@@ -65,6 +65,8 @@ async function loadCounters(database: DeckDB, force: boolean): Promise<CounterSy
     changed = records.length
     await database.counters.clear()
     await database.counters.bulkPut(cards)
+    // Käufe je Item: neue Item-Karten kommen meistgekauft zuerst
+    await setMeta('itemPurchases', itemPurchases(base, items), database)
     await setMeta('countersSync', now, database)
     await setMeta('countersVersion', COUNTER_VERSION, database)
     await setMeta('countersError', null, database)

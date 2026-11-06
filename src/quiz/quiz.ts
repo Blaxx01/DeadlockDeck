@@ -1,7 +1,11 @@
 import { formatFactor, isClearCounter, NO_COUNTER } from '../data/counters'
-import type { CounterCard, ItemCard, QuizKind } from '../data/model'
+import type { AbilityCard, CounterCard, ItemCard, QuizKind } from '../data/model'
+import { buildEffectIndex, effectQuestion, type EffectIndex } from './effects'
+import { distance, makeOptions, pickSimilar, shuffle, type Rng } from './options'
+import { nextUpgradeQuestion } from './upgrades'
 
-export type Rng = () => number
+export type { Rng } from './options'
+export { distance, makeOptions, pickSimilar, shuffle } from './options'
 
 export interface QuizQuestion {
   kind: QuizKind
@@ -27,6 +31,10 @@ export interface QuizQuestion {
   info?: string
   /** Karte, die bei einer falschen Antwort als Schwäche zählt (Standard: das Item) */
   cardId?: string
+  /** Upgrade-Frage: Zeile unter dem Icon, z. B. „Fähigkeit von Haze“ */
+  caption?: string
+  /** Effekt-Frage: der Wert, um den es geht (groß angezeigt) */
+  subjectText?: string
 }
 
 export const ROUND_SIZE = 10
@@ -39,56 +47,6 @@ export function scoreAnswer(correct: boolean, elapsedMs: number): number {
   if (!correct) return 0
   const bonus = MAX_SPEED_BONUS * Math.max(0, 1 - elapsedMs / SPEED_WINDOW_MS)
   return BASE_POINTS + Math.round(bonus)
-}
-
-export function shuffle<T>(items: readonly T[], rng: Rng): T[] {
-  const a = [...items]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-/** Je kleiner, desto ähnlicher: gleiche Kategorie, ähnliches Tier und ähnliche Kosten. */
-export function distance(a: ItemCard, b: ItemCard): number {
-  const costA = Math.max(a.cost, 1)
-  const costB = Math.max(b.cost, 1)
-  return (a.slot === b.slot ? 0 : 3) + Math.abs(a.tier - b.tier) * 1.5 + Math.abs(Math.log2(costA / costB))
-}
-
-/**
- * Wählt `n` möglichst ähnliche Items mit unterschiedlichen Namen als falsche Antworten.
- * Etwas Zufall sorgt dafür, dass nicht immer dieselben Distraktoren kommen.
- */
-export function pickSimilar(
-  target: ItemCard,
-  pool: readonly ItemCard[],
-  n: number,
-  rng: Rng,
-  excludeNames: Iterable<string> = [],
-): ItemCard[] {
-  const seen = new Set<string>([target.name, ...excludeNames])
-  const ranked = pool
-    .filter(c => !seen.has(c.name))
-    .map(c => ({ c, d: distance(target, c) + rng() * 1.5 }))
-    .sort((x, y) => x.d - y.d)
-  const out: ItemCard[] = []
-  for (const { c } of ranked) {
-    if (seen.has(c.name)) continue
-    seen.add(c.name)
-    out.push(c)
-    if (out.length === n) break
-  }
-  return out
-}
-
-/** Mischt richtige + 3 falsche Antworten. null, wenn es keine 3 verschiedenen falschen gibt. */
-export function makeOptions(correct: string, distractors: readonly string[], rng: Rng): { options: string[]; answer: number } | null {
-  const unique = [...new Set(distractors.filter(d => d !== correct))]
-  if (unique.length < 3) return null
-  const options = shuffle([correct, ...unique.slice(0, 3)], rng)
-  return { options, answer: options.indexOf(correct) }
 }
 
 /** Ersetzt den Item-Namen im Text, damit die Beschreibung die Antwort nicht verrät. */
@@ -117,14 +75,30 @@ export interface QuizContext {
   counterItems: ReadonlySet<string>
   /** Heroes, nach denen in dieser Runde schon gefragt wurde */
   usedHeroes: ReadonlySet<number>
+  /** Fähigkeiten (Upgrade-Fragen) */
+  abilities: readonly AbilityCard[]
+  /** Fähigkeiten mit gelernter Karte – kommen bei Upgrade-Fragen bevorzugt dran */
+  learnedAbilities: ReadonlySet<string>
+  /** Werte der Items (Effekt-Fragen) */
+  effects: EffectIndex
 }
 
-export function quizContext(
-  pool: readonly ItemCard[],
-  { counters = [], items }: { counters?: readonly CounterCard[]; items?: ReadonlyMap<string, ItemCard> } = {},
-): QuizContext {
+/** Was eine Runde außer den Items braucht */
+export interface QuizExtra {
+  counters?: readonly CounterCard[]
+  /** Alle Items, auch außerhalb des Kategorie-Filters – für die Auflösung */
+  items?: ReadonlyMap<string, ItemCard>
+  abilities?: readonly AbilityCard[]
+  /** IDs der Fähigkeiten-Karten, die schon gelernt sind */
+  learnedAbilities?: ReadonlySet<string>
+}
+
+export function quizContext(pool: readonly ItemCard[], { counters = [], items, abilities = [], learnedAbilities = new Set() }: QuizExtra = {}): QuizContext {
   const counterItems = new Set(counters.flatMap(c => Object.keys(c.factors).filter(id => isClearCounter(c.factors[id]))))
-  return { pool, counters, items: items ?? new Map(pool.map(i => [i.id, i])), counterItems, usedHeroes: new Set() }
+  return {
+    pool, counters, items: items ?? new Map(pool.map(i => [i.id, i])), counterItems, usedHeroes: new Set(),
+    abilities, learnedAbilities, effects: buildEffectIndex(pool),
+  }
 }
 
 type Generator = (item: ItemCard, ctx: QuizContext, rng: Rng) => QuizQuestion | null
@@ -296,17 +270,24 @@ const counterHeroQuestion: Generator = (item, ctx, rng) => {
   }
 }
 
-const GENERATORS: Record<QuizKind, Generator> = {
+/** Effekt → Item oder „Wer gibt am meisten?“ */
+const effectItemQuestion: Generator = (item, ctx, rng) => effectQuestion(item, ctx.pool, ctx.effects, rng)
+
+/** Fragetypen, die von einem Item ausgehen (Upgrade-Fragen gehen von einer Fähigkeit aus) */
+export type ItemQuizKind = Exclude<QuizKind, 'upgrade'>
+
+const GENERATORS: Record<ItemQuizKind, Generator> = {
   image: imageQuestion,
   description: descriptionQuestion,
   number: numberQuestion,
   build: buildQuestion,
   counterItem: counterItemQuestion,
   counterHero: counterHeroQuestion,
+  effect: effectItemQuestion,
 }
 
 export function makeQuestion(
-  kind: QuizKind,
+  kind: ItemQuizKind,
   item: ItemCard,
   pool: readonly ItemCard[],
   rng: Rng = Math.random,
@@ -324,7 +305,7 @@ export function buildRound(
   kinds: readonly QuizKind[],
   rng: Rng = Math.random,
   size = ROUND_SIZE,
-  extra: { counters?: readonly CounterCard[]; items?: ReadonlyMap<string, ItemCard> } = {},
+  extra: QuizExtra = {},
 ): QuizQuestion[] {
   if (cards.length < 4 || kinds.length === 0) return []
   const questions: QuizQuestion[] = []
@@ -337,9 +318,14 @@ export function buildRound(
     if (!queue.length) queue = shuffle(kinds.filter(k => !exhausted.has(k)), rng)
     const kind = queue.shift()!
     let question: QuizQuestion | null = null
-    for (const item of shuffle(cards.filter(c => !used.has(c.id)), rng)) {
-      question = makeQuestion(kind, item, cards, rng, ctx)
-      if (question) break
+    if (kind === 'upgrade') {
+      // geht von einer Fähigkeit aus; `used` enthält auch die Fähigkeiten dieser Runde
+      question = nextUpgradeQuestion(ctx.abilities, ctx.learnedAbilities, used, rng)
+    } else {
+      for (const item of shuffle(cards.filter(c => !used.has(c.id)), rng)) {
+        question = makeQuestion(kind, item, cards, rng, ctx)
+        if (question) break
+      }
     }
     if (!question) {
       exhausted.add(kind)

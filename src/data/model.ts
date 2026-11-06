@@ -76,9 +76,9 @@ export const SLOT_LABEL: Record<SlotType, string> = {
   spirit: 'Spirit',
 }
 
-export type QuizKind = 'image' | 'description' | 'number' | 'build' | 'counterItem' | 'counterHero'
+export type QuizKind = 'image' | 'description' | 'number' | 'build' | 'counterItem' | 'counterHero' | 'upgrade' | 'effect'
 
-export const QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build', 'counterItem', 'counterHero']
+export const QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build', 'counterItem', 'counterHero', 'upgrade', 'effect']
 
 /** Fragetypen, die es schon vor den Counter-Fragen gab (für gespeicherte Einstellungen ohne `knownQuizKinds`) */
 export const LEGACY_QUIZ_KINDS: QuizKind[] = ['image', 'description', 'number', 'build']
@@ -90,6 +90,8 @@ export const QUIZ_KIND_LABEL: Record<QuizKind, string> = {
   build: 'Build-Pfad',
   counterItem: 'Counter: Hero → Item',
   counterHero: 'Counter: Item → Hero',
+  upgrade: 'Fähigkeiten-Upgrades',
+  effect: 'Item-Effekte',
 }
 
 /** Ein Counter-Item gegen einen Hero */

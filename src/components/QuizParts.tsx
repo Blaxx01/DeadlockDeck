@@ -17,6 +17,17 @@ export function SoulsEarned({ earned }: { earned: RoundAward | null }) {
 /** Bild, Porträt, Effekttext oder Item zur Frage */
 export function QuestionMedia({ question, subject }: { question: QuizQuestion; subject?: ItemCard }) {
   const html = useMemo(() => (question.html ? sanitizeHtml(question.html) : ''), [question.html])
+  if (question.kind === 'upgrade') {
+    return (
+      <div className="quiz-ability">
+        {question.image && <img src={question.image} alt="" draggable={false} />}
+        {question.caption && <span className="muted small">{question.caption}</span>}
+      </div>
+    )
+  }
+  if (question.kind === 'effect' && question.subjectText) {
+    return <div className="quiz-effect">{question.subjectText}</div>
+  }
   if (question.kind === 'image' && question.image) {
     return <img className="quiz-image" src={question.image} alt="Item-Bild" draggable={false} />
   }
@@ -60,4 +71,10 @@ export function QuizOptions({ question, picked, onPick, keyPrefix = '' }: {
       })}
     </div>
   )
+}
+
+/** Kleines Bild zur Frage in der Fehlerliste: Item, Fähigkeit (Upgrade-Frage) */
+export function QuestionThumb({ question, items }: { question: QuizQuestion; items: ReadonlyMap<string, ItemCard> }) {
+  const src = question.kind === 'upgrade' ? question.image : items.get(question.itemId)?.image
+  return src ? <img src={src} alt="" className={question.kind === 'upgrade' ? 'thumb-ability' : undefined} /> : null
 }

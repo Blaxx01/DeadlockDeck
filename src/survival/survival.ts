@@ -2,8 +2,8 @@
  * Überleben: 3 Leben, alle Quiz-Fragetypen gemischt. 15 s pro Frage, alle 5 Fragen 1 s weniger (bis 6 s);
  * falsch oder Zeit abgelaufen kostet ein Leben. Highscore = überlebte (richtig beantwortete) Fragen.
  */
-import type { CounterCard, ItemCard, QuizKind } from '../data/model'
-import { buildRound, type QuizQuestion, type Rng } from '../quiz/quiz'
+import type { ItemCard, QuizKind } from '../data/model'
+import { buildRound, type QuizExtra, type QuizQuestion, type Rng } from '../quiz/quiz'
 
 export const LIVES = 3
 export const START_SECONDS = 15
@@ -23,7 +23,7 @@ export function secondsFor(index: number): number {
 export function survivalBatch(
   items: readonly ItemCard[],
   kinds: readonly QuizKind[],
-  extra: { counters?: readonly CounterCard[]; items?: ReadonlyMap<string, ItemCard> } = {},
+  extra: QuizExtra = {},
   rng: Rng = Math.random,
 ): QuizQuestion[] {
   return buildRound(items, kinds, rng, BATCH_SIZE, extra)

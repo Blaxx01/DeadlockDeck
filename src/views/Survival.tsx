@@ -1,14 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { QuestionMedia, QuizOptions, SoulsEarned } from '../components/QuizParts'
+import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned } from '../components/QuizParts'
 import { db, getSettings, getSurvivalHighscore, submitSurvivalScore } from '../data/db'
-import type { CounterCard, ItemCard, QuizKind } from '../data/model'
+import type { ItemCard, QuizKind } from '../data/model'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
 import type { RoundAward } from '../game/souls'
 import { logMistake } from '../game/weakness'
-import { itemInfo, plainText } from '../quiz/format'
-import type { QuizQuestion } from '../quiz/quiz'
+import { itemInfo, questionLine } from '../quiz/format'
+import { loadQuizExtra } from '../quiz/load'
+import type { QuizExtra, QuizQuestion } from '../quiz/quiz'
 import {
   FASTER_EVERY, LIVES, MIN_SECONDS, secondsFor, START_SECONDS, startRun, survivalBatch, survivalReducer,
   SURVIVAL_SOULS_PER_QUESTION, timeLeft, TIMEOUT,
@@ -21,8 +22,8 @@ interface Props {
 interface Pool {
   items: ItemCard[]
   kinds: QuizKind[]
-  counters: CounterCard[]
-  all: Map<string, ItemCard>
+  extra: QuizExtra
+  all: ReadonlyMap<string, ItemCard>
 }
 
 interface Mistake {
@@ -41,13 +42,14 @@ type Phase = { name: 'start' } | { name: 'run'; no: number } | { name: 'result';
 
 async function loadPool(): Promise<Pool> {
   const settings = await getSettings()
-  const [all, counters] = await Promise.all([db.items.toArray(), db.counters.toArray()])
+  const all = await db.items.toArray()
+  const extra = await loadQuizExtra(all)
   // Kategorien und Fragetypen wie im Quiz (Einstellungen)
-  return { items: all.filter(i => settings.slots.includes(i.slot)), kinds: settings.quizKinds, counters, all: new Map(all.map(i => [i.id, i])) }
+  return { items: all.filter(i => settings.slots.includes(i.slot)), kinds: settings.quizKinds, extra, all: extra.items ?? new Map() }
 }
 
 function makeBatch(pool: Pool): QuizQuestion[] {
-  return survivalBatch(pool.items, pool.kinds, { counters: pool.counters, items: pool.all })
+  return survivalBatch(pool.items, pool.kinds, pool.extra)
 }
 
 function Lives({ lives }: { lives: number }) {
@@ -231,19 +233,16 @@ export function Survival({ onExit }: Props) {
           <div className="panel">
             <h2>Zum Merken</h2>
             <ul className="mistakes">
-              {result.mistakes.map(({ question: q, picked }, i) => {
-                const item = pool.all.get(q.itemId)
-                return (
-                  <li key={`${q.itemId}-${i}`}>
-                    {item?.image && <img src={item.image} alt="" />}
-                    <div>
-                      <div className="muted small">{q.kind === 'description' && q.html ? `„${plainText(q.html)}“` : q.prompt}</div>
-                      <div>Richtig: <b>{q.options[q.answer]}</b></div>
-                      <div className="small error">{picked === TIMEOUT ? 'Zeit abgelaufen' : `Deine Antwort: ${q.options[picked]}`}</div>
-                    </div>
-                  </li>
-                )
-              })}
+              {result.mistakes.map(({ question: q, picked }, i) => (
+                <li key={`${q.itemId}-${i}`}>
+                  <QuestionThumb question={q} items={pool.all} />
+                  <div>
+                    <div className="muted small">{questionLine(q)}</div>
+                    <div>Richtig: <b>{q.options[q.answer]}</b></div>
+                    <div className="small error">{picked === TIMEOUT ? 'Zeit abgelaufen' : `Deine Antwort: ${q.options[picked]}`}</div>
+                  </div>
+                </li>
+              ))}
             </ul>
           </div>
         )}

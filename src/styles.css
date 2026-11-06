@@ -735,3 +735,12 @@ button.link {
 
 .mode-tiles.three { grid-template-columns: repeat(3, 1fr); }
 .mode-tiles.three .mode-tile { min-height: 58px; padding: 10px; }
+
+/* ---------- Upgrade- und Effekt-Fragen (Lernen vertiefen, Etappe A) ---------- */
+.quiz-ability { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.quiz-ability img {
+  width: min(32vw, 128px); aspect-ratio: 1; object-fit: contain; padding: 16px; border-radius: 22px;
+  background: radial-gradient(circle at 50% 42%, #3a3127 0%, rgba(0, 0, 0, 0.35) 75%);
+}
+.quiz-effect { padding: 20px; font-size: 1.45rem; font-weight: 800; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }
+.mistakes img.thumb-ability { background: var(--panel-2); border-radius: 10px; padding: 5px; }

@@ -44,7 +44,7 @@ describe('Backup', () => {
     await restoreBackup(parseBackup(old), dst)
     const s = await getSettings(dst)
     expect(s.dailyGoal).toBe(15)
-    expect(s.quizKinds).toEqual(['image', 'description', 'number', 'build', 'counterItem', 'counterHero'])
+    expect(s.quizKinds).toEqual(['image', 'description', 'number', 'build', 'counterItem', 'counterHero', 'upgrade', 'effect'])
     expect(s.guessKinds).toEqual(['silhouette', 'zoom', 'blur', 'ability'])
   })
 
@@ -55,7 +55,7 @@ describe('Backup', () => {
       settings: { dailyGoal: 15, newPerDay: 3, slots: ['weapon'], quizKinds: ['image', 'build'] }, reviews: [], days: [],
     })
     await restoreBackup(parseBackup(old), dst)
-    expect((await getSettings(dst)).quizKinds).toEqual(['image', 'build', 'counterItem', 'counterHero'])
+    expect((await getSettings(dst)).quizKinds).toEqual(['image', 'build', 'counterItem', 'counterHero', 'upgrade', 'effect'])
   })
 
   it('nimmt den Souls-Verlauf mit; alte Backups ohne Souls werden aus der Tageshistorie neu berechnet', async () => {

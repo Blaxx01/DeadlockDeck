@@ -12,6 +12,7 @@ import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches
 import { newIntroducedToday, type DeckId } from '../decks'
 import { currentNav, pushNav, type NavState, type View } from '../nav'
 import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import { getItemPurchases, itemNewOrder, purchaseRanks } from '../data/popularity'
 import type { SoulsGain } from '../game/souls'
 import { MilestoneSummary } from '../components/MilestoneSummary'
 import { ItemDetail } from './ItemDetail'
@@ -42,9 +43,10 @@ interface LearnEntry {
 }
 
 /** onItemClick: Build-Pfad-Namen antippbar → Detailseite über der Session */
-function itemEntry(card: ItemCard, onItemClick?: (name: string) => void): LearnEntry {
+function itemEntry(card: ItemCard, onItemClick?: (name: string) => void, ranks: ReadonlyMap<string, number> = new Map()): LearnEntry {
   return {
-    id: card.id, order: card.tier, image: card.image, frontClass: `slot-bg-${card.slot}`,
+    // neue Karten: meistgekauft zuerst (ohne Statistik nach Tier)
+    id: card.id, order: itemNewOrder(card, ranks), image: card.image, frontClass: `slot-bg-${card.slot}`,
     front: <ItemFront card={card} />,
     back: <ItemBack card={card} onItemClick={onItemClick} />,
   }
@@ -75,7 +77,8 @@ async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string
     const byId = new Map(items.map(i => [i.id, i]))
     return (await db.counters.toArray()).map(c => counterEntry(c, byId, onItemClick))
   }
-  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick))
+  const ranks = purchaseRanks(await getItemPurchases())
+  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick, ranks))
 }
 
 /** Bestimmte Karten aus allen Decks (Schwächen-Training), in der gegebenen Reihenfolge */

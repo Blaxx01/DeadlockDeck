@@ -32,10 +32,17 @@ describe('Einstellungen: neue Fragetypen', () => {
     // Gespeichert vor den Counter-Fragen: nur „Bild“ gewählt, ohne knownQuizKinds
     await setMeta('settings', { dailyGoal: 20, newPerDay: 10, slots: ['spirit'], quizKinds: ['image'] }, database)
     const migrated = await getSettings(database)
-    expect(migrated.quizKinds).toEqual(['image', 'counterItem', 'counterHero'])
+    expect(migrated.quizKinds).toEqual(['image', 'counterItem', 'counterHero', 'upgrade', 'effect'])
 
     // Danach Counter abgewählt und gespeichert → bleibt aus
     await saveSettings({ ...migrated, quizKinds: ['image'] }, database)
     expect((await getSettings(database)).quizKinds).toEqual(['image'])
+  })
+
+  it('Upgrade- und Effekt-Fragen kommen bei Einstellungen von vor ihnen dazu, abgewählte Counter bleiben aus', async () => {
+    const database = new DeckDB(`q-${Math.random()}`)
+    const before = ['image', 'description', 'number', 'build', 'counterItem', 'counterHero']
+    await setMeta('settings', { dailyGoal: 20, newPerDay: 10, slots: ['spirit'], quizKinds: ['image', 'number'], knownQuizKinds: before }, database)
+    expect((await getSettings(database)).quizKinds).toEqual(['image', 'number', 'upgrade', 'effect'])
   })
 })
