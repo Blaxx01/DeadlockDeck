@@ -7,6 +7,8 @@ import { db } from '../data/db'
 import { CORRUPTED_VARIANCE_PERCENT, type CorruptedInfo, type ItemCard } from '../data/model'
 import { describeLearnState, requestLearn } from '../srs/srs'
 import { MASTERY_LABEL, MASTERY_MEDAL, MASTERY_NEXT, masteryOf } from '../game/mastery'
+import { isLeech } from '../game/weakness'
+import { InlineNote } from '../components/Notes'
 
 interface Props {
   card: ItemCard
@@ -110,10 +112,20 @@ export function ItemDetail({ card, cards, onBack, onOpen, backLabel = 'Shop' }: 
               <span className="muted"> – {level === 'gold' ? 'höchste Stufe' : `nächste Stufe: ${MASTERY_NEXT[level]}`}</span>
             </p>
           )}
+          {loaded?.review && isLeech(loaded.review) && (
+            <p className="small leech-hint">
+              Hartnäckig: schon {loaded.review.lapses}× vergessen – steht in „Schwächen üben“, bis die Karte wieder sitzt (Silber).
+            </p>
+          )}
           {loaded && !loaded.review?.requested && (
             <button onClick={learnNow}>Jetzt lernen</button>
           )}
           {justRequested && <p className="good small">Kommt in deiner nächsten Lern-Session dran.</p>}
+        </section>
+
+        <section className="sec">
+          <h3>Merkhilfe</h3>
+          <InlineNote cardId={card.id} />
         </section>
 
         {card.corrupted && <BrokerSection info={card.corrupted} />}

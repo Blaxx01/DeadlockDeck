@@ -15,6 +15,7 @@ import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '..
 import { getItemPurchases, itemNewOrder, purchaseRanks } from '../data/popularity'
 import type { SoulsGain } from '../game/souls'
 import { MilestoneSummary } from '../components/MilestoneSummary'
+import { CardNote, NoteButton, NoteSheet } from '../components/Notes'
 import { ItemDetail } from './ItemDetail'
 
 interface Props {
@@ -40,30 +41,38 @@ interface LearnEntry {
   frontStyle?: CSSProperties
   /** Geändert/neu im Patch und seitdem noch nicht wiederholt */
   patch?: PatchRecord
+  /** Name der Karte (Titel beim Bearbeiten der Merkhilfe) */
+  label?: string
 }
 
 /** onItemClick: Build-Pfad-Namen antippbar → Detailseite über der Session */
 function itemEntry(card: ItemCard, onItemClick?: (name: string) => void, ranks: ReadonlyMap<string, number> = new Map()): LearnEntry {
   return {
     // neue Karten: meistgekauft zuerst (ohne Statistik nach Tier)
-    id: card.id, order: itemNewOrder(card, ranks), image: card.image, frontClass: `slot-bg-${card.slot}`,
+    id: card.id, label: card.name, order: itemNewOrder(card, ranks), image: card.image, frontClass: `slot-bg-${card.slot}`,
     front: <ItemFront card={card} />,
     back: <ItemBack card={card} onItemClick={onItemClick} />,
   }
 }
 
 function abilityEntry(card: AbilityCard): LearnEntry {
-  return { id: card.id, order: card.order, image: card.image, front: <AbilityFront card={card} />, back: <AbilityBack card={card} />, frontStyle: heroGlow(card.heroColor) }
+  return {
+    id: card.id, label: `${card.name} (${card.heroName})`, order: card.order, image: card.image,
+    front: <AbilityFront card={card} />, back: <AbilityBack card={card} />, frontStyle: heroGlow(card.heroColor),
+  }
 }
 
 function heroEntry(card: HeroCard): LearnEntry {
-  return { id: card.id, order: card.order, image: card.image, front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color) }
+  return {
+    id: card.id, label: card.name, order: card.order, image: card.image,
+    front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color),
+  }
 }
 
 /** onItemClick: Counter-Items antippbar → Detailseite über der Session */
 function counterEntry(card: CounterCard, items: ReadonlyMap<string, ItemCard>, onItemClick?: (name: string) => void): LearnEntry {
   return {
-    id: card.id, order: card.order, image: card.image, frontStyle: heroGlow(card.color),
+    id: card.id, label: `Counter gegen ${card.heroName}`, order: card.order, image: card.image, frontStyle: heroGlow(card.color),
     front: <CounterFront card={card} />,
     back: <CounterBack card={card} items={items} onItemClick={onItemClick} />,
   }
@@ -163,8 +172,22 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
     if (currentNav().item) window.history.back()
     else setDetailId(null)
   }, [])
+  // Merkhilfe bearbeiten: ebenfalls ein Verlaufseintrag (Zurück schließt nur den Editor)
+  const [noteId, setNoteId] = useState<string | null>(() => currentNav().note ?? null)
+  const openNote = useCallback((id: string) => {
+    pushNav({ view: navView ?? { name: 'learn', deck, extraNew }, note: id })
+    setNoteId(id)
+  }, [deck, extraNew, navView])
+  const closeNote = useCallback(() => {
+    if (currentNav().note) window.history.back()
+    else setNoteId(null)
+  }, [])
   useEffect(() => {
-    const onPop = (e: PopStateEvent) => setDetailId((e.state as NavState | null)?.item ?? null)
+    const onPop = (e: PopStateEvent) => {
+      const state = e.state as NavState | null
+      setDetailId(state?.item ?? null)
+      setNoteId(state?.note ?? null)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -234,6 +257,11 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
   const hasCard = !!current
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Merkhilfe offen: Tasten gehören dem Editor, Esc schließt ihn
+      if (noteId) {
+        if (e.key === 'Escape') closeNote()
+        return
+      }
       // Detailseite offen: Tasten gehören ihr, Esc schließt sie
       if (detailId) {
         if (e.key === 'Escape') closeDetail()
@@ -249,7 +277,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flipped, onExit, hasCard, detailId, closeDetail])
+  }, [flipped, onExit, hasCard, detailId, closeDetail, noteId, closeNote])
 
   if (!cards || !settings) return <div className="center muted">Lade…</div>
 
@@ -272,7 +300,14 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
           <FlashCard
             key={`${current.id}-${turn}`}
             front={<>{current.patch && <PatchBadge patch={current.patch} />}{current.front}</>}
-            back={<>{current.patch && <PatchNote patch={current.patch} />}{current.back}</>}
+            back={(
+              <>
+                {current.patch && <PatchNote patch={current.patch} />}
+                <CardNote cardId={current.id} onEdit={() => openNote(current.id)} />
+                {current.back}
+                <NoteButton cardId={current.id} onEdit={() => openNote(current.id)} />
+              </>
+            )}
             flipped={flipped}
             onFlip={() => setFlipped(f => !f)}
             onRate={handleRate}
@@ -306,6 +341,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       {detail && allItems && (
         <ItemDetail key={detail.id} card={detail} cards={allItems} onBack={closeDetail} onOpen={openItem} backLabel="Lernsession" />
       )}
+      {noteId && <NoteSheet cardId={noteId} title={cards.get(noteId)?.label} onClose={closeNote} />}
     </div>
   )
 }

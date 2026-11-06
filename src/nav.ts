@@ -30,6 +30,8 @@ export interface NavState {
   item?: string
   /** Geöffnete Hero-Seite der Meisterschaft (Hero-Karten-ID) */
   hero?: string
+  /** Merkhilfe bearbeiten (Karten-ID) – über der Lernsession */
+  note?: string
 }
 
 export function currentNav(): NavState {

@@ -5,8 +5,10 @@ import { rateCard } from '../srs/srs'
 import { hero, item } from '../test/counterFixtures'
 import { checkDailyBonuses, missionContext, MISSIONS } from './missions'
 import {
-  describeCards, getWeaknesses, logMistake, pruneMistakes, rankWeaknesses, WEAK_MAX_CARDS, weakSince, type MistakeEntry,
+  describeCards, getLeeches, getWeaknesses, isLeech, logMistake, pruneMistakes, rankWeaknesses, WEAK_MAX_CARDS, WEAK_MAX_LEECHES,
+  weakSince, type MistakeEntry,
 } from './weakness'
+import { review } from '../test/masteryFixtures'
 
 const at = (d: number, h = 12) => new Date(2026, 10, d, h)
 
@@ -95,5 +97,46 @@ describe('Mission „5 Schwächen-Karten üben“', () => {
     const entries = await database.souls.where('reason').equals('mission').toArray()
     expect(entries.map(e => e.data?.id)).toEqual(['learn-weak'])
     expect(await checkDailyBonuses(at(6, 15), database)).toEqual([])
+  })
+})
+
+describe('Hartnäckige Karten', () => {
+  const leech = (id: string, lapses: number, days = 5) => ({ ...review(id, days), lapses })
+
+  it('ab 4× vergessen hartnäckig; Übersicht nur mit Karten, die es gibt, am häufigsten vergessen zuerst', async () => {
+    expect([undefined, { lapses: 3 }, { lapses: 4 }].map(r => isLeech(r))).toEqual([false, false, true])
+    const database = await setup()
+    await database.reviews.bulkPut([leech('item:item_1', 4), leech('item:item_2', 7, 30), leech('item:gone', 9), leech('item:item_3', 2)])
+    expect((await getLeeches(database)).map(l => [l.cardId, l.lapses, l.level])).toEqual([
+      ['item:item_2', 7, 'silver'],
+      ['item:item_1', 4, 'bronze'],
+    ])
+  })
+
+  it('stehen in den Schwächen, bis sie wieder sitzen (Silber) – auch ohne neue Fehler', async () => {
+    const database = await setup()
+    await database.reviews.bulkPut([leech('item:item_1', 4), leech('item:item_2', 6, 30), leech('item:item_3', 5)])
+    await logMistake('item:item_3', 'quiz', at(6), database)
+    await logMistake('item:item_4', 'quiz', at(6), database)
+    await logMistake('item:item_4', 'quiz', at(6, 13), database)
+    const weak = await getWeaknesses(at(6), database)
+    expect(weak.map(w => [w.cardId, w.count, w.leech])).toEqual([
+      ['item:item_4', 2, undefined],
+      ['item:item_3', 1, 5],
+      // ohne neue Fehler hinten dran; item_2 sitzt wieder (Silber) und fehlt
+      ['item:item_1', 0, 4],
+    ])
+    // nur die eine mit den meisten Fehlern im Limit – die hartnäckige mit Fehlern kommt trotzdem dazu (mit echter Zahl)
+    expect((await getWeaknesses(at(6), database, 1)).map(w => [w.cardId, w.count])).toEqual([
+      ['item:item_4', 2], ['item:item_3', 1], ['item:item_1', 0],
+    ])
+  })
+
+  it('höchstens 10 zusätzlich', async () => {
+    const database = await setup()
+    await database.reviews.bulkPut(Array.from({ length: 14 }, (_, i) => leech(`item:item_${i + 1}`, 4 + i)))
+    const weak = await getWeaknesses(at(6), database)
+    expect(weak).toHaveLength(WEAK_MAX_LEECHES)
+    expect(weak[0]).toMatchObject({ cardId: 'item:item_14', leech: 17, count: 0 })
   })
 })

@@ -11,7 +11,7 @@ import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
-import { getWeaknesses, WEAK_DAYS, WEAK_MAX_CARDS } from '../game/weakness'
+import { getWeaknesses, WEAK_DAYS, type Weakness } from '../game/weakness'
 import { computeStreakState, isInLearnScope, localDate, type StreakState } from '../srs/srs'
 
 interface Props {
@@ -237,7 +237,9 @@ function useHomeStats() {
       daily: await dailyStatus(),
       decayWarning: decayWarning(daysWithoutLearning(await lastActiveDate(), localDate())),
       buildBests: Object.keys(await getBuildBests()).length,
-      weakCount: (await getWeaknesses(new Date(), db, Number.POSITIVE_INFINITY)).length,
+      // Schwächen: mit Fehlern in den letzten 14 Tagen und hartnäckige (ohne neue Fehler)
+      weak: await getWeaknesses(new Date(), db, Number.POSITIVE_INFINITY),
+      weakTraining: (await getWeaknesses()).length,
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
       // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
@@ -252,6 +254,17 @@ function useHomeStats() {
       heroStars: (await allHeroMastery()).reduce((sum, m) => sum + m.stars.length, 0),
     }
   }, [tick])
+}
+
+/** „3 Karten mit Fehlern in den letzten 14 Tagen · 2 hartnäckig“ */
+function weakText(weak: readonly Weakness[]): string {
+  const recent = weak.filter(w => w.count > 0).length
+  const leeches = weak.filter(w => w.count === 0).length
+  if (recent + leeches === 0) return `Keine Fehler in den letzten ${WEAK_DAYS} Tagen`
+  return [
+    recent > 0 && `${recent} ${recent === 1 ? 'Karte' : 'Karten'} mit Fehlern in den letzten ${WEAK_DAYS} Tagen`,
+    leeches > 0 && `${leeches} hartnäckig`,
+  ].filter(Boolean).join(' · ')
 }
 
 function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn'] }) {
@@ -319,13 +332,9 @@ export function Home({
         <div className="deck-row weak-row">
           <div className="deck-info">
             <div className="deck-name">Schwächen</div>
-            <div className="muted small">
-              {s.weakCount > 0
-                ? `${s.weakCount} ${s.weakCount === 1 ? 'Karte' : 'Karten'} mit Fehlern in den letzten ${WEAK_DAYS} Tagen`
-                : `Keine Fehler in den letzten ${WEAK_DAYS} Tagen`}
-            </div>
+            <div className="muted small">{weakText(s.weak)}</div>
           </div>
-          {s.weakCount > 0 && <button onClick={onWeak}>Schwächen üben ({Math.min(s.weakCount, WEAK_MAX_CARDS)})</button>}
+          {s.weakTraining > 0 && <button onClick={onWeak}>Schwächen üben ({s.weakTraining})</button>}
         </div>
       </div>
 

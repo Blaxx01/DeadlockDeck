@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { describeCards, getWeaknesses, MISTAKE_SOURCE_LABEL, WEAK_DAYS, WEAK_MAX_CARDS } from '../game/weakness'
+import { describeCards, getWeaknesses, LEECH_LAPSES, MISTAKE_SOURCE_LABEL, WEAK_DAYS, WEAK_MAX_CARDS } from '../game/weakness'
 import type { View } from '../nav'
 import { Learn } from './Learn'
 
@@ -45,6 +45,7 @@ export function Weakness({ onExit }: Props) {
       <p className="muted small">
         Karten, bei denen du dich in den letzten {WEAK_DAYS} Tagen vertan hast – egal ob beim Lernen, im Quiz, beim
         Hero erraten, im Build-Quiz, im Sprint oder beim Überleben. „Gewusst“ im Training behebt die Schwäche.
+        Hartnäckige Karten (mind. {LEECH_LAPSES}× vergessen) bleiben dabei, bis sie wieder sitzen (Silber).
       </p>
 
       {list.length === 0 ? (
@@ -68,13 +69,16 @@ export function Weakness({ onExit }: Props) {
                   <span className="weak-img">{w.card?.image && <img src={w.card.image} alt="" draggable={false} />}</span>
                   <span className="weak-text">
                     <span className="weak-name">{w.card?.label ?? w.cardId}</span>
-                    <span className="muted small">{w.card?.kind} · {w.sources.map(src => MISTAKE_SOURCE_LABEL[src]).join(', ')}</span>
+                    <span className="muted small">
+                      {[w.card?.kind, ...w.sources.map(src => MISTAKE_SOURCE_LABEL[src]), w.leech && `hartnäckig (${w.leech}× vergessen)`]
+                        .filter(Boolean).join(' · ')}
+                    </span>
                   </span>
-                  <span className="weak-count">{w.count}×</span>
+                  <span className={`weak-count${w.count === 0 ? ' leech' : ''}`}>{w.count > 0 ? `${w.count}×` : '🔁'}</span>
                 </li>
               ))}
             </ul>
-            {list.length === WEAK_MAX_CARDS && (
+            {list.filter(w => w.count > 0).length === WEAK_MAX_CARDS && (
               <p className="muted small">Die {WEAK_MAX_CARDS} häufigsten – behobene machen Platz für die nächsten.</p>
             )}
           </div>

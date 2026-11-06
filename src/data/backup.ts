@@ -2,7 +2,10 @@ import { checkAllMilestones, getMilestones, resetMilestonesInTx, type MilestoneM
 import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import type { SprintHighscores } from '../sprint/sprint'
-import { db, getBuildBests, getMeta, getSettings, getSprintHighscores, saveSettings, setMeta, type BuildBest, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
+import {
+  db, getBuildBests, getMeta, getSettings, getSprintHighscores, saveSettings, setMeta,
+  type BuildBest, type DayRecord, type DeckDB, type NoteRecord, type ReviewRecord, type Settings,
+} from './db'
 
 export interface BackupFile {
   app: 'deadlockdeck'
@@ -30,6 +33,8 @@ export interface BackupFile {
   heroStars?: StarMap
   /** Heroes, die einmal ohne Aufdecken, Joker und Fehltipp erraten wurden */
   guessClean?: string[]
+  /** Eigene Merkhilfen */
+  notes?: NoteRecord[]
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -49,6 +54,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
     mistakes: await database.mistakes.toArray(),
     ...(await getMilestones(database)),
+    notes: await database.notes.toArray(),
   }
 }
 
@@ -82,7 +88,12 @@ export function parseBackup(json: string): BackupFile {
 
 /** Ersetzt Fortschritt und Einstellungen durch den Inhalt des Backups. */
 export async function restoreBackup(backup: BackupFile, database: DeckDB = db): Promise<void> {
-  await database.transaction('rw', [database.reviews, database.days, database.meta, database.souls, database.mistakes], async () => {
+  await database.transaction('rw', [database.reviews, database.days, database.meta, database.souls, database.mistakes, database.notes], async () => {
+    // Merkhilfen: aus dem Backup; alte Backups ohne Merkhilfen lassen die vorhandenen stehen
+    if (Array.isArray(backup.notes)) {
+      await database.notes.clear()
+      await database.notes.bulkPut(backup.notes.filter(n => typeof n?.id === 'string' && typeof n.text === 'string'))
+    }
     await database.reviews.clear()
     await database.days.clear()
     await database.souls.clear()

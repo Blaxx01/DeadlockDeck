@@ -29,6 +29,14 @@ export interface DayRecord {
   weak?: string[]
 }
 
+/** Eigene Merkhilfe zu einer Karte */
+export interface NoteRecord {
+  /** Karten-ID */
+  id: string
+  text: string
+  updatedAt: number
+}
+
 export interface MetaRecord {
   key: string
   value: unknown
@@ -69,6 +77,8 @@ export class DeckDB extends Dexie {
   souls!: EntityTable<SoulsEntry, 'id'>
   /** Fehler aus allen Modi (Schwächen-Training, 14 Tage) */
   mistakes!: EntityTable<MistakeEntry, 'id'>
+  /** Eigene Merkhilfen je Karte */
+  notes!: EntityTable<NoteRecord, 'id'>
   /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
   patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
@@ -107,6 +117,10 @@ export class DeckDB extends Dexie {
     // Schwächen-Training
     this.version(7).stores({
       mistakes: '++id, cardId, date',
+    })
+    // Merkhilfen
+    this.version(8).stores({
+      notes: 'id',
     })
   }
 }

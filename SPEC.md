@@ -276,12 +276,16 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
   Neue Items aus einem Patch kommen weiterhin vor allen anderen
 
 ### Hartnäckige Karten & Merkhilfen (Etappe B)
-- Eine Karte ist **hartnäckig**, wenn sie nach dem Lernen **4× vergessen** wurde
-- Hartnäckige Karten stehen zusätzlich in **„Schwächen üben“**, bis sie wieder sitzen (Silber)
+- Eine Karte ist **hartnäckig**, wenn sie nach dem Lernen **4× vergessen** wurde (gezählt vom Lernsystem: „nicht
+  gewusst“ bei einer schon gelernten Karte)
+- Hartnäckige Karten stehen zusätzlich in **„Schwächen üben“** (höchstens 10 über die 15 häufigsten Schwächen hinaus),
+  bis sie wieder sitzen (Silber); die Startseite zeigt „n hartnäckig“
 - **Übersicht** aller hartnäckigen Karten mit ihren Merkhilfen auf der Statistik-Seite
 - **Merkhilfe** für jede Karte: „+ Merkhilfe“ auf der Kartenrückseite und der Detailseite; die eigene Notiz steht
-  danach bei jeder Wiederholung auf der Rückseite (vorne würde sie die Antwort verraten); bei hartnäckigen Karten
-  hervorgehoben
+  danach bei jeder Wiederholung oben auf der Rückseite (vorne würde sie die Antwort verraten); bei hartnäckigen Karten
+  hervorgehoben („Diese Karte hast du schon 5× vergessen …“)
+  - in der Lernsession als Fenster über der Karte (Zurück schließt nur das Fenster), sonst direkt auf der Seite
+  - bis 300 Zeichen; leer speichern löscht; im Backup, bleiben beim Löschen des Fortschritts erhalten
 
 ### Eintippen & Rückrichtung (Etappe C)
 - **Antwort eintippen** bei Items und Counter, je Deck in den Einstellungen einschaltbar: statt „Tippen zum
@@ -317,7 +321,7 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
     4. ✅ Sprint, Überleben
 11. Lernen vertiefen in 3 Etappen:
     1. ✅ Neue Quiz-Fragen (Upgrades, Item-Effekte), Items nach Beliebtheit
-    2. Hartnäckige Karten, Merkhilfen
+    2. ✅ Hartnäckige Karten, Merkhilfen
     3. Eintippen, Rückrichtung
 
 ## Offene Punkte / Risiken

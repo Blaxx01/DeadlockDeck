@@ -1,9 +1,11 @@
 /**
- * Schwächen: Fehler aus allen Modi („nicht gewusst“, Quiz, Hero erraten, Build-Quiz, Sprint, Überleben) der letzten 14 Tage.
+ * Schwächen: Fehler aus allen Modi („nicht gewusst“, Quiz, Hero erraten, Build-Quiz, Sprint, Überleben) der letzten 14 Tage
+ * und hartnäckige Karten (mind. 4× vergessen), bis sie wieder sitzen.
  * „Schwächen üben“ zeigt die Karten mit den meisten Fehlern; „gewusst“ im Training behebt die Schwäche.
  */
 import { addDays, localDate } from '../data/dates'
-import { db, type DeckDB } from '../data/db'
+import { db, type DeckDB, type ReviewRecord } from '../data/db'
+import { atLeast, masteryOf, type Mastery } from './mastery'
 
 export type MistakeSource = 'learn' | 'quiz' | 'guess' | 'build' | 'sprint' | 'survival'
 
@@ -54,6 +56,23 @@ export interface Weakness {
   sources: MistakeSource[]
   /** Letzter Fehler (ms) */
   last: number
+  /** Hartnäckige Karte: so oft nach dem Lernen vergessen */
+  leech?: number
+}
+
+/** Hartnäckig: nach dem Lernen mindestens so oft vergessen (FSRS zählt das als „lapses“) */
+export const LEECH_LAPSES = 4
+/** Höchstens so viele hartnäckige Karten zusätzlich zu den Schwächen der letzten 14 Tage */
+export const WEAK_MAX_LEECHES = 10
+
+export function isLeech(review?: Pick<ReviewRecord, 'lapses'>): boolean {
+  return (review?.lapses ?? 0) >= LEECH_LAPSES
+}
+
+export interface Leech {
+  cardId: string
+  lapses: number
+  level: Mastery
 }
 
 /** Meiste Fehler zuerst, bei Gleichstand der jüngste */
@@ -84,12 +103,35 @@ async function existingCardIds(ids: readonly string[], database: DeckDB): Promis
   return found
 }
 
-/** Schwächen der letzten 14 Tage (nur Karten, die es noch gibt) */
+/** Alle hartnäckigen Karten (auch die, die wieder sitzen), am häufigsten vergessen zuerst – nur Karten, die es noch gibt */
+export async function getLeeches(database: DeckDB = db): Promise<Leech[]> {
+  const reviews = await database.reviews.filter(r => isLeech(r)).toArray()
+  const exists = await existingCardIds(reviews.map(r => r.id), database)
+  return reviews
+    .filter(r => exists.has(r.id))
+    .map(r => ({ cardId: r.id, lapses: r.lapses, level: masteryOf(r) }))
+    .sort((a, b) => b.lapses - a.lapses || a.cardId.localeCompare(b.cardId))
+}
+
+/**
+ * Schwächen der letzten 14 Tage (die `limit` mit den meisten Fehlern, nur Karten, die es noch gibt) – dazu
+ * hartnäckige Karten, die noch nicht wieder sitzen (Silber), auch ohne Fehler in den letzten 14 Tagen.
+ */
 export async function getWeaknesses(now = new Date(), database: DeckDB = db, limit = WEAK_MAX_CARDS): Promise<Weakness[]> {
   const since = weakSince(now)
   const ranked = rankWeaknesses(await database.mistakes.where('date').aboveOrEqual(since).toArray(), since)
   const exists = await existingCardIds(ranked.map(w => w.cardId), database)
-  return ranked.filter(w => exists.has(w.cardId)).slice(0, limit)
+  const leeches = (await getLeeches(database)).filter(l => !atLeast(l.level, 'silver'))
+  const lapses = new Map(leeches.map(l => [l.cardId, l.lapses]))
+  const marked = ranked.filter(w => exists.has(w.cardId)).map(w => (lapses.has(w.cardId) ? { ...w, leech: lapses.get(w.cardId) } : w))
+  const top = marked.slice(0, limit)
+  const shown = new Set(top.map(w => w.cardId))
+  const recent = new Map(marked.map(w => [w.cardId, w]))
+  const extra = leeches
+    .filter(l => !shown.has(l.cardId))
+    .slice(0, WEAK_MAX_LEECHES)
+    .map(l => recent.get(l.cardId) ?? { cardId: l.cardId, count: 0, sources: [], last: 0, leech: l.lapses })
+  return [...top, ...extra]
 }
 
 /** Verschiedene Karten mit Fehlern in den letzten 14 Tagen (schnell, ohne Prüfung) – für die Missionen */

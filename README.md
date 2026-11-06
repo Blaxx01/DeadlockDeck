@@ -23,7 +23,8 @@ Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Ka
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
 täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
 ab dem 6. Tag ohne Lernen. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
-häufigsten gezielt – „gewusst“ im Training behebt die Schwäche. Was wirklich sitzt, zeigt das **Sammelalbum** im Shop
+häufigsten gezielt – „gewusst“ im Training behebt die Schwäche. **Hartnäckige Karten** (4× vergessen) bleiben darin,
+bis sie wieder sitzen; zu jeder Karte lässt sich eine eigene **Merkhilfe** schreiben, die auf der Rückseite erscheint. Was wirklich sitzt, zeigt das **Sammelalbum** im Shop
 (Rahmen Bronze/Silber/Gold je nach Abstand bis zur nächsten Wiederholung), die **Hero-Meisterschaft** (5 Sterne je Hero:
 Hero-, Fähigkeiten- und Counter-Karte, Build-Quiz ohne Fehler, Hero erraten ohne Hilfe) und die **Statistik** mit
 Kalender der Lerntage, Souls-Verlauf und Karten je Deck. Neue Silber- und Gold-Karten und neue Sterne bringen
@@ -69,7 +70,8 @@ Aufbau:
 | `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
-| `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, Rangfolge, Training |
+| `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, hartnäckige Karten, Rangfolge, Training |
+| `src/game/notes.ts`, `src/components/Notes.tsx` | Merkhilfen: speichern, auf der Kartenrückseite zeigen, bearbeiten |
 | `src/game/mastery.ts`, `src/game/heroMastery.ts` | Stufe einer Karte (Bronze/Silber/Gold), Sterne je Hero |
 | `src/game/milestones.ts` | Meilenstein-Souls (Silber, Gold, Hero-Sterne), nachträgliches Gutschreiben |
 | `src/game/stats.ts`, `src/views/Stats.tsx` | Statistik: Kalender der Lerntage, Souls-Verlauf, Karten je Deck |

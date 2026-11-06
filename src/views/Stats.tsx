@@ -7,7 +7,9 @@ import { localDate, parseLocalDate } from '../data/dates'
 import { db, getSettings } from '../data/db'
 import { DECKS, type DeckId } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
-import { countMastery, masteryText } from '../game/mastery'
+import { atLeast, countMastery, MASTERY_MEDAL, masteryText } from '../game/mastery'
+import { describeCards, getLeeches, LEECH_LAPSES } from '../game/weakness'
+import { InlineNote } from '../components/Notes'
 import { getSoulsTotal } from '../game/souls'
 import { calendarWeeks, learningTotals, soulsSeries } from '../game/stats'
 import { computeStreakState } from '../srs/srs'
@@ -36,6 +38,7 @@ async function loadStats() {
     counters: (await db.counters.toCollection().primaryKeys()) as string[],
   }
   const streak = computeStreakState(days, goal)
+  const leeches = await getLeeches()
   return {
     goal,
     souls,
@@ -46,6 +49,8 @@ async function loadStats() {
     decks: DECKS.map(d => ({ ...d, counts: countMastery(ids[d.id], reviews) })),
     stars: heroes.reduce((sum, m) => sum + m.stars.length, 0),
     maxStars: heroes.length * MAX_STARS,
+    leeches,
+    leechCards: await describeCards(leeches.map(l => l.cardId)),
   }
 }
 
@@ -133,6 +138,33 @@ export function Stats({ onBack, onHeroes }: Props) {
         ))}
         <MasteryLegend />
         <p className="muted small">Gemeistert = Gold: nächste Wiederholung erst in mind. 2 Monaten.</p>
+      </section>
+
+      <section className="panel">
+        <h2>Hartnäckige Karten</h2>
+        {s.leeches.length === 0 ? (
+          <p className="muted small">
+            Noch keine. Karten, die du nach dem Lernen {LEECH_LAPSES}× vergessen hast, erscheinen hier – mit deiner Merkhilfe.
+          </p>
+        ) : (
+          <ul className="leech-list">
+            {s.leeches.map(l => {
+              const card = s.leechCards.get(l.cardId)
+              return (
+                <li key={l.cardId}>
+                  <span className="weak-img">{card?.image && <img src={card.image} alt="" draggable={false} />}</span>
+                  <div className="leech-main">
+                    <span className="weak-name">{card?.label ?? l.cardId}</span>
+                    <span className="muted small">
+                      {card?.kind} · {l.lapses}× vergessen · {atLeast(l.level, 'silver') ? `${MASTERY_MEDAL[l.level]} sitzt wieder` : 'übt sich in „Schwächen üben“'}
+                    </span>
+                    <InlineNote cardId={l.cardId} />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </section>
     </div>
   )
