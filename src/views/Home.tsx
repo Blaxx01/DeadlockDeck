@@ -9,6 +9,7 @@ interface Props {
   onLearn: (deck: DeckId, extraNew?: number) => void
   onQuiz: () => void
   onGuess: () => void
+  onBuilds: () => void
   onShop: () => void
   onSettings: () => void
   syncing: boolean
@@ -135,6 +136,8 @@ function useHomeStats() {
       // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
       patch: await recentPatch(now),
       guessHighscore: await getGuessHighscore(),
+      // Build-Quiz: Heroes mit typischem Build (kommen wöchentlich mit der Statistik)
+      buildCount: await db.builds.where('source').equals('typical').count(),
       heroCount: ids.heroes.length,
     }
   }, [tick])
@@ -163,7 +166,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
   )
 }
 
-export function Home({ onLearn, onQuiz, onGuess, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onGuess, onBuilds, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -232,6 +235,16 @@ export function Home({ onLearn, onQuiz, onGuess, onShop, onSettings, syncing, sy
           <button onClick={onGuess}>Hero erraten starten</button>
         </div>
       )}
+
+      <div className="panel deck">
+        <h2>Build-Quiz</h2>
+        <p className="muted small">
+          Alle Items eines Hero-Builds an ihren Icons erkennen – typischer Build oder meistgespielter Community-Build.
+        </p>
+        {s.buildCount > 0
+          ? <button onClick={onBuilds}>Build-Quiz starten</button>
+          : <p className="muted small">Build-Daten werden geladen, sobald Internet da ist.</p>}
+      </div>
 
       <div className="panel deck">
         <h2>Shop</h2>

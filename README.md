@@ -10,8 +10,10 @@ Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Z
 
 Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter),
 Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
-Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ – und **Hero erraten**: Silhouette, Zoom-Ausschnitt,
-unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore.
+Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ –, **Hero erraten**: Silhouette, Zoom-Ausschnitt,
+unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore – und das **Build-Quiz**: alle Items
+eines Hero-Builds (typischer Build aus den Kaufdaten oder meistgespielter Community-Build) Icon für Icon benennen,
+mit Bestwert je Hero und „Fehler-Items lernen“.
 
 Nach einem **Spiel-Patch** erkennt die App beim nächsten Sync geänderte und neue Karten, zeigt „vorher → nachher“
 und holt schon gelernte geänderte Karten sofort in die Wiederholung.
@@ -47,6 +49,8 @@ Aufbau:
 | `src/guess/guess.ts`, `src/views/Guess.tsx` | Hero erraten: Runden, Aufdeck-Stufen, Joker, Punkte |
 | `src/data/fingerprint.ts`, `src/data/patches.ts` | Patch-Erkennung: Fingerprints der Spielwerte, Vergleich, „vorher → nachher“ |
 | `src/data/counters.ts`, `src/data/counterSync.ts` | Counter: Kauf-Faktor aus der API-Statistik, Top 3, wöchentliches Laden, Wechsel des Top-Counters |
+| `src/data/builds.ts`, `src/data/buildSync.ts` | Builds: typischer Build (meistgekauft, nach Kaufzeit) und meistgespielter Community-Build, wöchentlich |
+| `src/builds/buildQuiz.ts`, `src/views/BuildQuiz.tsx` | Build-Quiz: Runde Icon für Icon, Extra-Namen, Fehler, Bestwerte |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
@@ -68,5 +72,5 @@ Der Workflow `.github/workflows/deploy.yml` baut und veröffentlicht bei jedem P
 
 ## Daten
 
-Item-Daten, Bilder und die Counter-Statistik kommen von der Community-API [deadlock-api.com](https://deadlock-api.com).
+Item-Daten, Bilder, die Counter-Statistik und die Builds kommen von der Community-API [deadlock-api.com](https://deadlock-api.com).
 Inoffizielles Fan-Projekt, nicht mit Valve verbunden.

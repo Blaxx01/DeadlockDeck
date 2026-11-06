@@ -11,12 +11,13 @@ export type View =
   | { name: 'learn'; deck?: DeckId; extraNew?: number }
   | { name: 'quiz' }
   | { name: 'guess' }
+  | { name: 'builds' }
   | { name: 'shop' }
   | { name: 'settings' }
 
 export interface NavState {
   view?: View
-  /** Geöffnete Item-Detailseite (Karten-ID) – im Shop oder über der Lernsession */
+  /** Geöffnete Item-Detailseite (Karten-ID) – im Shop, über der Lernsession oder im Build-Quiz */
   item?: string
 }
 

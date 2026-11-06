@@ -139,8 +139,29 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
   - Export/Import, um App-Screenshots ins Repo zu übernehmen
   - **Nur eigene Screenshots ins Repo, keine YouTube-Frames** (das Repo ist öffentlich)
 
+## Build-Quiz
+- Eigenes Feld „Build-Quiz“ auf der Startseite: alle Items eines Hero-Builds an ihren **Icons** erkennen
+- Zwei Arten von Builds, umschaltbar oben im Modus **„Typisch | Community“** (letzte Wahl wird gemerkt):
+  - **Typisch**: die **16 meistgekauften Items** des Heroes ab Orakel (letzte 30 Tage), nach ⌀ Kaufzeit in
+    **Früh** (bis 10 min), **Mitte** (10–20 min) und **Spät** (ab 20 min), innerhalb in Kaufreihenfolge
+  - **Community**: der Build, der in Matches ab Orakel **am häufigsten gespielt** wird – nur seine **Pflicht-Abschnitte**
+    (optionale weggelassen; meist 11–28 Items, Ausreißer auf die ersten 30 gekürzt), mit den Abschnittsnamen des Builds (Platzhalter wie `#Citadel_HeroBuilds_EarlyGame`
+    → „Früh“); Kopfzeile mit Build-Name, Anteil der ausgewerteten Matches und letzter Änderung
+  - Items, die es nicht mehr gibt, werden übersprungen; der Kategorie-Filter gilt hier nicht (sonst fehlen Teile des Builds)
+- Hero: **zufällig** oder aus dem **Hero-Raster** wählen; am Ende „Nochmal“ (gleicher Hero) oder „Anderer Hero“
+- Ablauf **Icon für Icon**: ein Icon ist markiert, darunter alle Namen als Knöpfe
+  - Namen = Items des Builds + **6 Extra-Namen** (ähnliche Items, die nicht im Build sind)
+  - **Sofort geprüft**: richtig → grün, Name verschwindet, nächstes Icon; falsch → rot, zählt als Fehlversuch, nochmal
+  - Ein anderes offenes Icon antippen = damit weitermachen
+- Wertung: **Fehlversuche + Zeit** (erste Anzeige bis letzter richtiger Name); **Bestwert je Hero und Build-Art**
+  (erst wenigste Fehler, dann schnellste Zeit), angezeigt im Hero-Raster
+- Auswertung: ganzer Build mit markierten Fehlern („du: …“), Items antippbar (Detailseite); Knopf
+  **„Fehler-Items lernen“** merkt sie für die nächste Item-Lernsession vor (wie „Jetzt lernen“)
+- Daten: wöchentlich im Hintergrund nach den Counter-Daten (typisch: 2 Abfragen für alle Heroes; Community: je Hero
+  2 Abfragen); fehlt ein Hero diesmal, bleibt sein alter Build. Offline nutzbar
+
 ## Daten & Fortschritt
-- Fortschritt, Einstellungen, Highscores und Screenshots: lokal in IndexedDB
+- Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
 
 ## Reihenfolge
@@ -152,6 +173,7 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
 6. Eigene Screenshots – vorerst übersprungen
 7. ✅ Patch-Erkennung (Reset + Badge + vorher → nachher)
 8. ✅ Counter-Deck + Counter-Quiz (Statistik der Deadlock-API)
+9. ✅ Build-Quiz (typische und Community-Builds)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

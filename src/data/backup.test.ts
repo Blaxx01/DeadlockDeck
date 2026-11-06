@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { createBackup, parseBackup, restoreBackup } from './backup'
-import { DeckDB, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitGuessScore, submitQuizScore } from './db'
+import { DeckDB, getBuildBests, getGuessHighscore, getQuizHighscore, getSettings, saveSettings, submitBuildResult, submitGuessScore, submitQuizScore } from './db'
 import { QUIZ_KINDS } from './model'
 import { rateCard } from '../srs/srs'
 
@@ -12,6 +12,7 @@ describe('Backup', () => {
     await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'] }, src)
     await submitQuizScore(870, src)
     await submitGuessScore(640, src)
+    await submitBuildResult('typical:13', { errors: 1, ms: 72_000 }, src)
     const json = JSON.stringify(await createBackup(src))
 
     const dst = new DeckDB(`b-${Math.random()}`)
@@ -26,6 +27,7 @@ describe('Backup', () => {
     expect(await getQuizHighscore(dst)).toBe(870)
     expect(await getGuessHighscore(dst)).toBe(640)
     expect((await getSettings(dst)).guessKinds).toEqual(['zoom'])
+    expect((await getBuildBests(dst))['typical:13']).toMatchObject({ errors: 1, ms: 72_000 })
   })
 
   it('ergänzt fehlende neue Einstellungen aus alten Backups mit Standardwerten', async () => {

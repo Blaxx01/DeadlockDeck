@@ -29,6 +29,8 @@ export interface ApiItemStat {
   losses: number
   /** Anzahl Käufe (Spieler × Match) */
   matches: number
+  /** ⌀ Kaufzeit in Sekunden */
+  avg_buy_time_s?: number
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100

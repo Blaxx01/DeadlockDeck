@@ -212,3 +212,49 @@ export const GUESS_KIND_LABEL: Record<GuessKind, string> = {
   blur: 'Unscharf → scharf',
   ability: 'Fähigkeit → Hero',
 }
+
+/** Build-Quiz: typischer Build (Kaufdaten) oder meistgespielter Community-Build */
+export type BuildSource = 'typical' | 'community'
+
+export const BUILD_SOURCES: BuildSource[] = ['typical', 'community']
+
+export const BUILD_SOURCE_LABEL: Record<BuildSource, string> = {
+  typical: 'Typisch',
+  community: 'Community',
+}
+
+export interface BuildItem {
+  /** Item-Karten-ID */
+  itemId: string
+  /** Typisch: Anteil der Matches, in denen das Item auf dem Hero gekauft wird (0–1) */
+  pick?: number
+  /** Typisch: ⌀ Kaufzeit in Sekunden */
+  buyTime?: number
+}
+
+export interface BuildSection {
+  title: string
+  items: BuildItem[]
+}
+
+/** Ein Build fürs Build-Quiz */
+export interface BuildRecord {
+  /** z. B. "typical:hero_haze" oder "community:hero_haze" */
+  id: string
+  source: BuildSource
+  heroId: number
+  heroName: string
+  image?: string
+  smallImage?: string
+  color?: string
+  sections: BuildSection[]
+  /** Community: Name des Builds (vom Autor, beliebiger Text) */
+  buildName?: string
+  buildId?: number
+  /** Community: Anteil an den ausgewerteten Matches des Heroes (0–1) */
+  share?: number
+  /** Community: letzte Änderung des Builds (ms) */
+  lastUpdated?: number
+  /** Datenstand (Zeitpunkt der Abfrage) */
+  updatedAt: number
+}

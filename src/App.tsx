@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { syncBuilds } from './data/buildSync'
 import { syncCounters } from './data/counterSync'
 import { db, getMeta, setMeta } from './data/db'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
+import { BuildQuiz } from './views/BuildQuiz'
 import { Learn } from './views/Learn'
 import { Guess } from './views/Guess'
 import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
 import { Shop } from './views/Shop'
+
+/** Counter- und Build-Statistik: höchstens wöchentlich, im Hintergrund, nacheinander (schont die API) */
+function syncStatistics() {
+  syncCounters().catch(() => {}).then(() => syncBuilds()).catch(() => {})
+}
 
 export default function App() {
   // Nach einem Neuladen (z. B. App-Update) in derselben Ansicht weitermachen
@@ -49,8 +56,8 @@ export default function App() {
     try {
       await syncItems()
       void cacheImages()
-      // Counter-Statistik höchstens wöchentlich, im Hintergrund – Fehler stehen auf der Startseite
-      syncCounters().catch(() => {})
+      // Statistik (Counter, Builds) höchstens wöchentlich, im Hintergrund – Fehler stehen auf der Startseite
+      syncStatistics()
     } catch (e) {
       const offline = !navigator.onLine
       setSyncError(offline
@@ -66,7 +73,7 @@ export default function App() {
     async function maybeSync() {
       if (!navigator.onLine) return
       if (await needsAutoSync()) return void sync()
-      syncCounters().catch(() => {})
+      syncStatistics()
       // Bilder fehlen noch im Offline-Cache (z. B. erster Start oder abgebrochen)?
       const [lastSync, cachedFor] = await Promise.all([getMeta('lastSync', 0), getMeta('imagesCachedFor', -1)])
       if (lastSync && cachedFor !== lastSync) void cacheImages()
@@ -100,6 +107,7 @@ export default function App() {
           onLearn={(deck, extraNew) => navigate({ name: 'learn', deck, extraNew })}
           onQuiz={() => navigate({ name: 'quiz' })}
           onGuess={() => navigate({ name: 'guess' })}
+          onBuilds={() => navigate({ name: 'builds' })}
           onShop={() => navigate({ name: 'shop' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
@@ -111,6 +119,7 @@ export default function App() {
       {view.name === 'learn' && <Learn deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'guess' && <Guess onExit={goBack} />}
+      {view.name === 'builds' && <BuildQuiz onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />

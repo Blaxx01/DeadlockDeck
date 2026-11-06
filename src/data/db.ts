@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
 import type { PatchRecord } from './patches'
-import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
+import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -55,6 +55,8 @@ export class DeckDB extends Dexie {
   abilities!: EntityTable<AbilityCard, 'id'>
   /** Counter-Karten (Statistik der API, wöchentlich neu) */
   counters!: EntityTable<CounterCard, 'id'>
+  /** Builds fürs Build-Quiz (typisch + Community, wöchentlich neu) */
+  builds!: EntityTable<BuildRecord, 'id'>
   /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
   patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
@@ -81,6 +83,10 @@ export class DeckDB extends Dexie {
     // Counter-Deck
     this.version(4).stores({
       counters: 'id',
+    })
+    // Build-Quiz
+    this.version(5).stores({
+      builds: 'id, source',
     })
   }
 }
@@ -139,4 +145,35 @@ export interface LastPatch {
   /** Namen der neuen und entfernten Karten für den Hinweis */
   addedNames?: string[]
   removedNames?: string[]
+}
+
+/** Bestwert einer Build-Quiz-Runde (je Hero und Build-Art) */
+export interface BuildBest {
+  errors: number
+  ms: number
+  at: number
+}
+
+/** Schlüssel der Bestwerte, z. B. "typical:13" */
+export function buildBestKey(source: string, heroId: number): string {
+  return `${source}:${heroId}`
+}
+
+export async function getBuildBests(database: DeckDB = db): Promise<Record<string, BuildBest>> {
+  return getMeta<Record<string, BuildBest>>('buildBest', {}, database)
+}
+
+/** Besser = weniger Fehlversuche, bei Gleichstand schneller */
+export function isBetterBuildResult(result: { errors: number; ms: number }, best: { errors: number; ms: number } | undefined): boolean {
+  return !best || result.errors < best.errors || (result.errors === best.errors && result.ms < best.ms)
+}
+
+/** Speichert das Ergebnis, wenn es ein neuer Bestwert ist. Gibt true zurück, wenn ja. */
+export async function submitBuildResult(key: string, result: { errors: number; ms: number }, database: DeckDB = db): Promise<boolean> {
+  return database.transaction('rw', database.meta, async () => {
+    const bests = await getBuildBests(database)
+    if (!isBetterBuildResult(result, bests[key])) return false
+    await setMeta('buildBest', { ...bests, [key]: { errors: result.errors, ms: result.ms, at: Date.now() } }, database)
+    return true
+  })
 }
