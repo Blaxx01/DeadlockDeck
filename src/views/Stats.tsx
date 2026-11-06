@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect } from 'react'
 import { LearnCalendar } from '../components/LearnCalendar'
+import { MapSymbolIcon } from '../components/MapCanvas'
 import { MasteryBar, MasteryLegend } from '../components/Mastery'
 import { SoulsChart } from '../components/SoulsChart'
 import { localDate, parseLocalDate } from '../data/dates'
@@ -10,6 +11,7 @@ import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { atLeast, countMastery, MASTERY_MEDAL, masteryText } from '../game/mastery'
 import { describeCards, getLeeches, LEECH_LAPSES } from '../game/weakness'
 import { InlineNote } from '../components/Notes'
+import { getLaneSummary, PATRON_LABEL, PATRONS, type LaneSummary } from '../game/laneAttack'
 import { getSoulsTotal } from '../game/souls'
 import { calendarWeeks, learningTotals, soulsSeries } from '../game/stats'
 import { computeStreakState } from '../srs/srs'
@@ -23,12 +25,13 @@ async function loadStats() {
   const settings = await getSettings()
   const goal = settings.dailyGoal
   const today = localDate()
-  const [days, entries, reviewList, heroes, souls] = await Promise.all([
+  const [days, entries, reviewList, heroes, souls, lanes] = await Promise.all([
     db.days.toArray(),
     db.souls.toArray(),
     db.reviews.toArray(),
     allHeroMastery(),
     getSoulsTotal(),
+    getLaneSummary(),
   ])
   const reviews = new Map(reviewList.map(r => [r.id, r]))
   const ids: Record<DeckId, string[]> = {
@@ -56,7 +59,50 @@ async function loadStats() {
     maxStars: heroes.length * MAX_STARS,
     leeches,
     leechCards: await describeCards(leeches.map(l => l.cardId)),
+    lanes,
   }
+}
+
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString('de-DE')} ${n === 1 ? one : many}`
+
+/** Lane-Angriff: Siege, Niederlagen, Serie, je Patron */
+function LaneStats({ lanes }: { lanes: LaneSummary }) {
+  const played = lanes.wins + lanes.losses
+  return (
+    <section className="panel">
+      <h2>Lane-Angriff</h2>
+      {played === 0 ? (
+        <p className="muted small">
+          Noch kein Tag entschieden. Schaffe an einem Tag alle drei Tagesmissionen – dann fällt der Patron und der Tag ist ein Sieg.
+        </p>
+      ) : (
+        <>
+          <div className="stat-tiles lane-tiles">
+            <Tile label="Siege" value={`🏆 ${lanes.wins.toLocaleString('de-DE')}`} sub={plural(lanes.losses, 'Niederlage', 'Niederlagen')} />
+            <Tile label="Siegesserie" value={lanes.streak.toLocaleString('de-DE')} sub={`beste: ${lanes.best.toLocaleString('de-DE')}`} />
+          </div>
+          <ul className="lane-patrons">
+            {PATRONS.map(p => {
+              const r = lanes.byPatron[p]
+              const total = r.wins + r.losses
+              return (
+                <li key={p}>
+                  <MapSymbolIcon kind="patron" size={24} />
+                  <span className="lane-patron-name">{PATRON_LABEL[p]}</span>
+                  <span className="small">{plural(r.wins, 'Sieg', 'Siege')} · {plural(r.losses, 'Niederlage', 'Niederlagen')}</span>
+                  <span className={`lane-ratio${total ? '' : ' empty'}`} role="img"
+                    aria-label={total ? `${Math.round((r.wins / total) * 100)} % gewonnen` : 'noch nicht gekämpft'}>
+                    <span style={{ width: total ? `${(r.wins / total) * 100}%` : 0 }} />
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="muted small">Gezählt werden Tage, an denen du gelernt oder gespielt hast. Ein Tag ohne Lernen unterbricht die Serie nicht.</p>
+        </>
+      )}
+    </section>
+  )
 }
 
 function Tile({ value, label, sub }: { value: string; label: string; sub?: string }) {
@@ -104,6 +150,8 @@ export function Stats({ onBack, onHeroes }: Props) {
         <h2>Lerntage</h2>
         <LearnCalendar weeks={s.weeks} goal={s.goal} />
       </section>
+
+      <LaneStats lanes={s.lanes} />
 
       <section className="panel">
         <div className="row">

@@ -26,6 +26,7 @@ import { Sprint } from './views/Sprint'
 import { Survival } from './views/Survival'
 import { MapView } from './views/MapView'
 import { MapQuiz } from './views/MapQuiz'
+import { LaneView } from './views/LaneView'
 
 /**
  * Welche Bilder offline vorgeladen werden – erhöhen, wenn neue dazukommen, damit auch bestehende
@@ -180,6 +181,7 @@ export default function App() {
           onStats={() => navigate({ name: 'stats' })}
           onMap={() => navigate({ name: 'map' })}
           onMapQuiz={() => navigate({ name: 'mapquiz' })}
+          onLane={() => navigate({ name: 'lane' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
@@ -199,6 +201,7 @@ export default function App() {
       {view.name === 'stats' && <Stats onBack={goBack} onHeroes={() => navigate({ name: 'heroes' })} />}
       {view.name === 'map' && <MapView key={view.focus ?? ''} onBack={goBack} focus={view.focus} />}
       {view.name === 'mapquiz' && <MapQuiz onExit={goBack} />}
+      {view.name === 'lane' && <LaneView onBack={goBack} onStats={() => navigate({ name: 'stats' })} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}

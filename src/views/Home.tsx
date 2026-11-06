@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
+import { LaneBar } from '../components/LaneBar'
 import { RankBadge } from '../components/RankBadge'
 import { daysAgoText, exportBackup, getBackupStatus, prefersShare, snoozeBackupReminder, BACKUP_EVERY_DAYS, type BackupStatus } from '../data/backup'
 import { ensurePersistentStorage } from '../data/persist'
@@ -10,6 +11,7 @@ import {
 } from '../data/db'
 import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId, type LearnDeck } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
+import type { LaneShown } from '../game/laneAttack'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
@@ -29,6 +31,7 @@ interface Props {
   onStats: () => void
   onMap: () => void
   onMapQuiz: () => void
+  onLane: () => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -221,7 +224,15 @@ function RankCard({ souls, assets, streak, warning, onStats }: RankCardProps) {
   )
 }
 
-function Missions({ daily, reviewed, goal }: { daily: DailyStatus; reviewed: number; goal: number }) {
+interface MissionsProps {
+  daily: DailyStatus
+  reviewed: number
+  goal: number
+  laneShown: LaneShown | null
+  onLane: () => void
+}
+
+function Missions({ daily, reviewed, goal, laneShown, onLane }: MissionsProps) {
   const goalPct = Math.min(100, Math.round((reviewed / goal) * 100))
   return (
     <div className="panel today">
@@ -230,6 +241,8 @@ function Missions({ daily, reviewed, goal }: { daily: DailyStatus; reviewed: num
         <span className="muted small">Tagesziel {reviewed} / {goal}{daily.goalReached ? ' ✓' : ''}</span>
       </div>
       <div className="goal-bar"><div style={{ width: `${goalPct}%` }} /></div>
+      {/* Lane-Angriff (nur mit drei Missionen): jede geschaffte Mission zerstört das vorderste Ziel */}
+      {daily.lane && <LaneBar lane={daily.lane} shown={laneShown} onOpen={onLane} />}
       {daily.missions.length > 0 && (
         <>
           <ul className="missions">
@@ -297,6 +310,8 @@ function useHomeStats() {
       souls: await getSoulsTotal(),
       ranks: await getMeta<RankAsset[]>('ranks', []),
       daily: await dailyStatus(),
+      // Lane-Angriff: zuletzt hier gezeigter Stand (die Leiste animiert von dort)
+      laneShown: await getMeta<LaneShown | null>('laneShown', null),
       decayWarning: decayWarning(daysWithoutLearning(await lastActiveDate(), localDate())),
       buildBests: Object.keys(await getBuildBests()).length,
       // Schwächen: mit Fehlern in den letzten 14 Tagen und hartnäckige (ohne neue Fehler)
@@ -375,7 +390,7 @@ function DeckRow({ deck, onLearn, primary }: { deck: DeckStats; onLearn: Props['
 }
 
 export function Home({
-  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onSettings,
+  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onLane, onSettings,
   syncing, syncError, imageProgress, onSync,
 }: Props) {
   const s = useHomeStats()
@@ -416,7 +431,7 @@ export function Home({
 
       <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
 
-      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} />
+      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} laneShown={s.laneShown} onLane={onLane} />
 
       <div className="panel">
         <h2>Karteikarten</h2>

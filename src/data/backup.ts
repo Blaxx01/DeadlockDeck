@@ -27,6 +27,8 @@ export interface BackupFile {
   souls?: SoulsEntry[]
   /** Start der Souls-Funktion (für den Rang-Verfall) */
   soulsStart?: string
+  /** Erster Tag mit Lane-Angriff (ab dann zählen Siege und Niederlagen – sie ergeben sich aus dem Souls-Verlauf) */
+  laneStart?: string
   /** Fehler der letzten 14 Tage (Schwächen-Training) */
   mistakes?: MistakeEntry[]
   /** Schon belohnte Meilensteine: Karte → Silber/Gold */
@@ -55,6 +57,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     buildBest: await getBuildBests(database),
     souls: await database.souls.toArray(),
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
+    laneStart: (await getMeta<string | null>('laneStart', null, database)) ?? undefined,
     mistakes: await database.mistakes.toArray(),
     ...(await getMilestones(database)),
     notes: await database.notes.toArray(),
@@ -108,6 +111,7 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     await setMeta('soulsTotal', souls.reduce((sum, e) => sum + (Number(e.amount) || 0), 0), database)
     await setMeta('soulsSeeded', souls.length > 0, database)
     if (backup.soulsStart) await setMeta('soulsStart', backup.soulsStart, database)
+    if (typeof backup.laneStart === 'string') await setMeta('laneStart', backup.laneStart, database)
     await setMeta('missions', null, database)
     await database.reviews.bulkPut(backup.reviews)
     await database.days.bulkPut(backup.days)

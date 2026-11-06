@@ -27,6 +27,8 @@ export type View =
   | { name: 'map'; focus?: MapKind }
   /** Map-Quiz */
   | { name: 'mapquiz' }
+  /** Lane-Angriff des Tages auf der Map (über die Leiste im Feld „Heute“) */
+  | { name: 'lane' }
   | { name: 'settings' }
 
 export interface NavState {

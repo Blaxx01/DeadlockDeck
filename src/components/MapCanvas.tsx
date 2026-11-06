@@ -1,9 +1,12 @@
-import { useLayoutEffect, useRef, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import type { MapData, MapKind, MapPoint, MapPos } from '../map/mapData'
 import { MAP_SYMBOLS, symbolColor } from '../map/mapSymbols'
 
 /** Karten-Einheiten des Overlays (0–1000) */
 const U = 1000
+
+/** Für eigene Zeichnungen im Overlay (`children`): Position × MAP_UNITS */
+export const MAP_UNITS = U
 
 interface Props {
   data: MapData
@@ -13,6 +16,8 @@ interface Props {
   lines?: boolean
   /** Hervorgehobene Art: größer, mit Ring; Teleporter/Sprungpads mit Linie zum Ziel */
   highlight?: MapKind | null
+  /** Blass gezeigte Objekte (z. B. zerstörte Ziele im Lane-Angriff) */
+  dimmed?: readonly MapPoint[]
   /** Quiz „Was ist hier?“: markierte Stelle */
   spot?: MapPos | null
   /** Quiz „Wo ist …?“: der eigene Tipp */
@@ -24,9 +29,11 @@ interface Props {
   /** Beim Vergrößern hierhin scrollen (sonst Mitte) */
   focus?: MapPos | null
   label?: string
+  /** Eigene Zeichnung über den Symbolen (SVG in Karten-Einheiten, siehe MAP_UNITS) */
+  children?: ReactNode
 }
 
-function Symbol({ point, strong }: { point: MapPoint; strong: boolean }) {
+function Symbol({ point, strong, dim = false }: { point: MapPoint; strong: boolean; dim?: boolean }) {
   const sym = MAP_SYMBOLS[point.kind]
   const s = sym.size * (strong ? 1.35 : 1)
   const x = point.x * U
@@ -43,7 +50,7 @@ function Symbol({ point, strong }: { point: MapPoint; strong: boolean }) {
     case 'bar': shape = <rect x={x - s * 0.3} y={y - s} width={s * 0.6} height={2 * s} fill={color} {...stroke} />; break
   }
   return (
-    <g className={strong ? 'map-sym strong' : 'map-sym'}>
+    <g className={`map-sym${strong ? ' strong' : ''}${dim ? ' dim' : ''}`}>
       {strong && <circle cx={x} cy={y} r={s + 9} className="map-sym-halo" />}
       {shape}
       {sym.glyph && <text x={x} y={y} dy="0.36em" textAnchor="middle" fontSize={s * 1.15} className="map-glyph">{sym.glyph}</text>}
@@ -63,7 +70,7 @@ export function MapSymbolIcon({ kind, lane, size = 22 }: { kind: MapKind; lane?:
 }
 
 /** Minimap mit Lanes und Objekten; Antippen liefert die Position, Vergrößern macht sie verschiebbar */
-export function MapCanvas({ data, points, lines = true, highlight, spot, tap, onTap, zoom = 1, focus, label = 'Deadlock-Map' }: Props) {
+export function MapCanvas({ data, points, lines = true, highlight, dimmed, spot, tap, onTap, zoom = 1, focus, label = 'Deadlock-Map', children }: Props) {
   const viewport = useRef<HTMLDivElement>(null)
 
   // Beim Vergrößern auf die Mitte bzw. das gewählte Objekt scrollen
@@ -95,7 +102,8 @@ export function MapCanvas({ data, points, lines = true, highlight, spot, tap, on
           {routes.map((p, i) => (
             <line key={i} x1={p.x * U} y1={p.y * U} x2={p.to!.x * U} y2={p.to!.y * U} className="map-route" />
           ))}
-          {ordered.map((p, i) => <Symbol key={`${p.kind}-${i}`} point={p} strong={p.kind === highlight} />)}
+          {ordered.map((p, i) => <Symbol key={`${p.kind}-${i}`} point={p} strong={p.kind === highlight} dim={!!dimmed?.includes(p)} />)}
+          {children}
           {spot && (
             <g className="map-spot">
               <circle cx={spot.x * U} cy={spot.y * U} r={26} />

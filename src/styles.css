@@ -906,3 +906,115 @@ button.link {
 .rate.next { grid-column: 1 / -1; color: var(--accent); font-weight: 700; }
 .swipe-label.next { left: 18px; color: var(--accent); transform: rotate(-8deg); }
 .swipe-label.next.right { left: auto; right: 18px; transform: rotate(8deg); }
+
+/* ---------- Lane-Angriff ---------- */
+/* --lane: Farbe der Lane des Tages (Zipline) */
+.lane-bar {
+  position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 10px 12px 12px;
+  text-align: left; color: var(--text); overflow: hidden;
+  background: color-mix(in srgb, var(--lane) 7%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--lane) 45%, var(--line)); border-radius: 12px;
+}
+.lane-bar:focus-visible { outline: 2px solid var(--lane); outline-offset: 2px; }
+.lane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lane-title { font-weight: 700; font-size: 0.92rem; }
+.lane-bar.won .lane-title { color: var(--accent); }
+.lane-more { color: var(--accent); font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.lane-targets { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* die Lane als Linie durch die drei Ziele */
+.lane-targets::before {
+  content: ''; position: absolute; top: 15px; left: 16.7%; right: 16.7%; height: 3px; border-radius: 2px;
+  background: var(--lane); opacity: 0.5;
+}
+.lane-target { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; text-align: center; }
+.lane-icon {
+  position: relative; flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: color-mix(in srgb, var(--lane) 7%, var(--panel-2));
+}
+.lane-target.front .lane-icon::after, .lane-list li.front .lane-icon::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--lane);
+  animation: lane-pulse 1.6s ease-in-out infinite;
+}
+.lane-name { max-width: 100%; font-size: 0.78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane-hp { display: block; width: 100%; height: 6px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.lane-hp > span { display: block; height: 100%; border-radius: 99px; background: var(--lane); transition: width 0.7s cubic-bezier(.3,.7,.4,1) var(--delay, 0s); }
+.lane-pct { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lane-target.down .lane-icon svg, .lane-list li.down .lane-icon svg { filter: grayscale(1) brightness(0.6); }
+.lane-target.down .lane-name { color: var(--muted); text-decoration: line-through; }
+.lane-target.down .lane-pct { color: var(--bad); font-weight: 700; }
+.lane-x {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  color: var(--bad); font-weight: 900; font-size: 1.35rem; text-shadow: 0 0 3px #000, 0 0 6px #000;
+}
+/* gerade gefallen: nach seinem Balken aufleuchten, dann grau mit ✕ */
+.lane-target.fell .lane-icon svg { animation: lane-fall 0.7s ease calc(var(--delay) + 0.65s) backwards; }
+.lane-target.fell .lane-x { animation: lane-x 0.35s ease-out calc(var(--delay) + 0.95s) backwards; }
+.lane-target.fell .lane-pct { animation: lane-fade 0.3s ease calc(var(--delay) + 0.8s) backwards; }
+.lane-target.fell .lane-name { animation: lane-strike 0.3s ease calc(var(--delay) + 0.8s) backwards; }
+.lane-victory {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  font-size: 2.2rem; font-weight: 900; letter-spacing: 0.06em; color: var(--accent);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75); background: color-mix(in srgb, var(--panel) 55%, transparent);
+  animation: lane-victory 2.4s ease var(--delay) both;
+}
+.lane-confetti { position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; }
+@keyframes lane-pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.25; } }
+@keyframes lane-fall {
+  0% { filter: none; transform: none; }
+  30% { filter: brightness(2.2) saturate(1.4); transform: scale(1.35) rotate(-10deg); }
+  60% { transform: scale(0.9) rotate(6deg); }
+  100% { filter: grayscale(1) brightness(0.6); transform: none; }
+}
+@keyframes lane-x { from { opacity: 0; transform: scale(2.2); } to { opacity: 1; transform: none; } }
+@keyframes lane-fade { from { opacity: 0; } }
+@keyframes lane-strike { from { color: var(--text); text-decoration-color: transparent; } }
+@keyframes lane-victory {
+  0% { opacity: 0; transform: scale(0.5); }
+  18% { opacity: 1; transform: scale(1.12); }
+  30% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* Einblendung in Sessions und Spielen (bei „+10 ◆“) */
+.souls-float.lane-float {
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px; color: var(--text); font-size: 0.85rem;
+  border-color: color-mix(in srgb, var(--lane) 60%, var(--line)); animation-duration: 1.8s;
+}
+.souls-float.long { animation-duration: 2.4s; font-size: 0.9rem; }
+.lane-float-bar { display: block; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.lane-float-bar > span { display: block; height: 100%; width: var(--to); background: var(--lane); animation: lane-float-hp 0.7s ease-out 0.25s backwards; }
+@keyframes lane-float-hp { from { width: var(--from); } }
+/* Lane-Map */
+.lane-page { display: flex; flex-direction: column; gap: 12px; }
+.lane-page .home-head, .lane-page .panel { margin-bottom: 0; }
+.lane-sub { margin: 0; font-weight: 700; }
+.lane-sub.won { color: var(--accent); }
+.lane-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.lane-list li { display: flex; align-items: flex-start; gap: 10px; }
+.lane-list .lane-icon { background: var(--panel-2); }
+.lane-list-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.lane-list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lane-list li.down b { color: var(--muted); text-decoration: line-through; }
+.lane-list li.down .lane-list-head .small { color: var(--bad); font-weight: 700; }
+.map-sym.dim { opacity: 0.45; }
+.lane-map-x path { fill: none; stroke: var(--bad); stroke-width: 7; stroke-linecap: round; }
+.lane-map-x path.under { stroke: #120f0b; stroke-width: 12; }
+.lane-map-ring circle { fill: none; stroke-width: 6; }
+.lane-map-ring .track { stroke: rgba(18, 15, 11, 0.75); }
+.lane-map-ring .hp { stroke: var(--lane); stroke-linecap: round; }
+/* Statistik */
+.lane-tiles { margin-bottom: 0; }
+.lane-tiles .stat-tile { background: var(--panel-2); }
+.lane-patrons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.lane-patrons li { display: grid; grid-template-columns: 24px 1fr auto; column-gap: 10px; row-gap: 4px; align-items: center; }
+.lane-patrons .map-icon { grid-row: span 2; }
+.lane-patron-name { font-weight: 700; }
+.lane-ratio { grid-column: 2 / -1; display: block; height: 6px; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, var(--bad) 55%, var(--track)); }
+.lane-ratio.empty { background: var(--track); }
+.lane-ratio > span { display: block; height: 100%; background: var(--good); }
+@media (prefers-reduced-motion: reduce) {
+  .lane-hp > span { transition: none; }
+  .lane-target.fell .lane-icon svg, .lane-target.fell .lane-x, .lane-target.fell .lane-pct, .lane-target.fell .lane-name,
+  .lane-target.front .lane-icon::after, .lane-list li.front .lane-icon::after, .lane-float-bar > span { animation: none; }
+  .lane-victory, .lane-confetti { display: none; }
+}

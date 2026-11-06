@@ -7,7 +7,9 @@ import { db, getMeta, getSettings, setMeta, type DayRecord, type DeckDB } from '
 import { LEARNED_ONLY_MIN } from '../data/model'
 import { isReverseId, type DeckId } from '../decks'
 import { loadLearnedCards } from '../quiz/load'
-import { shuffle, type Rng } from '../quiz/quiz'
+import { shuffle } from '../quiz/quiz'
+import { laneState, trackLane, type LaneState } from './laneAttack'
+import { hashString, seededRng } from './random'
 import { addSoulsInTx, announceGain, awardRound, GOAL_SOULS, type RoundAward, type RoundMode, type SoulsEntry, type SoulsGain } from './souls'
 import { weakCardCount } from './weakness'
 
@@ -91,24 +93,6 @@ export function missionById(id: string): MissionDef | undefined {
   return byId.get(id)
 }
 
-function hashString(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
-  return h >>> 0
-}
-
-/** Deterministischer Zufall (mulberry32) – gleiche Missionen den ganzen Tag */
-function seededRng(seed: number): Rng {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 /** Eine Lern- und zwei Spiel-Missionen aus verschiedenen Gruppen; fehlt etwas, wird aufgefüllt */
 export function pickMissions(date: string, available: readonly MissionDef[]): string[] {
   const rng = seededRng(hashString(date))
@@ -186,6 +170,8 @@ export interface MissionStatus {
   def: MissionDef
   progress: number
   done: boolean
+  /** Reihenfolge des Schaffens (ID des Souls-Eintrags der Belohnung) – für den Lane-Angriff */
+  doneSeq?: number
 }
 
 export interface DailyStatus {
@@ -193,6 +179,15 @@ export interface DailyStatus {
   /** Alle drei geschafft → Bonus gutgeschrieben */
   bonus: boolean
   goalReached: boolean
+  /** Lane-Angriff des Tages (nur mit drei Missionen) */
+  lane: LaneState | null
+}
+
+/** Stand einer Mission – geschafft, sobald belohnt oder das Ziel erreicht ist */
+function missionStatus(def: MissionDef, ctx: MissionContext): MissionStatus {
+  const progress = def.progress(ctx)
+  const reward = ctx.entries.find(e => e.reason === 'mission' && e.data?.id === def.id)
+  return { def, progress: Math.min(progress, def.target), done: !!reward || progress >= def.target, doneSeq: reward?.id }
 }
 
 /** Nur lesen (für die Startseite) */
@@ -202,15 +197,12 @@ export async function dailyStatus(now = new Date(), database: DeckDB = db): Prom
   const missions = ids
     .map(id => byId.get(id))
     .filter((m): m is MissionDef => !!m)
-    .map(def => {
-      const progress = def.progress(ctx)
-      const rewarded = ctx.entries.some(e => e.reason === 'mission' && e.data?.id === def.id)
-      return { def, progress: Math.min(progress, def.target), done: rewarded || progress >= def.target }
-    })
+    .map(def => missionStatus(def, ctx))
   return {
     missions,
     bonus: ctx.entries.some(e => e.reason === 'missions'),
     goalReached: ctx.entries.some(e => e.reason === 'goal'),
+    lane: laneState(localDate(now), missions),
   }
 }
 
@@ -220,7 +212,7 @@ export async function checkDailyBonuses(now = new Date(), database: DeckDB = db)
   const ids = await todayMissionIds(now, database, true)
   const settings = await getSettings(database)
   const tables = [database.souls, database.meta, database.days, database.items, database.abilities, database.heroes, database.counters, database.builds, database.mistakes]
-  const gains = await database.transaction('rw', tables, async () => {
+  const { gains, missions } = await database.transaction('rw', tables, async () => {
     const ctx = await missionContext(now, database)
     const has = (pred: (e: SoulsEntry) => boolean) => ctx.entries.some(pred)
     const at = now.getTime()
@@ -228,23 +220,30 @@ export async function checkDailyBonuses(now = new Date(), database: DeckDB = db)
     if ((ctx.day?.reviewed ?? 0) >= settings.dailyGoal && !has(e => e.reason === 'goal')) {
       out.push(await addSoulsInTx(database, { at, date, amount: GOAL_SOULS, reason: 'goal' }))
     }
-    let done = 0
+    const statuses: MissionStatus[] = []
     for (const id of ids) {
       const def = byId.get(id)
       if (!def) continue
-      if (has(e => e.reason === 'mission' && e.data?.id === id)) {
-        done++
-      } else if (def.progress(ctx) >= def.target) {
+      const status = missionStatus(def, ctx)
+      // geschafft, aber noch nicht belohnt (zählt beim Lane-Angriff nach den schon belohnten)
+      if (status.done && status.doneSeq === undefined) {
         out.push(await addSoulsInTx(database, { at, date, amount: MISSION_SOULS, reason: 'mission', data: { id } }))
-        done++
       }
+      statuses.push(status)
     }
+    const done = statuses.filter(m => m.done).length
     if (ids.length === MISSIONS_PER_DAY && done === MISSIONS_PER_DAY && !has(e => e.reason === 'missions')) {
       out.push(await addSoulsInTx(database, { at, date, amount: ALL_MISSIONS_BONUS, reason: 'missions' }))
     }
-    return out
+    // Lane-Angriff: Siege und Niederlagen zählen ab dem ersten Tag mit drei Missionen
+    if (statuses.length === MISSIONS_PER_DAY && !(await getMeta<string | null>('laneStart', null, database))) {
+      await setMeta('laneStart', date, database)
+    }
+    return { gains: out, missions: statuses }
   })
   for (const gain of gains) announceGain(gain)
+  // Schaden, zerstörte Ziele, Sieg → kurze Einblendung
+  trackLane(laneState(date, missions))
   return gains
 }
 

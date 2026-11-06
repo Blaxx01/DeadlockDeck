@@ -34,7 +34,10 @@ zeigt Name und Erklärung, Lupe zum Vergrößern) und das **Map-Quiz**: „Wo is
 Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
 täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
-ab dem 6. Tag ohne Lernen. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
+ab dem 6. Tag ohne Lernen. Die Tagesmissionen sind ein **Lane-Angriff**: Jeden Tag gibt es eine Lane (Gelb, Blau oder
+Grün) und einen Gegner (Hidden King oder Archmother); jede geschaffte Mission zerstört das vorderste Ziel – Guardian,
+Walker, dann den Patron –, bis dahin macht die Mission, die am weitesten ist, Schaden. Die Startseite zeigt die
+Lebensbalken (antippen öffnet die Lane auf der Map), Siege und Niederlagen stehen in der Statistik. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
 häufigsten gezielt – „gewusst“ im Training behebt die Schwäche. **Hartnäckige Karten** (4× vergessen) bleiben darin,
 bis sie wieder sitzen; zu jeder Karte lässt sich eine eigene **Merkhilfe** schreiben, die auf der Rückseite erscheint. Was wirklich sitzt, zeigt das **Sammelalbum** im Shop
 (Rahmen Bronze/Silber/Gold je nach Abstand bis zur nächsten Wiederholung), die **Hero-Meisterschaft** (5 Sterne je Hero:
@@ -84,13 +87,14 @@ Aufbau:
 | `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
+| `src/game/laneAttack.ts`, `src/components/LaneBar.tsx`, `src/views/LaneView.tsx` | Lane-Angriff: Lane und Gegner des Tages, Leben der Ziele, Einblendungen, Siege/Niederlagen; Leiste auf der Startseite und Lane-Map |
 | `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, hartnäckige Karten, Rangfolge, Training |
 | `src/game/notes.ts`, `src/components/Notes.tsx` | Merkhilfen: speichern, auf der Kartenrückseite zeigen, bearbeiten |
 | `src/game/mastery.ts`, `src/game/heroMastery.ts` | Stufe einer Karte (Bronze/Silber/Gold), Sterne je Hero |
 | `src/game/milestones.ts` | Meilenstein-Souls (Silber, Gold, Hero-Sterne), nachträgliches Gutschreiben |
 | `src/game/stats.ts`, `src/views/Stats.tsx` | Statistik: Kalender der Lerntage, Souls-Verlauf, Karten je Deck |
 | `src/views/Heroes.tsx` | Hero-Meisterschaft: Raster mit Sternen, Hero-Seite |
-| `src/components/SoulsFx.tsx` | „+10 ◆“-Animation und Aufstieg mit Konfetti |
+| `src/components/SoulsFx.tsx` | „+10 ◆“-Animation (auch „⚔ Guardian −10 %“) und Aufstieg mit Konfetti |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/data/backup.ts`, `src/data/persist.ts` | Backup: Export (Teilen/Download), Import, Erinnerung; dauerhafter Speicher |

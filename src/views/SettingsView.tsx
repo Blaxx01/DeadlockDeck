@@ -134,6 +134,9 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       await db.souls.clear()
       await setMeta('soulsTotal', 0)
       await setMeta('missions', null)
+      // Lane-Angriff: Bilanz neu ab heute (Siege und Niederlagen kommen aus dem Souls-Verlauf)
+      await setMeta('laneStart', null)
+      await setMeta('laneShown', null)
       await resetMilestonesInTx(db)
     })
     setMessage('Fortschritt gelöscht.')
@@ -272,7 +275,7 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       <div className="panel">
         <h2>Effekte</h2>
         <label className="field toggle-field">
-          <span>Animationen und Vibration<br /><span className="muted small">„+10 ◆“, Aufstieg mit Konfetti, Vibration bei Fehlern</span></span>
+          <span>Animationen und Vibration<br /><span className="muted small">„+10 ◆“, Aufstieg mit Konfetti, Lane-Angriff, Vibration bei Fehlern</span></span>
           <input type="checkbox" checked={settings.effects}
             onChange={e => { setEffectsEnabled(e.target.checked); void update({ effects: e.target.checked }) }} />
         </label>

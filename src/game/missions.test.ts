@@ -8,6 +8,7 @@ import {
   ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, finishRound, learnedOnlyCounts, MISSION_SOULS, MISSIONS, pickMissions,
   todayMissionIds, type MissionContext,
 } from './missions'
+import { getLaneSummary, laneEvents, trackLane, type LaneChange } from './laneAttack'
 import { getSoulsTotal } from './souls'
 
 const ctxAll: MissionContext = { entries: [], deckSizes: { items: 100, abilities: 100, heroes: 40, counters: 40 }, heroCount: 40, buildCount: 40, weakCount: 10 }
@@ -108,5 +109,59 @@ describe('Tagesmissionen', () => {
     const ids = await todayMissionIds(now, database, true)
     expect(ids).toHaveLength(3)
     expect(await getMeta('missions', null, database)).toEqual({ date: '2026-11-06', ids })
+  })
+})
+
+describe('Lane-Angriff', () => {
+  const now = new Date(2026, 10, 6, 12)
+
+  it('Missionen zerstören Guardian → Walker → Patron in der Reihenfolge, in der sie geschafft werden', async () => {
+    const database = await setup()
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    const seen: LaneChange[] = []
+    const listener = (e: Event) => seen.push((e as CustomEvent<LaneChange>).detail)
+    laneEvents.addEventListener('lane', listener)
+    try {
+      trackLane(null)
+      await checkDailyBonuses(now, database)
+      // ab heute zählen Siege und Niederlagen
+      expect(await getMeta('laneStart', null, database)).toBe('2026-11-06')
+      expect(seen).toEqual([])
+
+      // Hero erraten zuerst geschafft → Guardian; die Quiz-Runde (5/7) hat ihn schon angeschlagen
+      await finishRound('quiz', 50, { score: 500, correct: 5 }, now, database)
+      expect(seen.at(-1)).toMatchObject({ damage: { kind: 'guardian', before: 100, after: 29 }, destroyed: [] })
+      await finishRound('guess', 70, { score: 700 }, now, database)
+      expect(seen.at(-1)).toMatchObject({ destroyed: ['guardian'], damage: { kind: 'walker', before: 100, after: 29 }, won: false })
+      let lane = (await dailyStatus(now, database)).lane!
+      expect(lane.targets.map(t => t.by)).toEqual(['Hero erraten mit mindestens 600 Punkten', undefined, undefined])
+
+      await finishRound('quiz', 90, { score: 900, correct: 8 }, now, database)
+      expect(seen.at(-1)).toMatchObject({ destroyed: ['walker'], won: false })
+      await database.days.put({ date: '2026-11-06', reviewed: 5, newIntroduced: 5, cards: ['item:a', 'item:b', 'item:c', 'item:d', 'item:e'] })
+      await checkDailyBonuses(now, database)
+      expect(seen.at(-1)).toMatchObject({ destroyed: ['patron'], won: true })
+
+      lane = (await dailyStatus(now, database)).lane!
+      expect(lane).toMatchObject({ front: 3, won: true })
+      expect(lane.targets.map(t => t.by)).toEqual([
+        'Hero erraten mit mindestens 600 Punkten', 'Quiz mit mindestens 7 richtigen Antworten', '5 neue Karten lernen',
+      ])
+      expect(await getLaneSummary(now, database)).toMatchObject({ wins: 1, losses: 0, streak: 1 })
+      // am nächsten Tag: Sieg bleibt, neue Lane
+      expect(await getLaneSummary(new Date(2026, 10, 7, 12), database)).toMatchObject({ wins: 1, losses: 0 })
+    } finally {
+      laneEvents.removeEventListener('lane', listener)
+      trackLane(null)
+    }
+  })
+
+  it('nicht geschafft: Niederlage, sobald der Tag vorbei ist', async () => {
+    const database = await setup()
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    await finishRound('quiz', 90, { score: 900, correct: 8 }, now, database)
+    expect(await getLaneSummary(now, database)).toMatchObject({ wins: 0, losses: 0 })
+    expect(await getLaneSummary(new Date(2026, 10, 7, 9), database)).toMatchObject({ wins: 0, losses: 1, streak: 0 })
+    trackLane(null)
   })
 })

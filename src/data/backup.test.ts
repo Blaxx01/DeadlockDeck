@@ -109,6 +109,21 @@ describe('Backup', () => {
     expect(await getMeta('guessClean', [], dst)).toEqual([])
   })
 
+  it('nimmt den Start des Lane-Angriffs mit (Siege und Niederlagen kommen aus dem Souls-Verlauf)', async () => {
+    const src = new DeckDB(`b-${Math.random()}`)
+    await awardRound('quiz', 120, { score: 1200, correct: 9 }, new Date(2026, 10, 5, 13), src)
+    await src.meta.put({ key: 'laneStart', value: '2026-11-04' })
+    const json = JSON.stringify(await createBackup(src))
+    const dst = new DeckDB(`b-${Math.random()}`)
+    await dst.meta.put({ key: 'laneStart', value: '2026-11-20' })
+    await restoreBackup(parseBackup(json), dst)
+    expect(await getMeta('laneStart', null, dst)).toBe('2026-11-04')
+    // alte Backups ohne: der Start auf dem Gerät bleibt
+    const old = JSON.stringify({ app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(), settings: { dailyGoal: 20 }, reviews: [], days: [] })
+    await restoreBackup(parseBackup(old), dst)
+    expect(await getMeta('laneStart', null, dst)).toBe('2026-11-04')
+  })
+
   it('lehnt fremde Dateien ab', () => {
     expect(() => parseBackup('{"foo":1}')).toThrow(/keine DeadlockDeck/)
     expect(() => parseBackup('nope')).toThrow(/kein gültiges JSON/)
