@@ -263,7 +263,8 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
 - Neuer Fragetyp **Fähigkeiten-Upgrades** (in Quiz und Überleben, in den Einstellungen abwählbar):
   „Was macht das 5-AP-Upgrade von Sleep Dagger?“ – 4 Upgrade-Texte; falsch: die beiden anderen Stufen derselben
   Fähigkeit und ein Upgrade einer anderen Fähigkeit des Heroes
-  - Fähigkeiten mit gelernter Karte kommen bevorzugt dran (meist), ab und zu auch andere
+  - Fähigkeiten mit gelernter Karte kommen bevorzugt dran (meist), ab und zu auch andere – so bei „Alles“; sonst
+    gilt die Einstellung „Gefragt wird“ (siehe „Gelerntes zuerst“)
   - Auflösung: alle drei Upgrades der Fähigkeit; ein Fehler zählt als Schwäche der Fähigkeiten-Karte
 - Neuer Fragetyp **Item-Effekte** (aus den Item-Werten), zwei Varianten:
   - **Effekt → Item**: „Welches Item bringt „Kugellebensraub“?“ – genau eine Antwort hat den Effekt; nur
@@ -305,6 +306,28 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
   - Startseite: fällige und neue Rückrichtungs-Karten zählen bei „fällig“ und „neu“ mit; die Merkhilfe gilt für
     beide Richtungen; ein Patch macht auch die Rückrichtung gelernter Karten fällig
 
+### Gelerntes zuerst (einstellbar)
+Wer gerade erst anfängt, soll im Quiz nicht nur raten. Einstellung **„Gefragt wird“** (Einstellungen → Spielen) für
+Quiz, Überleben, Sprint und Hero erraten; „gelernt“ heißt: im Lernmodus mindestens einmal bewertet (ab Bronze).
+Item-Fragen gehören zur Item-Karte, Counter-Fragen zur Counter-Karte des Heroes, Upgrade-Fragen zur Fähigkeit,
+Hero erraten zur Hero-Karte. Die falschen Antworten kommen immer aus allen Karten.
+- **Gelerntes zuerst** (Standard): erst Fragen zu gelernten Karten; reicht das nicht für eine volle Runde, wird mit
+  neuen aufgefüllt
+  - neue Fragen sind mit **„Neu“** markiert (an der Frage, im Sprint und bei Hero erraten auf dem Bild, in den
+    Fehlerlisten); unter der Frage: „Neu: noch nicht gelernt – ein Fehler zählt nicht als Schwäche“
+  - ein Fehler dort zählt **nicht als Schwäche** (steht aber unter „Zum Merken“; „Fehler lernen“ im Sprint merkt
+    sie trotzdem vor)
+  - Sprint: erst die gelernten Karten einer Sorte, dann die anderen
+- **Nur Gelerntes**: keine neuen Fragen; Quiz- und Hero-Runden werden am Anfang kürzer, ohne gelernte Karten gibt es
+  einen Hinweis („Noch nichts gelernt“ mit Verweis auf die Einstellung)
+  - Sprint (je Sorte) und Überleben brauchen mindestens **10** gelernte Karten, sonst kämen ständig dieselben;
+    vorher steht auf der Startseite, wie viele fehlen
+  - Tagesmissionen, die so nicht zu schaffen wären (Quiz, Hero erraten, Sprint, Überleben mit weniger als
+    10 gelernten Karten), werden an dem Tag nicht ausgelost
+- **Alles**: wie vorher – alle Karten, ohne Markierung, jeder Fehler zählt als Schwäche (Upgrade-Fragen bevorzugen
+  weiter gelernte Fähigkeiten)
+- Startseiten von Sprint und Überleben nennen die Einstellung („Gefragt wird: …“)
+
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
 - **Export/Import** als JSON-Datei (Backup / Gerätewechsel)
@@ -328,6 +351,7 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
     1. ✅ Neue Quiz-Fragen (Upgrades, Item-Effekte), Items nach Beliebtheit
     2. ✅ Hartnäckige Karten, Merkhilfen
     3. ✅ Eintippen, Rückrichtung
+12. ✅ Gelerntes zuerst (einstellbar: Gelerntes zuerst / Nur Gelerntes / Alles)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

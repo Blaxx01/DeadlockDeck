@@ -4,7 +4,8 @@ import { DeckDB, getSprintHighscores, submitSprintScore } from '../data/db'
 import type { HeroCard } from '../data/model'
 import { item } from '../test/counterFixtures'
 import { abilityCards, fullHero } from '../test/masteryFixtures'
-import { clockLeft, clockReducer, nextSprintQuestion, sprintKinds, sprintTimeLeft, startClock, SPRINT_MS, type SprintCards } from './sprint'
+import { LEARNED_ONLY_MIN } from '../data/model'
+import { clockLeft, clockReducer, learnedCount, nextSprintQuestion, sprintKinds, sprintTimeLeft, startClock, SPRINT_MS, type SprintCards } from './sprint'
 
 /** Deterministischer Zufall */
 function seeded(seed = 1) {
@@ -82,6 +83,45 @@ describe('Sprint-Fragen', () => {
     c = clockReducer(c, { type: 'show', now: 100_000 })
     c = clockReducer(c, { type: 'tick', now: 101_000 })
     expect(clockLeft(c, 1)).toBe(60_000 - 12_000 - 3_000)
+  })
+})
+
+describe('Was gefragt wird (Einstellung)', () => {
+  const ids = (n: number) => new Set(items.slice(0, n).map(c => c.id))
+
+  it('„Gelerntes zuerst“: erst die gelernten Karten, dann die anderen – markiert', () => {
+    const known = ids(3)
+    const used = new Set<string>()
+    const rng = seeded(5)
+    const qs = Array.from({ length: 8 }, () => nextSprintQuestion({ ...cards, known, scope: 'learned-first' }, 'items', used, rng)!)
+    expect(qs.slice(0, 3).every(q => known.has(q.cardId) && !q.unlearned)).toBe(true)
+    expect(qs.slice(3).every(q => !known.has(q.cardId) && q.unlearned === true)).toBe(true)
+  })
+
+  it(`„Nur Gelerntes“: eine Sorte braucht ${LEARNED_ONLY_MIN} gelernte Karten; dann nur sie, falsche Antworten aus allen`, () => {
+    const few = { ...cards, known: ids(LEARNED_ONLY_MIN - 1), scope: 'learned-only' as const }
+    expect(learnedCount(few, 'item')).toBe(LEARNED_ONLY_MIN - 1)
+    expect(sprintKinds(few, 'items')).toEqual([])
+    expect(nextSprintQuestion(few, 'items', new Set(), seeded())).toBeNull()
+
+    const known = ids(LEARNED_ONLY_MIN)
+    const enough = { ...cards, known, scope: 'learned-only' as const }
+    expect(sprintKinds(enough, 'all')).toEqual(['item'])
+    const used = new Set<string>()
+    const rng = seeded(2)
+    const qs = Array.from({ length: 25 }, () => nextSprintQuestion(enough, 'all', used, rng)!)
+    expect(qs.every(q => q.kind === 'item' && known.has(q.cardId) && !q.unlearned)).toBe(true)
+    // jede gelernte Karte kommt dran, bevor sich eine wiederholt
+    expect(new Set(qs.slice(0, LEARNED_ONLY_MIN).map(q => q.cardId)).size).toBe(LEARNED_ONLY_MIN)
+    const knownNames = new Set(items.filter(c => known.has(c.id)).map(c => c.name))
+    expect(qs.flatMap(q => q.options).some(o => !knownNames.has(o))).toBe(true)
+  })
+
+  it('„Alles“: wie bisher, ohne Markierung', () => {
+    const a = Array.from({ length: 10 }, ((used, rng) => () => nextSprintQuestion({ ...cards, known: ids(3), scope: 'all' }, 'all', used, rng))(new Set<string>(), seeded(9)))
+    const b = Array.from({ length: 10 }, ((used, rng) => () => nextSprintQuestion(cards, 'all', used, rng))(new Set<string>(), seeded(9)))
+    expect(a).toEqual(b)
+    expect(a.some(q => q?.unlearned)).toBe(false)
   })
 })
 

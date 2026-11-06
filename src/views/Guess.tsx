@@ -6,10 +6,12 @@ import { finishRound } from '../game/missions'
 import { logMistake } from '../game/weakness'
 import type { RoundAward, SoulsGain } from '../game/souls'
 import { MilestoneSummary } from '../components/MilestoneSummary'
-import { GUESS_KIND_LABEL, type HeroCard } from '../data/model'
+import { UnlearnedTag } from '../components/QuizParts'
+import { GUESS_KIND_LABEL, type HeroCard, type QuizScope } from '../data/model'
 import {
-  MAX_REVEAL, START_POINTS, abilityReveal, applyAction, buildGuessRound, jokerOptions, stageStyle, type GuessQuestion,
+  GUESS_ROUND_SIZE, MAX_REVEAL, START_POINTS, abilityReveal, applyAction, buildGuessRound, jokerOptions, stageStyle, type GuessQuestion,
 } from '../guess/guess'
+import { loadLearnedCards } from '../quiz/load'
 
 interface Props {
   onExit: () => void
@@ -58,6 +60,7 @@ function Stage({ q, level, solved, hero, points }: { q: GuessQuestion; level: nu
           ))}
         </div>
         <span className="guess-kind">{GUESS_KIND_LABEL[q.kind]}</span>
+        {q.unlearned && <UnlearnedTag />}
         <PointsBadge points={points} />
       </div>
     )
@@ -71,6 +74,7 @@ function Stage({ q, level, solved, hero, points }: { q: GuessQuestion; level: nu
         </div>
       )}
       <span className="guess-kind">{GUESS_KIND_LABEL[q.kind]}</span>
+      {q.unlearned && <UnlearnedTag />}
       {!solved && <PointsBadge points={points} />}
     </div>
   )
@@ -93,6 +97,7 @@ export function Guess({ onExit }: Props) {
   const [earned, setEarned] = useState<RoundAward | null>(null)
   /** Neue Hero-Sterne der Runde (erraten ohne Aufdecken, Joker und Fehltipp) */
   const [achieved, setAchieved] = useState<SoulsGain[]>([])
+  const [scope, setScope] = useState<QuizScope>('all')
   const finishing = useRef(false)
 
   /** Zustand für eine neue Frage */
@@ -109,7 +114,9 @@ export function Guess({ onExit }: Props) {
     ;(async () => {
       const settings = await getSettings()
       const all = (await db.heroes.toArray()).sort((a, b) => a.name.localeCompare(b.name))
-      const qs = buildGuessRound(all, settings.guessKinds)
+      // geraten wird unter allen Heroes; gefragt nach der Einstellung (gelernte Hero-Karten zuerst, nur gelernte, alle)
+      const known = await loadLearnedCards()
+      const qs = buildGuessRound(all, settings.guessKinds, Math.random, GUESS_ROUND_SIZE, { known, scope: settings.quizScope })
       const best = await getGuessHighscore()
       if (ctrl.signal.aborted) return
       finishing.current = false
@@ -122,6 +129,7 @@ export function Guess({ onExit }: Props) {
       setIsNewHighscore(false)
       setEarned(null)
       setAchieved([])
+      setScope(settings.quizScope)
       setPhase(qs.length ? 'playing' : 'empty')
     })()
     return () => ctrl.abort()
@@ -140,8 +148,8 @@ export function Guess({ onExit }: Props) {
   }, [questions, index])
 
   const finish = useCallback((q: GuessQuestion, how: Outcome, pts: number) => {
-    // Schwächen-Training: Hero mit Fehltipp oder aufgelöst
-    if (how === 'gaveup' || wrong.length > 0) void logMistake(q.heroId, 'guess')
+    // Schwächen-Training: Hero mit Fehltipp oder aufgelöst (nicht bei noch ungelernten)
+    if ((how === 'gaveup' || wrong.length > 0) && !q.unlearned) void logMistake(q.heroId, 'guess')
     // Hero-Stern: einmal ohne Aufdecken, Joker und Fehltipp erkannt
     if (how === 'correct' && level === 0 && !joker && wrong.length === 0) {
       void markGuessClean(q.heroId).then(gains => { if (gains.length > 0) setAchieved(a => [...a, ...gains]) })
@@ -215,8 +223,20 @@ export function Guess({ onExit }: Props) {
   if (phase === 'empty') {
     return (
       <div className="done">
-        <h2>Noch keine Heroes</h2>
-        <p className="muted">Öffne die App einmal mit Internet, damit die Hero-Daten geladen werden.</p>
+        {scope === 'learned-only' && heroes.length >= 4 ? (
+          <>
+            <h2>Noch keine Heroes gelernt</h2>
+            <p className="muted">
+              Eingestellt ist „Nur Gelerntes“: Gefragt wird nur nach Heroes, deren Karte du schon gelernt hast. Lerne erst ein
+              paar Hero-Karten oder stell in den Einstellungen „Gelerntes zuerst“ ein.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Noch keine Heroes</h2>
+            <p className="muted">Öffne die App einmal mit Internet, damit die Hero-Daten geladen werden.</p>
+          </>
+        )}
         <button onClick={onExit}>Zurück</button>
       </div>
     )
@@ -251,7 +271,7 @@ export function Guess({ onExit }: Props) {
                 <li key={r.q.heroId}>
                   {h?.smallImage && <img src={h.smallImage} alt="" />}
                   <div>
-                    <b>{h?.name}</b>
+                    {r.q.unlearned && <UnlearnedTag />}<b>{h?.name}</b>
                     <div className={`small ${r.outcome === 'gaveup' ? 'error' : 'muted'}`}>
                       {GUESS_KIND_LABEL[r.q.kind]} · {r.outcome === 'gaveup' ? 'aufgelöst' : `${r.points} Punkte`}
                       {r.wrong > 0 && ` · ${r.wrong} Fehlversuch${r.wrong > 1 ? 'e' : ''}`}

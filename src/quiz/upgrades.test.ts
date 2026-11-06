@@ -27,6 +27,10 @@ function withUpgrades(h: HeroCard): AbilityCard[] {
 
 const heroes = ['Haze', 'Seven', 'Dynamo'].map((n, i) => fullHero(i + 1, n))
 const abilities = heroes.flatMap(withUpgrades)
+const items = Array.from({ length: 6 }, (_, i) => ({
+  id: `item:i${i}`, apiId: i, className: `i${i}`, name: `Item ${i}`, slot: 'weapon' as const, tier: 1, cost: 800,
+  isActive: false, image: `i${i}.png`, timings: [], sections: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
+}))
 
 describe('Upgrade-Fragen', () => {
   it('Text ohne HTML', () => {
@@ -64,11 +68,27 @@ describe('Upgrade-Fragen', () => {
     expect(nextUpgradeQuestion(abilities, learned, new Set(abilities.map(a => a.id)), rng)).toBeNull()
   })
 
+  it('nur gelernte („only“) oder alle („any“) Fähigkeiten', () => {
+    const learned = new Set([abilities[0].id, abilities[5].id])
+    const rng = seeded(4)
+    for (let i = 0; i < 50; i++) expect(learned.has(nextUpgradeQuestion(abilities, learned, new Set(), rng, 'only')!.cardId!)).toBe(true)
+    expect(nextUpgradeQuestion(abilities, learned, learned, rng, 'only')).toBeNull()
+    const seen = new Set(Array.from({ length: 200 }, () => nextUpgradeQuestion(abilities, learned, new Set(), rng, 'any')!.cardId))
+    expect(seen.size).toBe(abilities.length)
+  })
+
+  it('Einstellung: „Nur Gelerntes“ nur gelernte Fähigkeiten, „Gelerntes zuerst“ füllt mit anderen auf (markiert)', () => {
+    const known = new Set([abilities[0].id, abilities[5].id])
+    const only = buildRound(items, ['upgrade'], seeded(2), 10, { abilities, known, scope: 'learned-only' })
+    expect(only.map(q => q.cardId).sort()).toEqual([...known].sort())
+    expect(only.some(q => q.unlearned)).toBe(false)
+    const first = buildRound(items, ['upgrade'], seeded(2), 10, { abilities, known, scope: 'learned-first' })
+    expect(first).toHaveLength(10)
+    expect(first.slice(0, 2).map(q => q.cardId).sort()).toEqual([...known].sort())
+    expect(first.slice(2).every(q => q.unlearned === true && !known.has(q.cardId!))).toBe(true)
+  })
+
   it('in Quiz-Runden: Fähigkeiten statt Items, ohne Fähigkeiten keine Upgrade-Fragen', () => {
-    const items = Array.from({ length: 6 }, (_, i) => ({
-      id: `item:i${i}`, apiId: i, className: `i${i}`, name: `Item ${i}`, slot: 'weapon' as const, tier: 1, cost: 800,
-      isActive: false, image: `i${i}.png`, timings: [], sections: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
-    }))
     const round = buildRound(items, ['upgrade'], seeded(5), 10, { abilities })
     expect(round).toHaveLength(10)
     expect(round.every(q => q.kind === 'upgrade')).toBe(true)

@@ -5,7 +5,10 @@ import type { SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import type { SprintHighscores, SprintPool } from '../sprint/sprint'
 import type { PatchRecord } from './patches'
-import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
+import {
+  GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard,
+  type ItemCard, type QuizKind, type QuizScope, type SlotType,
+} from './model'
 
 export interface ReviewRecord extends Card {
   /** Karten-ID, z. B. "item:upgrade_headshot_booster" */
@@ -58,6 +61,8 @@ export interface Settings {
   effects: boolean
   /** Decks, bei denen man die Antwort eintippt (Items, Counter) */
   typeAnswers: DeckId[]
+  /** Wonach Quiz, Überleben, Sprint und Hero erraten fragen (gelernte Karten zuerst, nur gelernte, alle) */
+  quizScope: QuizScope
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -68,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   guessKinds: [...GUESS_KINDS],
   effects: true,
   typeAnswers: [],
+  quizScope: 'learned-first',
 }
 
 export class DeckDB extends Dexie {

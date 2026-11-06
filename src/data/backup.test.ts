@@ -14,7 +14,7 @@ describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
     const src = new DeckDB(`b-${Math.random()}`)
     await rateCard('item:x', true, new Date('2026-11-05T12:00:00'), src)
-    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'], effects: false, typeAnswers: ['counters'] }, src)
+    await saveSettings({ dailyGoal: 33, newPerDay: 5, slots: ['spirit'], quizKinds: ['number'], knownQuizKinds: [...QUIZ_KINDS], guessKinds: ['zoom'], effects: false, typeAnswers: ['counters'], quizScope: 'learned-only' }, src)
     await submitQuizScore(870, src)
     await submitGuessScore(640, src)
     await submitBuildResult('typical:13', { errors: 1, ms: 72_000 }, src)
@@ -33,6 +33,7 @@ describe('Backup', () => {
     expect(await getGuessHighscore(dst)).toBe(640)
     expect((await getSettings(dst)).guessKinds).toEqual(['zoom'])
     expect((await getSettings(dst)).typeAnswers).toEqual(['counters'])
+    expect((await getSettings(dst)).quizScope).toBe('learned-only')
     expect((await getBuildBests(dst))['typical:13']).toMatchObject({ errors: 1, ms: 72_000 })
   })
 

@@ -14,6 +14,11 @@ export function SoulsEarned({ earned }: { earned: RoundAward | null }) {
   )
 }
 
+/** „Neu“ an Fragen zu noch nicht gelernten Karten (Einstellung „Gelerntes zuerst“) */
+export function UnlearnedTag() {
+  return <span className="unlearned-tag" title="Noch nicht gelernt – ein Fehler zählt nicht als Schwäche">Neu</span>
+}
+
 /** Bild, Porträt, Effekttext oder Item zur Frage */
 export function QuestionMedia({ question, subject }: { question: QuizQuestion; subject?: ItemCard }) {
   const html = useMemo(() => (question.html ? sanitizeHtml(question.html) : ''), [question.html])

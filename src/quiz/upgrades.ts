@@ -46,18 +46,22 @@ export function upgradeQuestion(ability: AbilityCard, abilities: readonly Abilit
 }
 
 /**
- * Nächste Upgrade-Frage: meist (LEARNED_SHARE) zu einer Fähigkeit mit gelernter Karte, sonst zu irgendeiner;
- * jede Fähigkeit höchstens einmal je Runde (`used`).
+ * Welche Fähigkeiten in Frage kommen: `prefer` = meist (LEARNED_SHARE) eine mit gelernter Karte, sonst irgendeine
+ * (Einstellung „Alles“); `only` = nur gelernte; `any` = alle (Auffüllen bei „Gelerntes zuerst“)
  */
+export type UpgradePick = 'prefer' | 'only' | 'any'
+
+/** Nächste Upgrade-Frage; jede Fähigkeit höchstens einmal je Runde (`used`). */
 export function nextUpgradeQuestion(
   abilities: readonly AbilityCard[],
   learned: ReadonlySet<string>,
   used: ReadonlySet<string>,
   rng: Rng,
+  pick: UpgradePick = 'prefer',
 ): QuizQuestion | null {
   const fresh = abilities.filter(a => !used.has(a.id) && a.upgrades.length >= 3)
   const known = fresh.filter(a => learned.has(a.id))
-  const pool = known.length > 0 && rng() < LEARNED_SHARE ? known : fresh
+  const pool = pick === 'only' ? known : pick === 'any' ? fresh : known.length > 0 && rng() < LEARNED_SHARE ? known : fresh
   for (const ability of shuffle(pool, rng)) {
     const question = upgradeQuestion(ability, abilities, rng)
     if (question) return question

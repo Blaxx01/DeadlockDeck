@@ -1,5 +1,5 @@
 import { formatFactor, isClearCounter, NO_COUNTER } from '../data/counters'
-import type { AbilityCard, CounterCard, ItemCard, QuizKind } from '../data/model'
+import type { AbilityCard, CounterCard, ItemCard, QuizKind, QuizScope } from '../data/model'
 import { buildEffectIndex, effectQuestion, type EffectIndex } from './effects'
 import { distance, makeOptions, pickSimilar, shuffle, type Rng } from './options'
 import { nextUpgradeQuestion } from './upgrades'
@@ -35,6 +35,8 @@ export interface QuizQuestion {
   caption?: string
   /** Effekt-Frage: der Wert, um den es geht (groß angezeigt) */
   subjectText?: string
+  /** „Gelerntes zuerst“: Karte noch nicht gelernt (als „Neu“ markiert, ein Fehler zählt nicht als Schwäche) */
+  unlearned?: boolean
 }
 
 export const ROUND_SIZE = 10
@@ -77,8 +79,10 @@ export interface QuizContext {
   usedHeroes: ReadonlySet<number>
   /** Fähigkeiten (Upgrade-Fragen) */
   abilities: readonly AbilityCard[]
-  /** Fähigkeiten mit gelernter Karte – kommen bei Upgrade-Fragen bevorzugt dran */
-  learnedAbilities: ReadonlySet<string>
+  /** Gelernte Karten (Items, Fähigkeiten, Counter) – Einstellung „Gelerntes zuerst“ / „Nur Gelerntes“ */
+  known: ReadonlySet<string>
+  /** Nur Fragen zu gelernten Karten: Item-Karte, bei Counter-Fragen die Counter-Karte des Heroes */
+  onlyKnown: boolean
   /** Werte der Items (Effekt-Fragen) */
   effects: EffectIndex
 }
@@ -89,16 +93,23 @@ export interface QuizExtra {
   /** Alle Items, auch außerhalb des Kategorie-Filters – für die Auflösung */
   items?: ReadonlyMap<string, ItemCard>
   abilities?: readonly AbilityCard[]
-  /** IDs der Fähigkeiten-Karten, die schon gelernt sind */
-  learnedAbilities?: ReadonlySet<string>
+  /** Gelernte Karten (im Lernmodus mindestens einmal bewertet) */
+  known?: ReadonlySet<string>
+  /** Gelernte Karten zuerst, nur gelernte oder alle (Standard: alle – Upgrade-Fragen bevorzugen gelernte) */
+  scope?: QuizScope
 }
 
-export function quizContext(pool: readonly ItemCard[], { counters = [], items, abilities = [], learnedAbilities = new Set() }: QuizExtra = {}): QuizContext {
+export function quizContext(pool: readonly ItemCard[], { counters = [], items, abilities = [], known = new Set() }: QuizExtra = {}): QuizContext {
   const counterItems = new Set(counters.flatMap(c => Object.keys(c.factors).filter(id => isClearCounter(c.factors[id]))))
   return {
     pool, counters, items: items ?? new Map(pool.map(i => [i.id, i])), counterItems, usedHeroes: new Set(),
-    abilities, learnedAbilities, effects: buildEffectIndex(pool),
+    abilities, known, onlyKnown: false, effects: buildEffectIndex(pool),
   }
+}
+
+/** Darf nach dieser Karte gefragt werden? (bei `onlyKnown` nur nach gelernten) */
+function allowed(ctx: QuizContext, cardId: string): boolean {
+  return !ctx.onlyKnown || ctx.known.has(cardId)
 }
 
 type Generator = (item: ItemCard, ctx: QuizContext, rng: Rng) => QuizQuestion | null
@@ -217,7 +228,7 @@ function clearCountersText(card: CounterCard, items: ReadonlyMap<string, ItemCar
 
 /** Hero → Item: „Welches Item wird gegen Vindicta besonders oft gekauft?“ (richtig: dieses Item) */
 const counterItemQuestion: Generator = (item, ctx, rng) => {
-  const heroes = heroesCounteredBy(item.id, ctx.counters).filter(c => !ctx.usedHeroes.has(c.heroId))
+  const heroes = heroesCounteredBy(item.id, ctx.counters).filter(c => !ctx.usedHeroes.has(c.heroId) && allowed(ctx, c.id))
   if (!heroes.length) return null
   const hero = heroes[Math.floor(rng() * heroes.length)]
   // Falsch: gegen diesen Hero kein Counter – bevorzugt Items, die gegen andere Heroes Counter sind
@@ -243,7 +254,7 @@ const counterItemQuestion: Generator = (item, ctx, rng) => {
 /** Item → Hero: „Gegen welchen Hero wird Spellbreaker besonders oft gekauft?“ */
 const counterHeroQuestion: Generator = (item, ctx, rng) => {
   const countered = heroesCounteredBy(item.id, ctx.counters)
-  const candidates = countered.filter(c => !ctx.usedHeroes.has(c.heroId))
+  const candidates = countered.filter(c => !ctx.usedHeroes.has(c.heroId) && allowed(ctx, c.id))
   if (!candidates.length) return null
   const hero = candidates[Math.floor(rng() * candidates.length)]
   // Falsch: Heroes, gegen die das Item kein Counter ist – bevorzugt solche mit klaren Countern derselben Kategorie
@@ -296,9 +307,30 @@ export function makeQuestion(
   return GENERATORS[kind](item, ctx, rng)
 }
 
+/** Counter-Fragen gehören zur Counter-Karte des Heroes – das Item darf auch ungelernt sein */
+const COUNTER_KINDS: ReadonlySet<QuizKind> = new Set(['counterItem', 'counterHero'])
+
+/** Nächste Frage eines Typs zu einem noch nicht gefragten Item (bzw. einer Fähigkeit) */
+function nextQuestion(kind: QuizKind, cards: readonly ItemCard[], ctx: QuizContext, used: ReadonlySet<string>, scope: QuizScope, rng: Rng): QuizQuestion | null {
+  if (kind === 'upgrade') {
+    // geht von einer Fähigkeit aus; `used` enthält auch die Fähigkeiten dieser Runde
+    const pick = ctx.onlyKnown ? 'only' : scope === 'all' ? 'prefer' : 'any'
+    return nextUpgradeQuestion(ctx.abilities, ctx.known, used, rng, pick)
+  }
+  const byItem = !COUNTER_KINDS.has(kind)
+  for (const item of shuffle(cards.filter(c => !used.has(c.id) && (!byItem || allowed(ctx, c.id))), rng)) {
+    const question = makeQuestion(kind, item, cards, rng, ctx)
+    if (question) return question
+  }
+  return null
+}
+
 /**
  * Baut eine Runde: Fragetypen gemischt (reihum in zufälliger Reihenfolge),
  * jedes Item höchstens einmal. Kann kürzer sein, wenn es zu wenige passende Items gibt.
+ *
+ * Einstellung (`extra.scope`): „Gelerntes zuerst“ fragt erst nach gelernten Karten und füllt dann mit neuen auf
+ * (markiert), „Nur Gelerntes“ fragt nur nach gelernten (die Runde wird dann kürzer), „Alles“ wie bisher.
  */
 export function buildRound(
   cards: readonly ItemCard[],
@@ -308,32 +340,35 @@ export function buildRound(
   extra: QuizExtra = {},
 ): QuizQuestion[] {
   if (cards.length < 4 || kinds.length === 0) return []
+  const scope = extra.scope ?? 'all'
   const questions: QuizQuestion[] = []
   const used = new Set<string>()
   const usedHeroes = new Set<number>()
-  const ctx: QuizContext = { ...quizContext(cards, extra), usedHeroes }
-  const exhausted = new Set<QuizKind>()
-  let queue: QuizKind[] = []
-  while (questions.length < size && exhausted.size < kinds.length) {
-    if (!queue.length) queue = shuffle(kinds.filter(k => !exhausted.has(k)), rng)
-    const kind = queue.shift()!
-    let question: QuizQuestion | null = null
-    if (kind === 'upgrade') {
-      // geht von einer Fähigkeit aus; `used` enthält auch die Fähigkeiten dieser Runde
-      question = nextUpgradeQuestion(ctx.abilities, ctx.learnedAbilities, used, rng)
-    } else {
-      for (const item of shuffle(cards.filter(c => !used.has(c.id)), rng)) {
-        question = makeQuestion(kind, item, cards, rng, ctx)
-        if (question) break
+  const base: QuizContext = { ...quizContext(cards, extra), usedHeroes }
+
+  function fill(onlyKnown: boolean) {
+    const ctx: QuizContext = { ...base, onlyKnown }
+    const exhausted = new Set<QuizKind>()
+    let queue: QuizKind[] = []
+    while (questions.length < size && exhausted.size < kinds.length) {
+      if (!queue.length) queue = shuffle(kinds.filter(k => !exhausted.has(k)), rng)
+      const kind = queue.shift()!
+      const question = nextQuestion(kind, cards, ctx, used, scope, rng)
+      if (!question) {
+        exhausted.add(kind)
+        continue
       }
+      used.add(question.itemId)
+      if (question.heroId !== undefined) usedHeroes.add(question.heroId)
+      const fresh = scope === 'learned-first' && !base.known.has(question.cardId ?? question.itemId)
+      questions.push(fresh ? { ...question, unlearned: true } : question)
     }
-    if (!question) {
-      exhausted.add(kind)
-      continue
-    }
-    used.add(question.itemId)
-    if (question.heroId !== undefined) usedHeroes.add(question.heroId)
-    questions.push(question)
+  }
+
+  if (scope === 'all') fill(false)
+  else {
+    fill(true)
+    if (scope === 'learned-first') fill(false)
   }
   return questions
 }

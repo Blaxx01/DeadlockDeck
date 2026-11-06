@@ -63,6 +63,21 @@ describe('Runden', () => {
     expect(buildGuessRound(noAbilities, ['ability'], seeded())).toEqual([])
   })
 
+  it('„Gelerntes zuerst“: erst gelernte Hero-Karten, dann die anderen (markiert); „Nur Gelerntes“: nur sie', () => {
+    const known = new Set(HEROES.slice(0, 3).map(h => h.id))
+    const first = buildGuessRound(HEROES, ['blur'], seeded(), 10, { known, scope: 'learned-first' })
+    expect(first).toHaveLength(10)
+    expect(first.slice(0, 3).every(q => known.has(q.heroId) && !q.unlearned)).toBe(true)
+    expect(first.slice(3).every(q => !known.has(q.heroId) && q.unlearned === true)).toBe(true)
+
+    const only = buildGuessRound(HEROES, ['blur'], seeded(), 10, { known, scope: 'learned-only' })
+    expect(only.map(q => q.heroId).sort()).toEqual([...known].sort())
+    expect(buildGuessRound(HEROES, ['blur'], seeded(), 10, { known: new Set(), scope: 'learned-only' })).toEqual([])
+
+    // „Alles“ wie bisher
+    expect(buildGuessRound(HEROES, ['blur'], seeded(3), 10, { known, scope: 'all' })).toEqual(buildGuessRound(HEROES, ['blur'], seeded(3)))
+  })
+
   it('braucht mindestens 4 Heroes und eine Variante', () => {
     expect(buildGuessRound(HEROES.slice(0, 3), ['blur'], seeded())).toEqual([])
     expect(buildGuessRound(HEROES, [], seeded())).toEqual([])

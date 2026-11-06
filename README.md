@@ -19,7 +19,9 @@ unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore
 eines Hero-Builds (typischer Build aus den Kaufdaten oder meistgespielter Community-Build) Icon für Icon benennen,
 mit Bestwert je Hero und „Fehler-Items lernen“. Für Tempo sorgen der **60-Sekunden-Sprint** (Items, Fähigkeiten und
 Heroes am Bild erkennen, falsch kostet 3 Sekunden, Highscore je Auswahl) und **Überleben** (3 Leben, alle
-Quiz-Fragetypen gemischt, die Zeit pro Frage wird immer knapper).
+Quiz-Fragetypen gemischt, die Zeit pro Frage wird immer knapper). Gefragt wird **Gelerntes zuerst**: Quiz, Überleben,
+Sprint und Hero erraten nehmen erst Karten, die man schon gelernt hat, und füllen bei Bedarf mit neuen auf (als „Neu“
+markiert, Fehler zählen dort nicht als Schwäche) – einstellbar auf „Nur Gelerntes“ oder „Alles“.
 
 Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
@@ -84,7 +86,8 @@ Aufbau:
 | `src/srs/srs.ts` | Lernlogik: Warteschlange (inkl. Rückrichtung), FSRS-Bewertung, Streak |
 | `src/srs/typing.ts`, `src/components/AnswerInput.tsx` | Antwort eintippen: tolerante Prüfung, Eingabe, Ergebnis |
 | `src/components/ReverseCards.tsx` | Rückrichtung: Vorderseite mit Name, Bild auf der Rückseite |
-| `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden, Punkte |
+| `src/quiz/quiz.ts` | Quiz: Fragetypen, ähnliche falsche Antworten, Runden (Gelerntes zuerst / nur / alles), Punkte |
+| `src/quiz/load.ts` | Zusatzdaten für Quiz und Überleben, gelernte Karten (für „Gefragt wird“) |
 | `src/quiz/upgrades.ts`, `src/quiz/effects.ts` | Upgrade-Fragen (gelernte Fähigkeiten bevorzugt) und Item-Effekt-Fragen |
 | `src/data/popularity.ts` | Neue Item-Karten nach Beliebtheit (Käufe aus der Counter-Statistik) |
 | `src/views/Quiz.tsx`, `src/components/QuizParts.tsx` | Quiz-Ansicht mit Auflösung und Ergebnis; Fragen-Bausteine (auch für Überleben) |

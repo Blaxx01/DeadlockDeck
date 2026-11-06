@@ -4,7 +4,10 @@ import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/d
 import { deckLabel, type DeckId } from '../decks'
 import { resetMilestonesInTx } from '../game/milestones'
 import { setEffectsEnabled } from '../game/effects'
-import { GUESS_KIND_LABEL, GUESS_KINDS, QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type GuessKind, type QuizKind, type SlotType } from '../data/model'
+import {
+  GUESS_KIND_LABEL, GUESS_KINDS, LEARNED_ONLY_MIN, QUIZ_KIND_LABEL, QUIZ_KINDS, QUIZ_SCOPE_LABEL, QUIZ_SCOPES, SLOT_LABEL,
+  type GuessKind, type QuizKind, type QuizScope, type SlotType,
+} from '../data/model'
 
 interface Props {
   onBack: () => void
@@ -16,6 +19,15 @@ interface Props {
 const SLOTS: SlotType[] = ['weapon', 'vitality', 'spirit']
 /** Decks, bei denen man die Antwort eintippen kann */
 const TYPE_DECKS: DeckId[] = ['items', 'counters']
+
+/** Erklärung zur Einstellung „Gefragt wird“ */
+const SCOPE_HELP: Record<QuizScope, string> = {
+  'learned-first': 'Zuerst Karten, die du schon gelernt hast (im Lernmodus mindestens einmal bewertet). Reicht das nicht, '
+    + 'kommen neue dazu – mit „Neu“ markiert; ein Fehler dort zählt nicht als Schwäche.',
+  'learned-only': 'Nur Karten, die du schon gelernt hast (im Lernmodus mindestens einmal bewertet). Am Anfang sind Quiz- und '
+    + `Hero-Runden kürzer; Sprint und Überleben brauchen mindestens ${LEARNED_ONLY_MIN} gelernte Karten.`,
+  all: 'Alle Karten, egal ob schon gelernt. Jeder Fehler zählt als Schwäche.',
+}
 
 export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -136,6 +148,22 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
           Statt nur umzudrehen tippst du den Namen ein (bei Counter eins der Top-3-Items) – kleine Tippfehler und ein
           eindeutiger Anfang zählen. Danach ist „Gewusst“ bzw. „Nicht gewusst“ vorgewählt.
         </p>
+      </div>
+
+      <div className="panel">
+        <h2>Spielen</h2>
+        <div className="field">
+          <span>Gefragt wird</span>
+        </div>
+        <div className="segmented three" role="group" aria-label="Gefragt wird">
+          {QUIZ_SCOPES.map(scope => (
+            <button key={scope} className={settings.quizScope === scope ? 'on' : ''} aria-pressed={settings.quizScope === scope}
+              onClick={() => update({ quizScope: scope })}>
+              {QUIZ_SCOPE_LABEL[scope]}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Gilt für Quiz, Überleben, Sprint und Hero erraten. {SCOPE_HELP[settings.quizScope]}</p>
       </div>
 
       <div className="panel">

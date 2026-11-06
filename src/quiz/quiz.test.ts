@@ -221,6 +221,44 @@ describe('buildRound', () => {
   })
 })
 
+describe('Was gefragt wird (Einstellung)', () => {
+  const known = new Set(['item:Burst Fire', 'item:Extra Health', 'item:Mystic Burst'])
+  const isKnown = (q: QuizQuestion) => known.has(q.itemId)
+
+  it('„Gelerntes zuerst“: erst die gelernten Items, dann neue – als ungelernt markiert', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const round = buildRound(POOL, ['image', 'number'], seeded(seed), 10, { known, scope: 'learned-first' })
+      expect(round).toHaveLength(10)
+      expect(round.slice(0, 3).every(isKnown)).toBe(true)
+      expect(round.slice(0, 3).some(q => q.unlearned)).toBe(false)
+      expect(round.slice(3).every(q => !isKnown(q) && q.unlearned === true)).toBe(true)
+      expect(new Set(round.map(q => q.itemId)).size).toBe(10)
+    }
+  })
+
+  it('„Gelerntes zuerst“ mit genug gelernten Items: keine neuen', () => {
+    const many = new Set(POOL.slice(0, 12).map(c => c.id))
+    const round = buildRound(POOL, ['image'], seeded(3), 10, { known: many, scope: 'learned-first' })
+    expect(round).toHaveLength(10)
+    expect(round.every(q => many.has(q.itemId) && !q.unlearned)).toBe(true)
+  })
+
+  it('„Nur Gelerntes“: nur gelernte Items, die Runde wird kürzer; falsche Antworten weiter aus allen', () => {
+    const round = buildRound(POOL, ['image'], seeded(), 10, { known, scope: 'learned-only' })
+    expect(round.map(q => q.itemId).sort()).toEqual([...known].sort())
+    expect(round.some(q => q.unlearned)).toBe(false)
+    const names = new Set(POOL.filter(c => known.has(c.id)).map(c => c.name))
+    expect(round.flatMap(q => q.options).some(o => !names.has(o))).toBe(true)
+    expect(buildRound(POOL, ['image'], seeded(), 10, { known: new Set(), scope: 'learned-only' })).toEqual([])
+  })
+
+  it('„Alles“: wie bisher – ohne Markierung, dieselbe Runde wie ohne Einstellung', () => {
+    const round = buildRound(POOL, ['image', 'number'], seeded(4), 10, { known, scope: 'all' })
+    expect(round).toEqual(buildRound(POOL, ['image', 'number'], seeded(4)))
+    expect(round.some(q => q.unlearned)).toBe(false)
+  })
+})
+
 describe('Punkte', () => {
   it('gibt Basis + Zeitbonus, nichts für falsch', () => {
     expect(scoreAnswer(false, 1000)).toBe(0)
@@ -313,5 +351,26 @@ describe('Counter-Fragen', () => {
 
   it('ohne Counter-Daten gibt es keine Counter-Fragen', () => {
     expect(buildRound(POOL, ['counterItem', 'counterHero'], seeded(), 10)).toEqual([])
+  })
+
+  it('„Nur Gelerntes“: nur Heroes mit gelernter Counter-Karte – das Item muss nicht gelernt sein', () => {
+    const known = new Set(['counter:hero_haze'])
+    for (let seed = 1; seed <= 20; seed++) {
+      const round = buildRound(POOL, ['counterItem', 'counterHero'], seeded(seed), 10, { counters: COUNTERS, known, scope: 'learned-only' })
+      expect(round).toHaveLength(1)
+      expect(round[0]).toMatchObject({ cardId: 'counter:hero_haze', heroId: 10 })
+      expect(round[0].unlearned).toBeUndefined()
+    }
+  })
+
+  it('„Gelerntes zuerst“: erst die gelernte Counter-Karte, dann die anderen – markiert', () => {
+    const known = new Set(['counter:hero_vindicta'])
+    for (let seed = 1; seed <= 20; seed++) {
+      const round = buildRound(POOL, ['counterItem', 'counterHero'], seeded(seed), 10, { counters: COUNTERS, known, scope: 'learned-first' })
+      expect(round[0].cardId).toBe('counter:hero_vindicta')
+      expect(round[0].unlearned).toBeUndefined()
+      expect(round.length).toBeGreaterThan(1)
+      expect(round.slice(1).every(q => q.unlearned === true && q.cardId !== 'counter:hero_vindicta')).toBe(true)
+    }
   })
 })

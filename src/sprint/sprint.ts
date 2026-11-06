@@ -2,7 +2,7 @@
  * 60-Sekunden-Sprint: Items, Fähigkeiten und Heroes am Bild erkennen (4 Antworten).
  * Falsch kostet 3 Sekunden; Highscore je Auswahl.
  */
-import type { AbilityCard, HeroCard, ItemCard, SlotType } from '../data/model'
+import { LEARNED_ONLY_MIN, type AbilityCard, type HeroCard, type ItemCard, type QuizScope, type SlotType } from '../data/model'
 import { makeOptions, pickSimilar, shuffle, type Rng } from '../quiz/quiz'
 
 export const SPRINT_MS = 60_000
@@ -40,12 +40,18 @@ export interface SprintQuestion {
   answer: number
   /** Fähigkeit: zu welchem Hero sie gehört (Auflösung) */
   detail?: string
+  /** „Gelerntes zuerst“: Karte noch nicht gelernt (als „Neu“ markiert, ein Fehler zählt nicht als Schwäche) */
+  unlearned?: boolean
 }
 
 export interface SprintCards {
   items: readonly ItemCard[]
   abilities: readonly AbilityCard[]
   heroes: readonly HeroCard[]
+  /** Gelernte Karten (im Lernmodus mindestens einmal bewertet) */
+  known?: ReadonlySet<string>
+  /** Gelernte zuerst, nur gelernte oder alle (Standard: alle) */
+  scope?: QuizScope
 }
 
 type Card = ItemCard | AbilityCard | HeroCard
@@ -61,9 +67,23 @@ function usable(cards: SprintCards, kind: SprintKind): Card[] {
   return cards.heroes.filter(h => heroImages(h).length > 0)
 }
 
-/** Sorten der Auswahl, für die es genug Karten gibt (mind. 4 – für 3 falsche Antworten) */
+/** Sorten einer Auswahl */
+export function poolKinds(pool: SprintPool): SprintKind[] {
+  return KINDS_OF[pool]
+}
+
+/** Gelernte Karten einer Sorte (mit Bild) */
+export function learnedCount(cards: SprintCards, kind: SprintKind): number {
+  return usable(cards, kind).filter(c => cards.known?.has(c.id)).length
+}
+
+/**
+ * Sorten der Auswahl, für die es genug Karten gibt (mind. 4 – für 3 falsche Antworten);
+ * bei „Nur Gelerntes“ außerdem mind. LEARNED_ONLY_MIN gelernte
+ */
 export function sprintKinds(cards: SprintCards, pool: SprintPool): SprintKind[] {
-  return KINDS_OF[pool].filter(kind => usable(cards, kind).length >= 4)
+  return KINDS_OF[pool].filter(kind => usable(cards, kind).length >= 4
+    && (cards.scope !== 'learned-only' || learnedCount(cards, kind) >= LEARNED_ONLY_MIN))
 }
 
 function itemQuestion(item: ItemCard, cards: SprintCards, rng: Rng): SprintQuestion | null {
@@ -102,21 +122,28 @@ export function makeSprintQuestion(kind: SprintKind, card: Card, cards: SprintCa
 /**
  * Nächste Frage: Sorte gleich verteilt (bei „Alle“), Karte zufällig – jede Karte erst wieder,
  * wenn alle ihrer Sorte dran waren. `used` merkt sich die gefragten Karten (wird hier ergänzt).
+ * „Gelerntes zuerst“: erst die gelernten Karten, dann die anderen (markiert); „Nur Gelerntes“: nur gelernte.
+ * Die falschen Antworten kommen immer aus allen Karten der Sorte.
  */
 export function nextSprintQuestion(cards: SprintCards, pool: SprintPool, used: Set<string>, rng: Rng = Math.random): SprintQuestion | null {
   const kinds = sprintKinds(cards, pool)
+  const scope = cards.scope ?? 'all'
+  const isKnown = (c: Card) => cards.known?.has(c.id) ?? false
   for (const kind of shuffle(kinds, rng)) {
-    const list = usable(cards, kind)
+    const all = usable(cards, kind)
+    const list = scope === 'learned-only' ? all.filter(isKnown) : all
     let fresh = list.filter(c => !used.has(c.id))
     if (fresh.length === 0) {
       for (const c of list) used.delete(c.id)
       fresh = list
     }
-    for (const card of shuffle(fresh, rng)) {
+    const mixed = shuffle(fresh, rng)
+    const order = scope === 'learned-first' ? [...mixed.filter(isKnown), ...mixed.filter(c => !isKnown(c))] : mixed
+    for (const card of order) {
       const question = makeSprintQuestion(kind, card, cards, rng)
       if (question) {
         used.add(card.id)
-        return question
+        return scope === 'learned-first' && !isKnown(card) ? { ...question, unlearned: true } : question
       }
     }
   }

@@ -1,4 +1,4 @@
-import type { GuessKind, HeroCard } from '../data/model'
+import type { GuessKind, HeroCard, QuizScope } from '../data/model'
 import { shuffle, type Rng } from '../quiz/quiz'
 
 export const GUESS_ROUND_SIZE = 10
@@ -18,6 +18,8 @@ export interface GuessQuestion {
   focus?: { x: number; y: number }
   /** Fähigkeit → Hero: Abilities in der Reihenfolge, in der sie aufgedeckt werden */
   abilities?: { name: string; image: string }[]
+  /** „Gelerntes zuerst“: Hero-Karte noch nicht gelernt (als „Neu“ markiert, ein Fehler zählt nicht als Schwäche) */
+  unlearned?: boolean
 }
 
 export type GuessAction = 'reveal' | 'joker' | 'wrong'
@@ -54,17 +56,31 @@ export function makeGuessQuestion(hero: HeroCard, kind: GuessKind, rng: Rng = Ma
   return { heroId: hero.id, kind, image }
 }
 
-/** Eine Runde: verschiedene Heroes, Varianten reihum in zufälliger Reihenfolge. */
+/** Welche Heroes gefragt werden: gelernte Hero-Karten zuerst, nur gelernte oder alle */
+export interface GuessScope {
+  known?: ReadonlySet<string>
+  scope?: QuizScope
+}
+
+/**
+ * Eine Runde: verschiedene Heroes, Varianten reihum in zufälliger Reihenfolge. Geraten wird immer unter allen Heroes;
+ * „Gelerntes zuerst“ fragt erst nach gelernten Hero-Karten (dann die anderen, markiert), „Nur Gelerntes“ nur nach ihnen.
+ */
 export function buildGuessRound(
   heroes: readonly HeroCard[],
   kinds: readonly GuessKind[],
   rng: Rng = Math.random,
   size = GUESS_ROUND_SIZE,
+  { known = new Set(), scope = 'all' }: GuessScope = {},
 ): GuessQuestion[] {
   if (kinds.length === 0 || heroes.length < 4) return []
   const questions: GuessQuestion[] = []
   let queue: GuessKind[] = []
-  for (const hero of shuffle(heroes, rng)) {
+  const mixed = shuffle(heroes, rng)
+  const order = scope === 'all' ? mixed
+    : scope === 'learned-only' ? mixed.filter(h => known.has(h.id))
+      : [...mixed.filter(h => known.has(h.id)), ...mixed.filter(h => !known.has(h.id))]
+  for (const hero of order) {
     if (questions.length >= size) break
     if (!queue.length) queue = shuffle(kinds, rng)
     const preferred = queue[0]
@@ -73,7 +89,7 @@ export function buildGuessRound(
     if (!kind) continue
     if (kind === preferred) queue.shift()
     const q = makeGuessQuestion(hero, kind, rng)
-    if (q) questions.push(q)
+    if (q) questions.push(scope === 'learned-first' && !known.has(hero.id) ? { ...q, unlearned: true } : q)
   }
   return questions
 }

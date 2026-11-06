@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned } from '../components/QuizParts'
+import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned, UnlearnedTag } from '../components/QuizParts'
 import { db, getSettings, getSurvivalHighscore, submitSurvivalScore } from '../data/db'
-import type { ItemCard, QuizKind } from '../data/model'
+import { LEARNED_ONLY_MIN, QUIZ_SCOPE_LABEL, type ItemCard, type QuizKind } from '../data/model'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
 import type { RoundAward } from '../game/souls'
@@ -24,6 +24,8 @@ interface Pool {
   kinds: QuizKind[]
   extra: QuizExtra
   all: ReadonlyMap<string, ItemCard>
+  /** Genug Fragen für eine Runde (bei „Nur Gelerntes“: zu mind. LEARNED_ONLY_MIN gelernten Karten) */
+  possible: boolean
 }
 
 interface Mistake {
@@ -43,9 +45,14 @@ type Phase = { name: 'start' } | { name: 'run'; no: number } | { name: 'result';
 async function loadPool(): Promise<Pool> {
   const settings = await getSettings()
   const all = await db.items.toArray()
-  const extra = await loadQuizExtra(all)
-  // Kategorien und Fragetypen wie im Quiz (Einstellungen)
-  return { items: all.filter(i => settings.slots.includes(i.slot)), kinds: settings.quizKinds, extra, all: extra.items ?? new Map() }
+  const extra = await loadQuizExtra(all, settings.quizScope)
+  // Kategorien, Fragetypen und was gefragt wird wie im Quiz (Einstellungen)
+  const items = all.filter(i => settings.slots.includes(i.slot))
+  const kinds = settings.quizKinds
+  // „Nur Gelerntes“: die Fragen wiederholen sich – mit zu wenigen gelernten Karten ständig
+  const possible = items.length >= 4 && kinds.length > 0
+    && (settings.quizScope !== 'learned-only' || survivalBatch(items, kinds, extra).length >= LEARNED_ONLY_MIN)
+  return { items, kinds, extra, all: extra.items ?? new Map(), possible }
 }
 
 function makeBatch(pool: Pool): QuizQuestion[] {
@@ -102,12 +109,12 @@ function SurvivalRunView({ pool, onDone, onCancel }: { pool: Pool; onDone: (scor
     dispatch({ type: 'next', now: performance.now() })
   }, [run.index, questions.length, pool])
 
-  // Falsch oder Zeit abgelaufen: als Schwäche merken und vibrieren (einmal je Frage)
+  // Falsch oder Zeit abgelaufen: als Schwäche merken (nicht bei noch ungelernten) und vibrieren (einmal je Frage)
   useEffect(() => {
     if (!answered || correct || !question || handled.current === run.index) return
     handled.current = run.index
     vibrate()
-    void logMistake(question.cardId ?? question.itemId, 'survival')
+    if (!question.unlearned) void logMistake(question.cardId ?? question.itemId, 'survival')
   }, [answered, correct, question, run.index])
 
   // Richtig: kurz zeigen, dann von selbst weiter
@@ -160,7 +167,7 @@ function SurvivalRunView({ pool, onDone, onCancel }: { pool: Pool; onDone: (scor
         <QuestionMedia question={question} subject={question.subjectId ? pool.all.get(question.subjectId) : undefined} />
       </div>
 
-      <p className="quiz-prompt">{question.prompt}</p>
+      <p className="quiz-prompt">{question.unlearned && <UnlearnedTag />}{question.prompt}</p>
 
       <QuizOptions question={question} picked={run.picked} onPick={pick} keyPrefix={String(run.index)} />
 
@@ -176,7 +183,11 @@ function SurvivalRunView({ pool, onDone, onCancel }: { pool: Pool; onDone: (scor
             <button className="primary" autoFocus onClick={run.over ? finish : goNext}>{run.over ? 'Ergebnis' : 'Weiter'}</button>
           </>
         )}
-        {!answered && <p className="muted small center-text">Alle {FASTER_EVERY} Fragen 1 Sekunde weniger</p>}
+        {!answered && (
+          <p className="muted small center-text">
+            {question.unlearned ? 'Neu: noch nicht gelernt – ein Fehler zählt nicht als Schwäche' : `Alle ${FASTER_EVERY} Fragen 1 Sekunde weniger`}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -197,18 +208,19 @@ export function Survival({ onExit }: Props) {
     setPhase({ name: 'result', result: { score, mistakes, newBest, earned } })
   }, [])
 
+  const canStart = pool?.possible ?? false
   useEffect(() => {
     if (phase.name === 'run') return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onExit()
-      else if (e.key === 'Enter' && phase.name === 'start' && !(e.target instanceof HTMLButtonElement)) start()
+      else if (e.key === 'Enter' && phase.name === 'start' && canStart && !(e.target instanceof HTMLButtonElement)) start()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase.name, onExit, start])
+  }, [phase.name, onExit, start, canStart])
 
   if (!pool || best === undefined) return <div className="center muted">Lade…</div>
-  const possible = hasQuestions(pool)
+  const scope = pool.extra.scope ?? 'all'
 
   if (phase.name === 'run') {
     return <SurvivalRunView key={phase.no} pool={pool} onDone={(score, mistakes) => void finish(score, mistakes)} onCancel={toStart} />
@@ -237,7 +249,7 @@ export function Survival({ onExit }: Props) {
                 <li key={`${q.itemId}-${i}`}>
                   <QuestionThumb question={q} items={pool.all} />
                   <div>
-                    <div className="muted small">{questionLine(q)}</div>
+                    <div className="muted small">{q.unlearned && <UnlearnedTag />}{questionLine(q)}</div>
                     <div>Richtig: <b>{q.options[q.answer]}</b></div>
                     <div className="small error">{picked === TIMEOUT ? 'Zeit abgelaufen' : `Deine Antwort: ${q.options[picked]}`}</div>
                   </div>
@@ -268,16 +280,19 @@ export function Survival({ onExit }: Props) {
           <li><Lives lives={LIVES} /> {LIVES} Leben – falsch oder Zeit abgelaufen kostet eins</li>
           <li>{START_SECONDS} s pro Frage, alle {FASTER_EVERY} Fragen 1 s weniger (bis {MIN_SECONDS} s)</li>
           <li>Alle Quiz-Fragetypen gemischt (Auswahl wie im Quiz, siehe Einstellungen)</li>
+          <li>Gefragt wird: {QUIZ_SCOPE_LABEL[scope]}</li>
         </ul>
       </div>
-      {possible
+      {pool.possible
         ? <button className="primary" onClick={start}>Start</button>
-        : <p className="muted">Für die gewählten Kategorien und Fragetypen gibt es zu wenige Items. Ändere die Auswahl in den Einstellungen.</p>}
+        : scope === 'learned-only' && pool.items.length >= 4 && pool.kinds.length > 0
+          ? (
+            <p className="muted">
+              Eingestellt ist „Nur Gelerntes“: Überleben braucht Fragen zu mindestens {LEARNED_ONLY_MIN} gelernten Karten,
+              sonst kommen ständig dieselben. Lerne noch ein paar Karten oder stell in den Einstellungen „Gelerntes zuerst“ ein.
+            </p>
+          )
+          : <p className="muted">Für die gewählten Kategorien und Fragetypen gibt es zu wenige Items. Ändere die Auswahl in den Einstellungen.</p>}
     </div>
   )
-}
-
-/** Gibt es überhaupt Fragen? (z. B. zu wenige Items in den gewählten Kategorien) */
-function hasQuestions(pool: Pool): boolean {
-  return pool.items.length >= 4 && pool.kinds.length > 0
 }

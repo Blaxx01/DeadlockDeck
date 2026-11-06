@@ -1,14 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { SoulsEarned } from '../components/QuizParts'
+import { SoulsEarned, UnlearnedTag } from '../components/QuizParts'
 import { db, getMeta, getSettings, getSprintHighscores, setMeta, submitSprintScore } from '../data/db'
+import { LEARNED_ONLY_MIN, QUIZ_SCOPE_LABEL } from '../data/model'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
 import type { RoundAward } from '../game/souls'
 import { logMistake } from '../game/weakness'
+import { loadLearnedCards } from '../quiz/load'
 import {
-  clockLeft, clockReducer, nextSprintQuestion, SPRINT_KIND_LABEL, SPRINT_MS, SPRINT_POOL_LABEL, SPRINT_POOLS,
-  SPRINT_SOULS_PER_CORRECT, sprintKinds, startClock, type SprintAnswer, type SprintCards, type SprintPool, type SprintQuestion,
+  clockLeft, clockReducer, learnedCount, nextSprintQuestion, poolKinds, SPRINT_KIND_LABEL, SPRINT_MS, SPRINT_POOL_LABEL, SPRINT_POOLS,
+  SPRINT_SOULS_PER_CORRECT, sprintKinds, startClock, type SprintAnswer, type SprintCards, type SprintKind, type SprintPool, type SprintQuestion,
 } from '../sprint/sprint'
 import { requestLearn } from '../srs/srs'
 
@@ -35,10 +37,13 @@ const RULES: Record<SprintPool, string> = {
 
 async function loadCards(): Promise<SprintCards> {
   const settings = await getSettings()
-  const [items, abilities, heroes] = await Promise.all([db.items.toArray(), db.abilities.toArray(), db.heroes.toArray()])
-  // Item-Kategorien wie im Quiz (Einstellungen)
-  return { items: items.filter(i => settings.slots.includes(i.slot)), abilities, heroes }
+  const [items, abilities, heroes, known] = await Promise.all([db.items.toArray(), db.abilities.toArray(), db.heroes.toArray(), loadLearnedCards()])
+  // Item-Kategorien und was gefragt wird wie im Quiz (Einstellungen)
+  return { items: items.filter(i => settings.slots.includes(i.slot)), abilities, heroes, known, scope: settings.quizScope }
 }
+
+/** Mehrzahl der Sorten für Hinweise („10 gelernte Items“) */
+const KIND_PLURAL: Record<SprintKind, string> = { item: 'Items', ability: 'Fähigkeiten', hero: 'Heroes' }
 
 function formatSeconds(ms: number): string {
   const s = Math.ceil(ms / 1000)
@@ -50,6 +55,7 @@ function Stage({ question }: { question: SprintQuestion }) {
     <div className={`sprint-stage kind-${question.kind}${question.slot ? ` slot-bg-${question.slot}` : ''}`}>
       <img src={question.image} alt={`${SPRINT_KIND_LABEL[question.kind]}-Bild`} draggable={false} />
       <span className="guess-kind">{SPRINT_KIND_LABEL[question.kind]}</span>
+      {question.unlearned && <UnlearnedTag />}
     </div>
   )
 }
@@ -105,7 +111,8 @@ function SprintRun({ cards, pool, onDone, onCancel }: {
     setFeedback(choice)
     if (!isRight) {
       vibrate()
-      void logMistake(question.cardId, 'sprint')
+      // noch ungelernte Karten zählen nicht als Schwäche
+      if (!question.unlearned) void logMistake(question.cardId, 'sprint')
     }
     advanceTimer.current = window.setTimeout(() => {
       const fresh = nextSprintQuestion(cards, pool, used)
@@ -195,7 +202,7 @@ function ResultView({ result, best, onAgain, onExit }: { result: Result; best: n
               <li key={q.cardId}>
                 <span className={`sprint-thumb kind-${q.kind}${q.slot ? ` slot-bg-${q.slot}` : ''}`}><img src={q.image} alt="" /></span>
                 <div>
-                  <div><b>{q.options[q.answer]}</b>{q.detail && <span className="muted small"> · {q.detail}</span>}</div>
+                  <div>{q.unlearned && <UnlearnedTag />}<b>{q.options[q.answer]}</b>{q.detail && <span className="muted small"> · {q.detail}</span>}</div>
                   <div className="small error">du: {q.options[picked]}</div>
                 </div>
               </li>
@@ -237,16 +244,17 @@ export function Sprint({ onExit }: Props) {
     setPhase({ name: 'result', result: { pool, answers, correct, newBest, earned } })
   }, [pool])
 
+  const available = cards && pool ? sprintKinds(cards, pool).length > 0 : false
   // Esc: Start → zurück, Ergebnis → Start (in der Runde: abbrechen, siehe SprintRun)
   useEffect(() => {
     if (phase.name === 'run') return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onExit()
-      else if (e.key === 'Enter' && phase.name === 'start' && !(e.target instanceof HTMLButtonElement)) start()
+      else if (e.key === 'Enter' && phase.name === 'start' && available && !(e.target instanceof HTMLButtonElement)) start()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase.name, onExit, start])
+  }, [phase.name, onExit, start, available])
 
   if (!cards || !bests || !pool) return <div className="center muted">Lade…</div>
 
@@ -258,7 +266,10 @@ export function Sprint({ onExit }: Props) {
     return <ResultView result={phase.result} best={bests[phase.result.pool] ?? 0} onAgain={start} onExit={onExit} />
   }
 
-  const available = sprintKinds(cards, pool).length > 0
+  const scope = cards.scope ?? 'all'
+  // „Nur Gelerntes“: welche Sorten noch zu wenige gelernte Karten haben
+  const short = scope === 'learned-only' ? poolKinds(pool).filter(k => learnedCount(cards, k) < LEARNED_ONLY_MIN) : []
+  const hasData = sprintKinds({ ...cards, scope: 'all' }, pool).length > 0
   return (
     <div className="sprint-page">
       <header className="home-head">
@@ -280,10 +291,22 @@ export function Sprint({ onExit }: Props) {
         <p className="small">
           60 Sekunden: Erkenne so viele {RULES[pool]} wie möglich am Bild. Jede falsche Antwort kostet 3 Sekunden.
         </p>
+        <p className="muted small">
+          Gefragt wird: {QUIZ_SCOPE_LABEL[scope]}
+          {available && short.length > 0 && ` – ohne ${short.map(k => KIND_PLURAL[k]).join(' und ')} (noch keine ${LEARNED_ONLY_MIN} gelernt)`}
+        </p>
       </div>
       {available
         ? <button className="primary" onClick={start}>Start</button>
-        : <p className="muted">Für diese Auswahl gibt es noch keine Daten – einmal mit Internet öffnen.</p>}
+        : hasData
+          ? (
+            <p className="muted">
+              Eingestellt ist „Nur Gelerntes“: Der Sprint braucht mindestens {LEARNED_ONLY_MIN} gelernte{' '}
+              {short.map(k => `${KIND_PLURAL[k]} (du hast ${learnedCount(cards, k)})`).join(' oder ')}, sonst kommen ständig dieselben.
+              Lerne noch ein paar Karten oder stell in den Einstellungen „Gelerntes zuerst“ ein.
+            </p>
+          )
+          : <p className="muted">Für diese Auswahl gibt es noch keine Daten – einmal mit Internet öffnen.</p>}
     </div>
   )
 }

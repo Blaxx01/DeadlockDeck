@@ -4,7 +4,9 @@
  */
 import { localDate } from '../data/dates'
 import { db, getMeta, getSettings, setMeta, type DayRecord, type DeckDB } from '../data/db'
-import type { DeckId } from '../decks'
+import { LEARNED_ONLY_MIN } from '../data/model'
+import { isReverseId, type DeckId } from '../decks'
+import { loadLearnedCards } from '../quiz/load'
 import { shuffle, type Rng } from '../quiz/quiz'
 import { addSoulsInTx, announceGain, awardRound, GOAL_SOULS, type RoundAward, type RoundMode, type SoulsEntry, type SoulsGain } from './souls'
 import { weakCardCount } from './weakness'
@@ -22,7 +24,16 @@ export interface MissionContext {
   buildCount: number
   /** Karten mit Fehlern in den letzten 14 Tagen (Schwächen-Training) */
   weakCount: number
+  /** Einstellung „Nur Gelerntes“: gelernte Karten je Sorte (sonst fehlt das – dann zählt es nicht) */
+  learnedOnly?: LearnedCounts
 }
+
+export interface LearnedCounts {
+  items: number
+  abilities: number
+  heroes: number
+}
+
 
 export interface MissionDef {
   id: string
@@ -39,6 +50,9 @@ const cardsOf = (ctx: MissionContext, prefix: string) => (ctx.day?.cards ?? []).
 const bestOf = (ctx: MissionContext, reason: SoulsEntry['reason'], key: string) =>
   Math.max(0, ...ctx.entries.filter(e => e.reason === reason).map(e => Number(e.data?.[key] ?? 0)))
 const deck = (ctx: MissionContext, id: DeckId) => ctx.deckSizes[id] ?? 0
+/** Bei „Nur Gelerntes“: genug gelernte Karten einer dieser Sorten für eine volle Runde (Quiz und Hero erraten haben 10 Fragen) */
+const learned = (ctx: MissionContext, ...kinds: (keyof LearnedCounts)[]) =>
+  !ctx.learnedOnly || kinds.some(k => ctx.learnedOnly![k] >= LEARNED_ONLY_MIN)
 
 export const MISSIONS: readonly MissionDef[] = [
   { id: 'learn-items', kind: 'learn', group: 'learn', title: '10 Item-Karten lernen', target: 10,
@@ -54,17 +68,17 @@ export const MISSIONS: readonly MissionDef[] = [
   { id: 'learn-weak', kind: 'learn', group: 'learn', title: '5 Schwächen-Karten üben', target: 5,
     available: c => c.weakCount >= 5, progress: c => c.day?.weak?.length ?? 0 },
   { id: 'quiz-7', kind: 'play', group: 'quiz', title: 'Quiz mit mindestens 7 richtigen Antworten', target: 7,
-    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'quiz', 'correct') },
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'quiz', 'correct') },
   { id: 'quiz-1000', kind: 'play', group: 'quiz', title: 'Quiz-Runde mit mindestens 1.000 Punkten', target: 1000,
-    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'quiz', 'score') },
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'quiz', 'score') },
   { id: 'guess-600', kind: 'play', group: 'guess', title: 'Hero erraten mit mindestens 600 Punkten', target: 600,
-    available: c => c.heroCount >= 4, progress: c => bestOf(c, 'guess', 'score') },
+    available: c => c.heroCount >= 4 && learned(c, 'heroes'), progress: c => bestOf(c, 'guess', 'score') },
   { id: 'build-clean', kind: 'play', group: 'build', title: 'Build-Quiz ohne Fehler', target: 1,
     available: c => c.buildCount > 0, progress: c => (c.entries.some(e => e.reason === 'build' && e.data?.errors === 0) ? 1 : 0) },
   { id: 'sprint-15', kind: 'play', group: 'sprint', title: '60-Sekunden-Sprint mit mindestens 15 richtigen', target: 15,
-    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'sprint', 'score') },
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items', 'abilities', 'heroes'), progress: c => bestOf(c, 'sprint', 'score') },
   { id: 'survival-10', kind: 'play', group: 'survival', title: 'Überleben: mindestens 10 Fragen', target: 10,
-    available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'survival', 'score') },
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'survival', 'score') },
 ]
 
 const byId = new Map(MISSIONS.map(m => [m.id, m]))
@@ -116,6 +130,17 @@ export function pickMissions(date: string, available: readonly MissionDef[]): st
   return picked.slice(0, MISSIONS_PER_DAY).map(m => m.id)
 }
 
+/**
+ * Gelernte Karten je Sorte – nur bei „Nur Gelerntes“ (dann können Runden zu kurz für eine Mission sein).
+ * Liest die Lernstände: nur fürs Auslosen, nicht in den Transaktionen von missionContext.
+ */
+export async function learnedOnlyCounts(database: DeckDB = db): Promise<LearnedCounts | undefined> {
+  if ((await getSettings(database)).quizScope !== 'learned-only') return undefined
+  const ids = [...(await loadLearnedCards(database))]
+  const count = (prefix: string) => ids.filter(id => id.startsWith(prefix) && !isReverseId(id)).length
+  return { items: count('item:'), abilities: count('ability:'), heroes: count('hero:') }
+}
+
 export async function missionContext(now: Date, database: DeckDB = db): Promise<MissionContext> {
   const date = localDate(now)
   const [day, entries, items, abilities, heroes, counters, builds, weakCount] = await Promise.all([
@@ -141,7 +166,8 @@ export async function todayMissionIds(now: Date, database: DeckDB = db, store = 
   const date = localDate(now)
   const stored = await getMeta<StoredMissions | null>('missions', null, database)
   if (stored?.date === date) return stored.ids
-  const ctx = await missionContext(now, database)
+  // „Nur Gelerntes“: Spiel-Missionen nur, wenn die Runden dafür lang genug sind
+  const ctx: MissionContext = { ...(await missionContext(now, database)), learnedOnly: await learnedOnlyCounts(database) }
   const ids = pickMissions(date, MISSIONS.filter(m => m.available(ctx)))
   // Erst festhalten, wenn es genug gibt (z. B. noch keine Daten beim allerersten Start)
   if (store && ids.length === MISSIONS_PER_DAY) await setMeta('missions', { date, ids }, database)

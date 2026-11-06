@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db, getQuizHighscore, getSettings, submitQuizScore } from '../data/db'
-import type { ItemCard } from '../data/model'
-import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned } from '../components/QuizParts'
+import type { ItemCard, QuizScope } from '../data/model'
+import { QuestionMedia, QuestionThumb, QuizOptions, SoulsEarned, UnlearnedTag } from '../components/QuizParts'
 import { itemInfo, questionLine } from '../quiz/format'
 import { loadQuizExtra } from '../quiz/load'
 import { vibrate } from '../game/effects'
@@ -32,6 +32,7 @@ export function Quiz({ onExit }: Props) {
   const [highscore, setHighscore] = useState(0)
   const [isNewHighscore, setIsNewHighscore] = useState(false)
   const [earned, setEarned] = useState<RoundAward | null>(null)
+  const [scope, setScope] = useState<QuizScope>('all')
   const shownAt = useRef(0)
   const finishing = useRef(false)
 
@@ -41,8 +42,9 @@ export function Quiz({ onExit }: Props) {
       const settings = await getSettings()
       const all = await db.items.toArray()
       const items = all.filter(i => settings.slots.includes(i.slot))
-      // Counter-Fragen brauchen die Counter-Daten, Upgrade-Fragen die Fähigkeiten; alle Items für die Auflösung
-      const extra = await loadQuizExtra(all)
+      // Counter-Fragen brauchen die Counter-Daten, Upgrade-Fragen die Fähigkeiten; alle Items für die Auflösung;
+      // gefragt wird nach der Einstellung (gelernte Karten zuerst, nur gelernte oder alle)
+      const extra = await loadQuizExtra(all, settings.quizScope)
       const qs = buildRound(items, settings.quizKinds, Math.random, ROUND_SIZE, extra)
       const best = await getQuizHighscore()
       if (ctrl.signal.aborted) return
@@ -54,6 +56,7 @@ export function Quiz({ onExit }: Props) {
       setHighscore(best)
       setIsNewHighscore(false)
       setEarned(null)
+      setScope(settings.quizScope)
       setPhase(qs.length ? 'playing' : 'empty')
     })()
     return () => ctrl.abort()
@@ -78,8 +81,8 @@ export function Quiz({ onExit }: Props) {
     if (!question || answered) return
     if (choice !== question.answer) {
       vibrate()
-      // Schwächen-Training: Counter-Fragen zählen für die Counter-Karte, sonst fürs Item
-      void logMistake(question.cardId ?? question.itemId, 'quiz')
+      // Schwächen-Training: Counter-Fragen zählen für die Counter-Karte, sonst fürs Item – nicht bei noch ungelernten
+      if (!question.unlearned) void logMistake(question.cardId ?? question.itemId, 'quiz')
     }
     const points = scoreAnswer(choice === question.answer, performance.now() - shownAt.current)
     setAnswers(prev => (prev.length === index ? [...prev, { question, picked: choice, points }] : prev))
@@ -127,8 +130,21 @@ export function Quiz({ onExit }: Props) {
   if (phase === 'empty') {
     return (
       <div className="done">
-        <h2>Kein Quiz möglich</h2>
-        <p className="muted">Für die gewählten Kategorien und Fragetypen gibt es zu wenige Items. Ändere die Auswahl in den Einstellungen.</p>
+        {scope === 'learned-only' ? (
+          <>
+            <h2>Noch nichts gelernt</h2>
+            <p className="muted">
+              Eingestellt ist „Nur Gelerntes“: Das Quiz fragt nur nach Karten, die du schon gelernt hast – für die gewählten
+              Kategorien und Fragetypen gibt es noch keine. Lerne erst ein paar Karten oder stell in den Einstellungen
+              „Gelerntes zuerst“ ein.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Kein Quiz möglich</h2>
+            <p className="muted">Für die gewählten Kategorien und Fragetypen gibt es zu wenige Items. Ändere die Auswahl in den Einstellungen.</p>
+          </>
+        )}
         <button onClick={onExit}>Zurück</button>
       </div>
     )
@@ -159,7 +175,7 @@ export function Quiz({ onExit }: Props) {
                 <li key={q.itemId}>
                   <QuestionThumb question={q} items={cards} />
                   <div>
-                    <div className="muted small">{questionLine(q)}</div>
+                    <div className="muted small">{q.unlearned && <UnlearnedTag />}{questionLine(q)}</div>
                     <div>Richtig: <b>{q.options[q.answer]}</b></div>
                     <div className="small error">Deine Antwort: {q.options[picked]}</div>
                   </div>
@@ -195,7 +211,7 @@ export function Quiz({ onExit }: Props) {
         <QuestionMedia question={question} subject={question.subjectId ? cards.get(question.subjectId) : undefined} />
       </div>
 
-      <p className="quiz-prompt">{question.prompt}</p>
+      <p className="quiz-prompt">{question.unlearned && <UnlearnedTag />}{question.prompt}</p>
 
       <QuizOptions question={question} picked={answered?.picked} onPick={pick} keyPrefix={String(index)} />
 
@@ -211,7 +227,9 @@ export function Quiz({ onExit }: Props) {
             </button>
           </>
         ) : (
-          <p className="muted small center-text">Schnell antworten gibt bis zu +50 Bonus</p>
+          <p className="muted small center-text">
+            {question.unlearned ? 'Neu: noch nicht gelernt – ein Fehler zählt nicht als Schwäche' : 'Schnell antworten gibt bis zu +50 Bonus'}
+          </p>
         )}
       </div>
     </div>

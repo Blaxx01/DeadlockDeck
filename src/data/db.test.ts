@@ -39,6 +39,14 @@ describe('Einstellungen: neue Fragetypen', () => {
     expect((await getSettings(database)).quizKinds).toEqual(['image'])
   })
 
+  it('alte Einstellungen fragen „Gelerntes zuerst“', async () => {
+    const database = new DeckDB(`q-${Math.random()}`)
+    await setMeta('settings', { dailyGoal: 20, newPerDay: 10, slots: ['spirit'], quizKinds: ['image'] }, database)
+    expect((await getSettings(database)).quizScope).toBe('learned-first')
+    await saveSettings({ ...(await getSettings(database)), quizScope: 'all' }, database)
+    expect((await getSettings(database)).quizScope).toBe('all')
+  })
+
   it('Upgrade- und Effekt-Fragen kommen bei Einstellungen von vor ihnen dazu, abgewählte Counter bleiben aus', async () => {
     const database = new DeckDB(`q-${Math.random()}`)
     const before = ['image', 'description', 'number', 'build', 'counterItem', 'counterHero']

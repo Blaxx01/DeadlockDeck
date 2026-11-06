@@ -94,6 +94,23 @@ export const QUIZ_KIND_LABEL: Record<QuizKind, string> = {
   effect: 'Item-Effekte',
 }
 
+/**
+ * Wonach Quiz, Überleben, Sprint und Hero erraten fragen: zuerst nach gelernten Karten (aufgefüllt mit neuen),
+ * nur nach gelernten oder nach allen (wie vor der Einstellung)
+ */
+export type QuizScope = 'learned-first' | 'learned-only' | 'all'
+
+export const QUIZ_SCOPES: QuizScope[] = ['learned-first', 'learned-only', 'all']
+
+export const QUIZ_SCOPE_LABEL: Record<QuizScope, string> = {
+  'learned-first': 'Gelerntes zuerst',
+  'learned-only': 'Nur Gelerntes',
+  all: 'Alles',
+}
+
+/** „Nur Gelerntes“: so viele gelernte Karten brauchen Sprint (je Sorte) und Überleben – sonst wiederholt sich alles ständig */
+export const LEARNED_ONLY_MIN = 10
+
 /** Ein Counter-Item gegen einen Hero */
 export interface CounterItem {
   /** Item-Karten-ID, z. B. "item:upgrade_metal_skin" */
