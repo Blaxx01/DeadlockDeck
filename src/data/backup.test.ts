@@ -5,6 +5,7 @@ import { DeckDB, getBuildBests, getGuessHighscore, getQuizHighscore, getSettings
 import { QUIZ_KINDS } from './model'
 import { rateCard } from '../srs/srs'
 import { awardRound, getSoulsTotal } from '../game/souls'
+import { logMistake } from '../game/weakness'
 
 describe('Backup', () => {
   it('überlebt Export → JSON → Import inkl. Datumswerte', async () => {
@@ -58,12 +59,14 @@ describe('Backup', () => {
     const src = new DeckDB(`b-${Math.random()}`)
     await rateCard('item:x', true, new Date(2026, 10, 5, 12), src)
     await awardRound('quiz', 120, { score: 1200, correct: 9 }, new Date(2026, 10, 5, 13), src)
+    await logMistake('item:x', 'quiz', new Date(2026, 10, 5, 14), src)
     const json = JSON.stringify(await createBackup(src))
     const dst = new DeckDB(`b-${Math.random()}`)
     await awardRound('build', 999, {}, new Date(), dst) // wird ersetzt
     await restoreBackup(parseBackup(json), dst)
     expect(await getSoulsTotal(dst)).toBe(130)
     expect((await dst.souls.toArray()).map(e => e.reason).sort()).toEqual(['card', 'quiz'])
+    expect((await dst.mistakes.toArray()).map(e => [e.cardId, e.source])).toEqual([['item:x', 'quiz']])
 
     const old = JSON.stringify({
       app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(), settings: { dailyGoal: 2, newPerDay: 3, slots: ['weapon'] },

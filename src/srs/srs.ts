@@ -2,6 +2,7 @@ import { createEmptyCard, fsrs, Rating, State, type Card } from 'ts-fsrs'
 import { db, type DayRecord, type DeckDB, type ReviewRecord } from '../data/db'
 import { addCardSoulsInTx, announceGain, type SoulsGain } from '../game/souls'
 import { checkDailyBonuses } from '../game/missions'
+import { logMistakeInTx, resolveWeaknessInTx } from '../game/weakness'
 import { deckOfCardId } from '../decks'
 import { addDays, localDate } from '../data/dates'
 
@@ -70,10 +71,16 @@ export interface RateResult {
   due: Date
 }
 
+export interface RateOptions {
+  /** Bewertung im Schwächen-Training: „gewusst“ behebt die Schwäche */
+  weak?: boolean
+}
+
 /** Speichert eine Bewertung (Swipe) und zählt die Karte fürs Tagesziel – jede Karte nur einmal pro Tag. */
-export async function rateCard(id: string, known: boolean, now = new Date(), database: DeckDB = db): Promise<RateResult> {
+export async function rateCard(id: string, known: boolean, now = new Date(), database: DeckDB = db, options: RateOptions = {}): Promise<RateResult> {
   let gain: SoulsGain | undefined
-  const result = await database.transaction('rw', [database.reviews, database.days, database.souls, database.meta], async () => {
+  const tables = [database.reviews, database.days, database.souls, database.meta, database.mistakes]
+  const result = await database.transaction('rw', tables, async () => {
     const existing = await database.reviews.get(id)
     const wasNew = !existing || existing.state === State.New
     const base: Card = existing ?? createEmptyCard(now)
@@ -94,6 +101,14 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
       gain = await addCardSoulsInTx(database, now)
     }
     day.cards = cards
+    // Schwächen: „nicht gewusst“ zählt als Fehler; „gewusst“ im Training behebt die Schwäche
+    if (!known) await logMistakeInTx(database, id, 'learn', now)
+    if (options.weak) {
+      if (known) await resolveWeaknessInTx(database, id)
+      const weak = day.weak ?? []
+      if (!weak.includes(id)) weak.push(id)
+      day.weak = weak
+    }
     if (!existing) {
       // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
       const byDeck = day.newByDeck ?? { items: day.newIntroduced }

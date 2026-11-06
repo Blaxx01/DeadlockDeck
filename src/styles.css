@@ -529,3 +529,15 @@ button.link {
   .souls-float, .rankup-card { animation: none; }
   .rankup-confetti { display: none; }
 }
+
+/* ---------- Schwächen-Training ---------- */
+.weak { display: flex; flex-direction: column; gap: 12px; }
+.weak > p { margin: 0; }
+.weak-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.weak-list li { display: flex; align-items: center; gap: 10px; }
+.weak-img { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+.weak-img img { width: 100%; height: 100%; object-fit: contain; }
+.weak-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.weak-name { font-weight: 600; }
+.weak-count { flex: none; font-weight: 800; color: var(--bad); }
+.weak-row .deck-name { color: color-mix(in srgb, var(--bad) 60%, var(--text)); }

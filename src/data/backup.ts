@@ -1,4 +1,5 @@
 import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
+import type { MistakeEntry } from '../game/weakness'
 import { db, getBuildBests, getMeta, getSettings, saveSettings, setMeta, type BuildBest, type DayRecord, type DeckDB, type ReviewRecord, type Settings } from './db'
 
 export interface BackupFile {
@@ -16,6 +17,8 @@ export interface BackupFile {
   souls?: SoulsEntry[]
   /** Start der Souls-Funktion (für den Rang-Verfall) */
   soulsStart?: string
+  /** Fehler der letzten 14 Tage (Schwächen-Training) */
+  mistakes?: MistakeEntry[]
 }
 
 export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
@@ -31,6 +34,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     buildBest: await getBuildBests(database),
     souls: await database.souls.toArray(),
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
+    mistakes: await database.mistakes.toArray(),
   }
 }
 
@@ -64,10 +68,12 @@ export function parseBackup(json: string): BackupFile {
 
 /** Ersetzt Fortschritt und Einstellungen durch den Inhalt des Backups. */
 export async function restoreBackup(backup: BackupFile, database: DeckDB = db): Promise<void> {
-  await database.transaction('rw', [database.reviews, database.days, database.meta, database.souls], async () => {
+  await database.transaction('rw', [database.reviews, database.days, database.meta, database.souls, database.mistakes], async () => {
     await database.reviews.clear()
     await database.days.clear()
     await database.souls.clear()
+    await database.mistakes.clear()
+    if (Array.isArray(backup.mistakes)) await database.mistakes.bulkAdd(backup.mistakes)
     // Souls: aus dem Backup – bei alten Backups ohne Souls aus der Tageshistorie neu berechnen (unten)
     const souls = Array.isArray(backup.souls) ? backup.souls : []
     await database.souls.bulkAdd(souls)

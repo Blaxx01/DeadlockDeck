@@ -271,6 +271,7 @@ describe('Counter-Fragen', () => {
       expect(q.prompt).toBe('Welches Item wird gegen Haze besonders oft gekauft?')
       expect(q.portrait).toBe('https://cdn.example/Haze.png')
       expect(q.heroId).toBe(10)
+      expect(q.cardId).toBe('counter:hero_haze') // Fehler zählen für die Counter-Karte
       for (const name of q.options.filter((_, i) => i !== q.answer)) {
         // nie Rescue Beam (auch klarer Counter), Extra Health (1,1×) oder Items ohne Daten
         expect(heroNamed('Haze').factors[`item:${name}`], name).toBeLessThanOrEqual(1)

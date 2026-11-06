@@ -7,6 +7,7 @@ import { setEffectsEnabled } from './game/effects'
 import { checkDailyBonuses } from './game/missions'
 import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
 import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
+import { pruneMistakes } from './game/weakness'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
 import { currentNav, pushNav, viewOf, type NavState, type View } from './nav'
 import { Home } from './views/Home'
@@ -15,6 +16,7 @@ import { Learn } from './views/Learn'
 import { Guess } from './views/Guess'
 import { Quiz } from './views/Quiz'
 import { SettingsView } from './views/SettingsView'
+import { Weakness } from './views/Weakness'
 import { Shop } from './views/Shop'
 
 /** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
@@ -31,6 +33,8 @@ async function startSouls() {
   setEffectsEnabled(settings.effects)
   await seedSoulsFromHistory(settings.dailyGoal)
   await applyDecay()
+  // Fehler älter als 14 Tage zählen nicht mehr als Schwäche
+  await pruneMistakes()
 }
 
 /** Counter- und Build-Statistik: höchstens wöchentlich, im Hintergrund, nacheinander (schont die API) */
@@ -141,6 +145,7 @@ export default function App() {
           onQuiz={() => navigate({ name: 'quiz' })}
           onGuess={() => navigate({ name: 'guess' })}
           onBuilds={() => navigate({ name: 'builds' })}
+          onWeak={() => navigate({ name: 'weak' })}
           onShop={() => navigate({ name: 'shop' })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
@@ -153,6 +158,7 @@ export default function App() {
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'guess' && <Guess onExit={goBack} />}
       {view.name === 'builds' && <BuildQuiz onExit={goBack} />}
+      {view.name === 'weak' && <Weakness onExit={goBack} />}
       {view.name === 'shop' && <Shop onBack={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />

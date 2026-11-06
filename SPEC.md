@@ -194,9 +194,19 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   ehrliches Bewerten soll sich nicht schlecht anfühlen)
 
 ### Schwächen-Training (Etappe 2)
-- Fehler aus allen Modi werden gesammelt („nicht gewusst“, falsche Quiz-Antworten, Fehltipps beim Hero erraten,
-  Fehler im Build-Quiz); Knopf **„Schwächen üben“**: bis zu 15 Karten aus allen Decks mit den meisten Fehlern der
-  letzten 14 Tage; „gewusst“ im Training behebt die Schwäche, nach 14 Tagen verfallen Fehler
+- Fehler aus allen Modi werden gesammelt (je Karte, mit Quelle und Datum):
+  - Karteikarten: jedes „nicht gewusst“
+  - Quiz: jede falsche Antwort – zählt fürs Item, bei Counter-Fragen für die **Counter-Karte** des Heroes
+  - Hero erraten: Hero mit Fehltipp oder „aufgelöst“ (einmal je Frage) → Hero-Karte
+  - Build-Quiz: erster Fehlversuch je Icon → Item
+- Startseite: Zeile **„Schwächen“** unter den Decks mit Anzahl und Knopf **„Schwächen üben (n)“**
+- Übersicht: die bis zu **15 Karten** mit den meisten Fehlern der letzten **14 Tage** (bei Gleichstand die jüngsten),
+  mit Bild, Häufigkeit und Quelle; nur Karten, die es noch gibt
+- **Training**: die Karten als Lernsession aus allen Decks (Karteikarten wie gewohnt, Item-Links antippbar);
+  bewertet normal (FSRS, Souls, Tagesziel); **„gewusst“ im Training behebt die Schwäche** – normales Lernen nicht;
+  am Ende „x von y Schwächen behoben“
+- Fehler älter als 14 Tage verfallen (beim Start aufgeräumt); im Backup enthalten
+- Neue Tagesmission **„5 Schwächen-Karten üben“** (sobald es mind. 5 Schwächen gibt)
 
 ### Sammelalbum, Hero-Meisterschaft, Statistik (Etappe 3)
 - **Sammelalbum im Shop**: Rahmen **Bronze** (gelernt), **Silber** (nächste Wiederholung in ≥ 3 Wochen),
@@ -228,7 +238,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 9. ✅ Build-Quiz (typische und Community-Builds)
 10. Fortschritt & Motivation in 4 Etappen:
     1. ✅ Souls & Rang, Tagesmissionen, Streak-Schutz, Rang-Verfall, neue Startseite, Effekte
-    2. Schwächen-Training
+    2. ✅ Schwächen-Training
     3. Sammelalbum, Hero-Meisterschaft, Statistik, Meilenstein-Souls
     4. Sprint, Überleben
 

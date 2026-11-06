@@ -12,6 +12,7 @@ export type View =
   | { name: 'quiz' }
   | { name: 'guess' }
   | { name: 'builds' }
+  | { name: 'weak' }
   | { name: 'shop' }
   | { name: 'settings' }
 

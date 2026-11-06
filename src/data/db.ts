@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
 import type { SoulsEntry } from '../game/souls'
+import type { MistakeEntry } from '../game/weakness'
 import type { PatchRecord } from './patches'
 import { GUESS_KINDS, LEGACY_QUIZ_KINDS, QUIZ_KINDS, type AbilityCard, type BuildRecord, type CounterCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
@@ -23,6 +24,8 @@ export interface DayRecord {
   newIntroduced: number
   /** Neue Karten je Deck (für das Neu-Limit je Deck); fehlt bei Tagen von vor den Hero-Decks */
   newByDeck?: Partial<Record<DeckId, number>>
+  /** Heute im Schwächen-Training bewertete Karten (für die Mission) */
+  weak?: string[]
 }
 
 export interface MetaRecord {
@@ -63,6 +66,8 @@ export class DeckDB extends Dexie {
   builds!: EntityTable<BuildRecord, 'id'>
   /** Souls-Verlauf (Rang, Statistik, Tagesmissionen) */
   souls!: EntityTable<SoulsEntry, 'id'>
+  /** Fehler aus allen Modi (Schwächen-Training, 14 Tage) */
+  mistakes!: EntityTable<MistakeEntry, 'id'>
   /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
   patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
@@ -97,6 +102,10 @@ export class DeckDB extends Dexie {
     // Souls & Rang
     this.version(6).stores({
       souls: '++id, date, reason',
+    })
+    // Schwächen-Training
+    this.version(7).stores({
+      mistakes: '++id, cardId, date',
     })
   }
 }

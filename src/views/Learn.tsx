@@ -10,7 +10,7 @@ import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, CounterCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
-import { currentNav, pushNav, type NavState } from '../nav'
+import { currentNav, pushNav, type NavState, type View } from '../nav'
 import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
 import { ItemDetail } from './ItemDetail'
 
@@ -19,6 +19,10 @@ interface Props {
   onExit: () => void
   /** Zusätzliche neue Karten über das Tageslimit hinaus */
   extraNew?: number
+  /** Schwächen-Training: genau diese Karten (aus allen Decks), in dieser Reihenfolge */
+  weakIds?: string[]
+  /** Ansicht für den Verlaufseintrag der Item-Detailseite (Standard: diese Lernsession) */
+  navView?: View
 }
 
 /** Eine Karte aus einem der Decks, mit allem, was die Lern-Ansicht braucht */
@@ -72,8 +76,33 @@ async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string
   return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick))
 }
 
+/** Bestimmte Karten aus allen Decks (Schwächen-Training), in der gegebenen Reihenfolge */
+async function entriesForIds(ids: readonly string[], onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
+  const of = (prefix: string) => ids.filter(id => id.startsWith(`${prefix}:`))
+  const [items, abilities, heroes, counters] = await Promise.all([
+    db.items.toArray(),
+    db.abilities.bulkGet(of('ability')),
+    db.heroes.bulkGet(of('hero')),
+    db.counters.bulkGet(of('counter')),
+  ])
+  const itemsById = new Map(items.map(i => [i.id, i]))
+  const byId = new Map<string, LearnEntry>()
+  for (const id of of('item')) {
+    const card = itemsById.get(id)
+    if (card) byId.set(id, itemEntry(card, onItemClick))
+  }
+  for (const c of abilities) if (c) byId.set(c.id, abilityEntry(c))
+  for (const c of heroes) if (c) byId.set(c.id, heroEntry(c))
+  for (const c of counters) if (c) byId.set(c.id, counterEntry(c, itemsById, onItemClick))
+  return ids.map(id => byId.get(id)).filter((e): e is LearnEntry => !!e)
+}
+
 async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
-  const entries = await deckEntries(deck, settings, reviews, onItemClick)
+  return withPatches(await deckEntries(deck, settings, reviews, onItemClick), reviews)
+}
+
+/** Patch-Hinweise an die Karten hängen; neue Karten aus einem Patch kommen zuerst */
+async function withPatches(entries: LearnEntry[], reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
   const patches = new Map((await db.patches.toArray()).map(p => [p.id, p]))
   const now = Date.now()
   return entries.map(e => {
@@ -98,7 +127,7 @@ function ItemFront({ card }: { card: ItemCard }) {
   )
 }
 
-export function Learn({ deck, onExit, extraNew = 0 }: Props) {
+export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
   const [cards, setCards] = useState<Map<string, LearnEntry> | null>(null)
   const [queue, setQueue] = useState<string[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -110,6 +139,8 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
   /** Nicht gewusste letzte Karten, die erst in ein paar Minuten wieder fällig sind */
   const [deferred, setDeferred] = useState(0)
   const [busy, setBusy] = useState(false)
+  /** Schwächen-Training: hier mit „gewusst“ behobene Karten */
+  const [resolved, setResolved] = useState<string[]>([])
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
   // Detailseite eines Items (aus dem Build-Pfad) über der Session – als Verlaufseintrag,
@@ -118,9 +149,9 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
   const [detailId, setDetailId] = useState<string | null>(() => currentNav().item ?? null)
   const itemsByName = useMemo(() => new Map((allItems ?? []).map(i => [i.name, i])), [allItems])
   const openItem = useCallback((id: string) => {
-    pushNav({ view: { name: 'learn', deck, extraNew }, item: id })
+    pushNav({ view: navView ?? { name: 'learn', deck, extraNew }, item: id })
     setDetailId(id)
-  }, [deck, extraNew])
+  }, [deck, extraNew, navView])
   const closeDetail = useCallback(() => {
     if (currentNav().item) window.history.back()
     else setDetailId(null)
@@ -146,17 +177,25 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
     ;(async () => {
       const s = await getSettings()
       const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
-      const entries = await loadEntries(deck, s, reviews, onItemClick)
-      const day = await db.days.get(localDate())
-      const newLimit = extraNew > 0 ? extraNew : s.newPerDay - newIntroducedToday(day, deck)
-      const q = buildQueue({ cards: entries, reviews, now: new Date(), newLimit })
+      let entries: LearnEntry[]
+      let q: string[]
+      if (weakIds) {
+        // Schwächen-Training: feste Auswahl, unabhängig von Fälligkeit und Neu-Limit
+        entries = await withPatches(await entriesForIds(weakIds, onItemClick), reviews)
+        q = entries.map(e => e.id)
+      } else {
+        entries = await loadEntries(deck, s, reviews, onItemClick)
+        const day = await db.days.get(localDate())
+        const newLimit = extraNew > 0 ? extraNew : s.newPerDay - newIntroducedToday(day, deck)
+        q = buildQueue({ cards: entries, reviews, now: new Date(), newLimit })
+      }
       if (cancelled) return
       setSettings(s)
       setCards(new Map(entries.map(e => [e.id, e])))
       setQueue(q)
     })()
     return () => { cancelled = true }
-  }, [deck, extraNew, onItemClick])
+  }, [deck, extraNew, onItemClick, weakIds])
 
   const current = cards && queue.length ? cards.get(queue[0]) : undefined
   const next = cards && queue.length > 1 ? cards.get(queue[1]) : undefined
@@ -170,7 +209,8 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
     if (!current || busy) return
     setBusy(true)
     try {
-      await rateCard(current.id, known)
+      await rateCard(current.id, known, undefined, undefined, weakIds ? { weak: true } : undefined)
+      if (weakIds && known) setResolved(r => (r.includes(current.id) ? r : [...r, current.id]))
       const next = afterRating(queue, current.id, known)
       setQueue(next.queue)
       if (next.deferred) setDeferred(d => d + 1)
@@ -180,7 +220,7 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
     } finally {
       setBusy(false)
     }
-  }, [current, busy, queue])
+  }, [current, busy, queue, weakIds])
 
   // Tastatur: Leertaste/Enter = umdrehen, ←/→ = bewerten, Esc = beenden
   const hasCard = !!current
@@ -241,7 +281,12 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
         <div className="done">
           <h2>Fertig! 🎉</h2>
           <p>{rated.length > 0 ? `${rated.length} ${rated.length === 1 ? 'Karte' : 'Karten'} in dieser Session.` : 'Gerade ist nichts fällig.'}</p>
-          {deferred > 0 && (
+          {weakIds && rated.length > 0 && (
+            <p className={resolved.length ? 'good' : 'muted'}>
+              {resolved.length} von {rated.length} Schwächen behoben{resolved.length === rated.length ? ' 💪' : ''}
+            </p>
+          )}
+          {deferred > 0 && !weakIds && (
             <p className="muted small">Die nicht gewusste Karte kommt in ein paar Minuten wieder – schau dann nochmal rein.</p>
           )}
           {reviewedToday >= settings.dailyGoal && <p className="good">Tagesziel erreicht.</p>}

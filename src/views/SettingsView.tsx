@@ -65,9 +65,10 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
 
   async function resetProgress() {
     if (!confirm('Gesamten Lernfortschritt löschen? Das kann nicht rückgängig gemacht werden (außer mit einem Backup).')) return
-    await db.transaction('rw', [db.reviews, db.days, db.souls, db.meta], async () => {
+    await db.transaction('rw', [db.reviews, db.days, db.souls, db.meta, db.mistakes], async () => {
       await db.reviews.clear()
       await db.days.clear()
+      await db.mistakes.clear()
       // Souls & Rang gehören zum Fortschritt
       await db.souls.clear()
       await setMeta('soulsTotal', 0)

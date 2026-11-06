@@ -7,6 +7,7 @@ import { db, getMeta, getSettings, setMeta, type DayRecord, type DeckDB } from '
 import type { DeckId } from '../decks'
 import { shuffle, type Rng } from '../quiz/quiz'
 import { addSoulsInTx, announceGain, awardRound, GOAL_SOULS, type RoundAward, type RoundMode, type SoulsEntry, type SoulsGain } from './souls'
+import { weakCardCount } from './weakness'
 
 export const MISSION_SOULS = 100
 export const ALL_MISSIONS_BONUS = 150
@@ -19,6 +20,8 @@ export interface MissionContext {
   deckSizes: Partial<Record<DeckId, number>>
   heroCount: number
   buildCount: number
+  /** Karten mit Fehlern in den letzten 14 Tagen (Schwächen-Training) */
+  weakCount: number
 }
 
 export interface MissionDef {
@@ -48,6 +51,8 @@ export const MISSIONS: readonly MissionDef[] = [
     available: c => deck(c, 'counters') >= 5, progress: c => cardsOf(c, 'counter:') },
   { id: 'learn-new', kind: 'learn', group: 'learn', title: '5 neue Karten lernen', target: 5,
     available: c => deck(c, 'items') + deck(c, 'abilities') >= 5, progress: c => c.day?.newIntroduced ?? 0 },
+  { id: 'learn-weak', kind: 'learn', group: 'learn', title: '5 Schwächen-Karten üben', target: 5,
+    available: c => c.weakCount >= 5, progress: c => c.day?.weak?.length ?? 0 },
   { id: 'quiz-7', kind: 'play', group: 'quiz', title: 'Quiz mit mindestens 7 richtigen Antworten', target: 7,
     available: c => deck(c, 'items') >= 4, progress: c => bestOf(c, 'quiz', 'correct') },
   { id: 'quiz-1000', kind: 'play', group: 'quiz', title: 'Quiz-Runde mit mindestens 1.000 Punkten', target: 1000,
@@ -109,7 +114,7 @@ export function pickMissions(date: string, available: readonly MissionDef[]): st
 
 export async function missionContext(now: Date, database: DeckDB = db): Promise<MissionContext> {
   const date = localDate(now)
-  const [day, entries, items, abilities, heroes, counters, builds] = await Promise.all([
+  const [day, entries, items, abilities, heroes, counters, builds, weakCount] = await Promise.all([
     database.days.get(date),
     database.souls.where('date').equals(date).toArray(),
     database.items.count(),
@@ -117,8 +122,9 @@ export async function missionContext(now: Date, database: DeckDB = db): Promise<
     database.heroes.count(),
     database.counters.count(),
     database.builds.where('source').equals('typical').count(),
+    weakCardCount(now, database),
   ])
-  return { day, entries, deckSizes: { items, abilities, heroes, counters }, heroCount: heroes, buildCount: builds }
+  return { day, entries, deckSizes: { items, abilities, heroes, counters }, heroCount: heroes, buildCount: builds, weakCount }
 }
 
 interface StoredMissions {
@@ -175,7 +181,7 @@ export async function checkDailyBonuses(now = new Date(), database: DeckDB = db)
   const date = localDate(now)
   const ids = await todayMissionIds(now, database, true)
   const settings = await getSettings(database)
-  const tables = [database.souls, database.meta, database.days, database.items, database.abilities, database.heroes, database.counters, database.builds]
+  const tables = [database.souls, database.meta, database.days, database.items, database.abilities, database.heroes, database.counters, database.builds, database.mistakes]
   const gains = await database.transaction('rw', tables, async () => {
     const ctx = await missionContext(now, database)
     const has = (pred: (e: SoulsEntry) => boolean) => ctx.entries.some(pred)

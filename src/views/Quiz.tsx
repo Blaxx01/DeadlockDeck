@@ -4,6 +4,7 @@ import { SLOT_LABEL, type ItemCard } from '../data/model'
 import { sanitizeHtml } from '../data/sanitize'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
+import { logMistake } from '../game/weakness'
 import type { RoundAward } from '../game/souls'
 import { buildRound, ROUND_SIZE, scoreAnswer, type QuizQuestion } from '../quiz/quiz'
 
@@ -117,7 +118,11 @@ export function Quiz({ onExit }: Props) {
 
   const pick = useCallback((choice: number) => {
     if (!question || answered) return
-    if (choice !== question.answer) vibrate()
+    if (choice !== question.answer) {
+      vibrate()
+      // Schwächen-Training: Counter-Fragen zählen für die Counter-Karte, sonst fürs Item
+      void logMistake(question.cardId ?? question.itemId, 'quiz')
+    }
     const points = scoreAnswer(choice === question.answer, performance.now() - shownAt.current)
     setAnswers(prev => (prev.length === index ? [...prev, { question, picked: choice, points }] : prev))
   }, [question, answered, index])

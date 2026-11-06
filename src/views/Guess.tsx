@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, getGuessHighscore, getSettings, submitGuessScore } from '../data/db'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
+import { logMistake } from '../game/weakness'
 import type { RoundAward } from '../game/souls'
 import { GUESS_KIND_LABEL, type HeroCard } from '../data/model'
 import {
@@ -134,6 +135,8 @@ export function Guess({ onExit }: Props) {
   }, [questions, index])
 
   const finish = useCallback((q: GuessQuestion, how: Outcome, pts: number) => {
+    // Schwächen-Training: Hero mit Fehltipp oder aufgelöst
+    if (how === 'gaveup' || wrong.length > 0) void logMistake(q.heroId, 'guess')
     setOutcome(how)
     setResults(prev => (prev.length === index ? [...prev, { q, outcome: how, points: pts, wrong: wrong.length }] : prev))
   }, [index, wrong.length])

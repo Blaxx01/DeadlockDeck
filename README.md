@@ -18,7 +18,8 @@ mit Bestwert je Hero und „Fehler-Items lernen“.
 Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
 die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
 täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
-ab dem 6. Tag ohne Lernen.
+ab dem 6. Tag ohne Lernen. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
+häufigsten gezielt – „gewusst“ im Training behebt die Schwäche.
 
 Nach einem **Spiel-Patch** erkennt die App beim nächsten Sync geänderte und neue Karten, zeigt „vorher → nachher“
 und holt schon gelernte geänderte Karten sofort in die Wiederholung.
@@ -58,6 +59,7 @@ Aufbau:
 | `src/builds/buildQuiz.ts`, `src/views/BuildQuiz.tsx` | Build-Quiz: Runde Icon für Icon, Extra-Namen, Fehler, Bestwerte |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
+| `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, Rangfolge, Training |
 | `src/components/SoulsFx.tsx` | „+10 ◆“-Animation und Aufstieg mit Konfetti |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |

@@ -9,6 +9,7 @@ import { BUILD_SOURCE_LABEL, BUILD_SOURCES, type BuildItem, type BuildRecord, ty
 import { currentNav, pushNav, type NavState } from '../nav'
 import { vibrate } from '../game/effects'
 import { finishRound } from '../game/missions'
+import { logMistake } from '../game/weakness'
 import type { RoundAward } from '../game/souls'
 import { requestLearn } from '../srs/srs'
 import { ItemDetail } from './ItemDetail'
@@ -121,6 +122,8 @@ function RoundView({ round, onFinish, onCancel }: RoundProps) {
     setProgress(result.progress)
     if (!result.correct) {
       vibrate()
+      // Schwächen-Training: erster Fehlversuch je Icon
+      if (progress.wrong[progress.current].length === 0) void logMistake(round.order[progress.current].id, 'build')
       setFlash(id)
       window.setTimeout(() => setFlash(f => (f === id ? null : f)), 600)
     }

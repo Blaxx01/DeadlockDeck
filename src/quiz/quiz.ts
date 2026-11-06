@@ -25,6 +25,8 @@ export interface QuizQuestion {
   optionImages?: (string | undefined)[]
   /** Auflösung nach der Antwort (statt der Item-Infos) */
   info?: string
+  /** Karte, die bei einer falschen Antwort als Schwäche zählt (Standard: das Item) */
+  cardId?: string
 }
 
 export const ROUND_SIZE = 10
@@ -255,6 +257,7 @@ const counterItemQuestion: Generator = (item, ctx, rng) => {
   return {
     kind: 'counterItem',
     itemId: item.id,
+    cardId: hero.id,
     heroId: hero.heroId,
     portrait: hero.image,
     prompt: `Welches Item wird gegen ${hero.heroName} besonders oft gekauft?`,
@@ -283,6 +286,7 @@ const counterHeroQuestion: Generator = (item, ctx, rng) => {
     kind: 'counterHero',
     itemId: item.id,
     subjectId: item.id,
+    cardId: hero.id,
     heroId: hero.heroId,
     prompt: `Gegen welchen Hero wird ${item.name} besonders oft gekauft?`,
     options: options.map(o => o.heroName),

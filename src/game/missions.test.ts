@@ -5,7 +5,7 @@ import { hero, item } from '../test/counterFixtures'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, finishRound, MISSION_SOULS, MISSIONS, pickMissions, todayMissionIds, type MissionContext } from './missions'
 import { getSoulsTotal } from './souls'
 
-const ctxAll: MissionContext = { entries: [], deckSizes: { items: 100, abilities: 100, heroes: 40, counters: 40 }, heroCount: 40, buildCount: 40 }
+const ctxAll: MissionContext = { entries: [], deckSizes: { items: 100, abilities: 100, heroes: 40, counters: 40 }, heroCount: 40, buildCount: 40, weakCount: 10 }
 const available = (ctx: MissionContext) => MISSIONS.filter(m => m.available(ctx))
 const byId = new Map(MISSIONS.map(m => [m.id, m]))
 

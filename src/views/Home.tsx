@@ -7,6 +7,7 @@ import { DECKS, newIntroducedToday, type DeckId } from '../decks'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
+import { getWeaknesses, WEAK_DAYS, WEAK_MAX_CARDS } from '../game/weakness'
 import { computeStreakState, isInLearnScope, localDate, type StreakState } from '../srs/srs'
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   onQuiz: () => void
   onGuess: () => void
   onBuilds: () => void
+  onWeak: () => void
   onShop: () => void
   onSettings: () => void
   syncing: boolean
@@ -213,6 +215,7 @@ function useHomeStats() {
       daily: await dailyStatus(),
       decayWarning: decayWarning(daysWithoutLearning(await lastActiveDate(), localDate())),
       buildBests: Object.keys(await getBuildBests()).length,
+      weakCount: (await getWeaknesses(new Date(), db, Number.POSITIVE_INFINITY)).length,
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
       // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
@@ -248,7 +251,7 @@ function DeckRow({ deck, onLearn }: { deck: DeckStats; onLearn: Props['onLearn']
   )
 }
 
-export function Home({ onLearn, onQuiz, onGuess, onBuilds, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
+export function Home({ onLearn, onQuiz, onGuess, onBuilds, onWeak, onShop, onSettings, syncing, syncError, imageProgress, onSync }: Props) {
   const s = useHomeStats()
   if (!s) return <div className="center muted">Lade…</div>
 
@@ -284,6 +287,17 @@ export function Home({ onLearn, onQuiz, onGuess, onBuilds, onShop, onSettings, s
       <div className="panel">
         <h2>Karteikarten</h2>
         {s.decks.map(d => <DeckRow key={d.id} deck={d} onLearn={onLearn} />)}
+        <div className="deck-row weak-row">
+          <div className="deck-info">
+            <div className="deck-name">Schwächen</div>
+            <div className="muted small">
+              {s.weakCount > 0
+                ? `${s.weakCount} ${s.weakCount === 1 ? 'Karte' : 'Karten'} mit Fehlern in den letzten ${WEAK_DAYS} Tagen`
+                : `Keine Fehler in den letzten ${WEAK_DAYS} Tagen`}
+            </div>
+          </div>
+          {s.weakCount > 0 && <button onClick={onWeak}>Schwächen üben ({Math.min(s.weakCount, WEAK_MAX_CARDS)})</button>}
+        </div>
       </div>
 
       <div className="panel">
