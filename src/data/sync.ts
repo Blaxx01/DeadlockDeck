@@ -1,7 +1,9 @@
+import { State } from 'ts-fsrs'
 import type { ApiGenericData, ApiHero, ApiItem } from './apiTypes'
-import { db, getMeta, setMeta, type DeckDB } from './db'
+import { db, getMeta, setMeta, type DeckDB, type LastPatch } from './db'
 import { buildHeroDecks } from './heroes'
 import { buildItemCards } from './normalize'
+import { detectChanges } from './patches'
 
 export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
 /**
@@ -11,8 +13,9 @@ export const API_BASE = 'https://api.deadlock-api.com/v1/assets'
  * 3: Broker-Variante (`corrupted`) für den Shop
  * 4: Hero-Decks (heroes, abilities) + Einheiten-Korrekturen
  * 5: Hero-Posen fürs Hero-Erraten
+ * 6: Fingerprints der Spielwerte (Patch-Erkennung) – der erste Sync misst nur ein
  */
-export const DATA_VERSION = 5
+export const DATA_VERSION = 6
 /** Nach so vielen Stunden wird bei Netz automatisch neu geladen. */
 const AUTO_SYNC_AFTER_HOURS = 24
 
@@ -32,6 +35,8 @@ export interface SyncResult {
   itemCount: number
   heroCount: number
   abilityCount: number
+  /** Im Sync erkannte Patch-Änderungen (geändert + neu) */
+  patchChanges: number
 }
 
 /** Lädt alle Items (englisch + deutsch) und speichert die Karten in IndexedDB. */
@@ -47,7 +52,34 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
   const cards = buildItemCards(english, german, generic)
   if (cards.length === 0) throw new Error('Die API hat keine Items geliefert.')
   const { heroes, abilities } = buildHeroDecks(heroesEn, heroesDe, english, german)
-  await database.transaction('rw', [database.items, database.heroes, database.abilities, database.meta], async () => {
+  const now = Date.now()
+  let patchChanges = 0
+  const tables = [database.items, database.heroes, database.abilities, database.patches, database.reviews, database.meta]
+  await database.transaction('rw', tables, async () => {
+    // Patch-Erkennung: alte Karten mit den neuen vergleichen, bevor sie ersetzt werden
+    const records = [
+      ...detectChanges(await database.items.toArray(), cards, now),
+      ...detectChanges(await database.abilities.toArray(), abilities, now),
+      ...detectChanges(await database.heroes.toArray(), heroes, now),
+    ]
+    if (records.length) {
+      await database.patches.bulkPut(records)
+      // Schon gelernte, geänderte Karten kommen sofort wieder dran (Lernverlauf bleibt)
+      for (const r of records) {
+        if (r.kind !== 'changed') continue
+        const review = await database.reviews.get(r.id)
+        if (review && review.state !== State.New && review.due.getTime() > now) {
+          await database.reviews.put({ ...review, due: new Date(now) })
+        }
+      }
+      const summary: LastPatch = {
+        at: now,
+        changed: records.filter(r => r.kind === 'changed').length,
+        added: records.filter(r => r.kind === 'added').length,
+      }
+      await setMeta('lastPatch', summary, database)
+      patchChanges = records.length
+    }
     await database.items.clear()
     await database.items.bulkPut(cards)
     await database.heroes.clear()
@@ -57,7 +89,7 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
     await setMeta('lastSync', Date.now(), database)
     await setMeta('dataVersion', DATA_VERSION, database)
   })
-  return { itemCount: cards.length, heroCount: heroes.length, abilityCount: abilities.length }
+  return { itemCount: cards.length, heroCount: heroes.length, abilityCount: abilities.length, patchChanges }
 }
 
 export async function needsAutoSync(database: DeckDB = db): Promise<boolean> {

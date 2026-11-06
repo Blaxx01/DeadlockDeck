@@ -4,8 +4,10 @@ import { FlashCard, type FlashCardHandle } from '../components/FlashCard'
 import { AbilityBack, AbilityFront, HeroBack, HeroFront } from '../components/HeroCards'
 import { heroGlow } from '../components/heroStyle'
 import { ItemBack } from '../components/ItemBack'
+import { PatchBadge, PatchNote } from '../components/PatchNote'
 import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, HeroCard, ItemCard } from '../data/model'
+import { showPatchOnCard, type PatchRecord } from '../data/patches'
 import { newIntroducedToday, type DeckId } from '../decks'
 import { buildQueue, isInLearnScope, localDate, rateCard, requeue } from '../srs/srs'
 
@@ -26,6 +28,8 @@ interface LearnEntry {
   back: ReactNode
   frontClass?: string
   frontStyle?: CSSProperties
+  /** Geändert/neu im Patch und seitdem noch nicht wiederholt */
+  patch?: PatchRecord
 }
 
 function itemEntry(card: ItemCard): LearnEntry {
@@ -40,11 +44,20 @@ function heroEntry(card: HeroCard): LearnEntry {
   return { id: card.id, order: card.order, image: card.image, front: <HeroFront card={card} />, back: <HeroBack card={card} />, frontStyle: heroGlow(card.color) }
 }
 
-async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
+async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
   if (deck === 'abilities') return (await db.abilities.toArray()).map(abilityEntry)
   if (deck === 'heroes') return (await db.heroes.toArray()).map(heroEntry)
   const items = await db.items.toArray()
   return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(itemEntry)
+}
+
+async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
+  const entries = await deckEntries(deck, settings, reviews)
+  const patches = new Map((await db.patches.toArray()).map(p => [p.id, p]))
+  return entries.map(e => {
+    const patch = patches.get(e.id)
+    return showPatchOnCard(patch, reviews.get(e.id)?.last_review) ? { ...e, patch } : e
+  })
 }
 
 function ItemFront({ card }: { card: ItemCard }) {
@@ -147,8 +160,8 @@ export function Learn({ deck, onExit, extraNew = 0 }: Props) {
         <>
           <FlashCard
             key={`${current.id}-${turn}`}
-            front={current.front}
-            back={current.back}
+            front={<>{current.patch && <PatchBadge patch={current.patch} />}{current.front}</>}
+            back={<>{current.patch && <PatchNote patch={current.patch} />}{current.back}</>}
             flipped={flipped}
             onFlip={() => setFlipped(f => !f)}
             onRate={handleRate}

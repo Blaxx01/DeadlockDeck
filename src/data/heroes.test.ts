@@ -146,8 +146,8 @@ describe('buildHeroDecks', () => {
 
   it('erzeugt stabile Hashes', () => {
     const again = buildHeroDecks(heroesEn, heroesDe, itemsEn, itemsDe)
-    expect(again.abilities.map(a => a.hash)).toEqual(abilities.map(a => a.hash))
-    expect(again.heroes.map(h => h.hash)).toEqual(heroes.map(h => h.hash))
+    expect(again.abilities.map(a => a.fingerprint)).toEqual(abilities.map(a => a.fingerprint))
+    expect(again.heroes.map(h => h.fingerprint)).toEqual(heroes.map(h => h.fingerprint))
   })
 })
 

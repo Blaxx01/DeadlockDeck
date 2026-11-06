@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { ItemBack } from '../components/ItemBack'
+import { PatchNote } from '../components/PatchNote'
+import { isRecentPatch } from '../data/patches'
 import { db } from '../data/db'
 import { CORRUPTED_VARIANCE_PERCENT, type CorruptedInfo, type ItemCard } from '../data/model'
 import { describeLearnState, requestLearn } from '../srs/srs'
@@ -50,6 +52,11 @@ function BrokerSection({ info }: { info: CorruptedInfo }) {
 export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
   // { review } statt review, damit „lädt noch“ (undefined) von „keine Karte“ unterscheidbar ist
   const loaded = useLiveQuery(async () => ({ review: await db.reviews.get(card.id) }), [card.id])
+  // Patch-Hinweis 30 Tage lang (Zeitpunkt in der Abfrage prüfen, nicht beim Rendern)
+  const patch = useLiveQuery(async () => {
+    const p = await db.patches.get(card.id)
+    return p && isRecentPatch(p, Date.now(), 30) ? p : undefined
+  }, [card.id])
   const [justRequested, setJustRequested] = useState(false)
   const byName = useMemo(() => new Map(cards.map(c => [c.name, c])), [cards])
   const state = loaded ? describeLearnState(loaded.review) : undefined
@@ -76,6 +83,8 @@ export function ItemDetail({ card, cards, onBack, onOpen }: Props) {
         <div className={`detail-hero slot-bg-${card.slot}`}>
           {card.image && <img src={card.image} alt="" draggable={false} />}
         </div>
+
+        {patch && <PatchNote patch={patch} />}
 
         <ItemBack card={card} onItemClick={openByName} />
 

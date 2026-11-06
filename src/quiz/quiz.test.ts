@@ -22,7 +22,7 @@ const COST = [0, 800, 1600, 3200, 6400]
 function card(name: string, slot: SlotType, tier: number, extra: Partial<ItemCard> = {}): ItemCard {
   return {
     id: `item:${name}`, className: name, name, slot, tier, cost: COST[tier], isActive: false,
-    image: `https://cdn.example/${name}.png`, timings: [], sections: [], buildsFrom: [], upgradesTo: [], hash: '',
+    image: `https://cdn.example/${name}.png`, timings: [], sections: [], buildsFrom: [], upgradesTo: [], fingerprint: '',
     ...extra,
   }
 }

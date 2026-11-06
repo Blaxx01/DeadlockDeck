@@ -352,3 +352,32 @@ button.link {
 .hero-tile.wrong .hero-tile-img { border-color: var(--bad); }
 .hero-tile.correct .hero-tile-img { border-color: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 35%, transparent); }
 .hero-tile.correct .hero-tile-name { color: var(--good); font-weight: 700; }
+
+/* ---------- Patch-Erkennung ---------- */
+.patch-badge {
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 99px; background: #4fb3d9; color: #06222d; white-space: nowrap;
+}
+.patch-badge.added { background: var(--good); color: #0d2405; }
+/* Auf der Kartenvorderseite oben mittig */
+.face.front > .patch-badge { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1; }
+/* An Shop-Kacheln oben rechts */
+.tile-icon > .patch-badge { position: absolute; top: -7px; right: -8px; font-size: 0.55rem; padding: 1px 5px; }
+.patch-note {
+  border: 1px solid color-mix(in srgb, #4fb3d9 55%, var(--line)); background: color-mix(in srgb, #4fb3d9 9%, var(--panel));
+  border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.patch-note.added { border-color: color-mix(in srgb, var(--good) 55%, var(--line)); background: color-mix(in srgb, var(--good) 9%, var(--panel)); }
+.patch-note h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #7fcbe6; margin: 0; }
+.patch-note.added h3 { color: var(--good); }
+.patch-note p { margin: 0; }
+/* Auf der Kartenrückseite außerhalb von .back-content → eigener Abstand */
+.face.back > .patch-note { margin: 16px 16px 0; }
+.patch-diff { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.patch-diff li { display: flex; justify-content: space-between; gap: 10px; }
+.patch-label { color: var(--muted); }
+.patch-values { text-align: right; white-space: nowrap; }
+.patch-values .before { color: var(--muted); text-decoration: line-through; }
+.patch-values .after { color: var(--text); font-weight: 700; }
+.patch-notice { border-color: color-mix(in srgb, #4fb3d9 55%, var(--line)); }
+.patch-notice h2 { color: #7fcbe6; }

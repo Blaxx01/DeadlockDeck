@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
-import { db, getGuessHighscore, getMeta, getQuizHighscore, getSettings, type ReviewRecord } from '../data/db'
+import { db, getGuessHighscore, getMeta, getQuizHighscore, getSettings, setMeta, type LastPatch, type ReviewRecord } from '../data/db'
 import { DECKS, newIntroducedToday, type DeckId } from '../decks'
 import { computeStreak, isInLearnScope, localDate } from '../srs/srs'
 
@@ -57,6 +57,32 @@ function countDeck(ids: string[], reviews: Map<string, ReviewRecord>, now: numbe
   return { total: ids.length, due, fresh, learned, newLeft: Math.max(0, Math.min(fresh, newAllowed)) }
 }
 
+const PATCH_NOTICE_DAYS = 7
+
+async function recentPatch(now: number): Promise<LastPatch | null> {
+  const last = await getMeta<LastPatch | null>('lastPatch', null)
+  if (!last || now - last.at > PATCH_NOTICE_DAYS * 86_400_000) return null
+  const dismissed = await getMeta<number>('lastPatchDismissed', 0)
+  return dismissed === last.at ? null : last
+}
+
+function PatchNotice({ patch }: { patch: LastPatch }) {
+  const date = new Date(patch.at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+  const parts = [patch.changed && `${patch.changed} geändert`, patch.added && `${patch.added} neu`].filter(Boolean).join(', ')
+  return (
+    <div className="panel patch-notice">
+      <div className="row">
+        <h2>Patch erkannt</h2>
+        <button className="icon-btn" aria-label="Hinweis schließen" onClick={() => void setMeta('lastPatchDismissed', patch.at)}>✕</button>
+      </div>
+      <p className="small">
+        Am {date}: {parts}. Geänderte Karten, die du schon gelernt hast, kommen in deiner nächsten Session dran –
+        mit „vorher → nachher“ auf der Karte. Im Shop sind sie markiert.
+      </p>
+    </div>
+  )
+}
+
 function useHomeStats() {
   const tick = useClockTick()
   return useLiveQuery(async () => {
@@ -84,6 +110,8 @@ function useHomeStats() {
       streak: computeStreak(days, settings.dailyGoal),
       lastSync: await getMeta<number>('lastSync', 0),
       quizHighscore: await getQuizHighscore(),
+      // Hinweis auf erkannten Patch: 7 Tage lang, bis er weggeklickt wird
+      patch: await recentPatch(now),
       guessHighscore: await getGuessHighscore(),
       heroCount: ids.heroes.length,
     }
@@ -141,6 +169,8 @@ export function Home({ onLearn, onQuiz, onGuess, onShop, onSettings, syncing, sy
         <h1>DeadlockDeck</h1>
         <button className="icon-btn" onClick={onSettings} aria-label="Einstellungen">⚙</button>
       </header>
+
+      {s.patch && <PatchNotice patch={s.patch} />}
 
       <div className="panel today">
         <div className="row">

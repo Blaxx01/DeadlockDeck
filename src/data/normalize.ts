@@ -1,5 +1,8 @@
 import type { ApiCorruptedInfo, ApiGenericData, ApiItem, ApiItemProperty, ApiTooltipSection } from './apiTypes'
+import { bonusPairs, makeFingerprint, propertyValues } from './fingerprint'
 import type { CardSection, CorruptedInfo, CorruptedStat, ItemCard, SectionType, Stat, Timing, TimingKind } from './model'
+
+export { hashString } from './fingerprint'
 
 /** Zeit-/Reichweiten-Werte, die oben auf der Karte stehen statt in den Abschnitten. */
 const TIMING_KEYS: { key: string; kind: TimingKind; fallback: string }[] = [
@@ -222,16 +225,6 @@ function imageOf(item: ApiItem): string | undefined {
   return item.shop_image_webp || item.shop_image || item.image_webp || item.image || undefined
 }
 
-/** FNV-1a – reicht, um Inhaltsänderungen zwischen Patches zu erkennen. */
-export function hashString(text: string): string {
-  let h = 0x811c9dc5
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return (h >>> 0).toString(16).padStart(8, '0')
-}
-
 export function isLearnableItem(item: ApiItem): boolean {
   return item.type === 'upgrade'
     && item.shopable !== false
@@ -263,7 +256,7 @@ export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[], 
 
   return learnable.map(en => {
     const text = germanById.get(en.id) ?? en
-    const card: Omit<ItemCard, 'hash'> = {
+    const card: Omit<ItemCard, 'fingerprint'> = {
       id: `item:${en.class_name}`,
       className: en.class_name,
       name: en.name,
@@ -285,7 +278,16 @@ export function buildItemCards(englishItems: ApiItem[], germanItems: ApiItem[], 
       const corrupted = buildCorrupted(text, corruptedInfo, en.item_tier!, generic)
       if (corrupted) card.corrupted = corrupted
     }
-    const { image: _image, ...content } = card
-    return { ...card, hash: hashString(JSON.stringify(content)) }
+    // Fingerprint nur aus Spielwerten (englische Rohdaten) – siehe fingerprint.ts
+    const fingerprint = makeFingerprint({
+      cost: en.cost ?? 0,
+      tier: en.item_tier,
+      slot: en.item_slot_type,
+      active: !!en.is_active_item,
+      components: [...(en.component_items ?? [])].sort(),
+      values: propertyValues(en.properties, isPropertyVisible),
+      corrupted: bonusPairs(en.corrupted_info?.property_upgrades),
+    })
+    return { ...card, fingerprint }
   }).sort((a, b) => a.tier - b.tier || a.slot.localeCompare(b.slot) || a.name.localeCompare(b.name))
 }

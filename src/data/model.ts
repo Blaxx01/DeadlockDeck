@@ -64,8 +64,8 @@ export interface ItemCard {
   upgradesTo: string[]
   /** Broker-Variante (nur Tier 3/4) */
   corrupted?: CorruptedInfo
-  /** Hash des Inhalts, um Patch-Änderungen zu erkennen */
-  hash: string
+  /** Fingerprint der Spielwerte – erkennt Patches (siehe fingerprint.ts) */
+  fingerprint: string
 }
 
 export const SLOT_LABEL: Record<SlotType, string> = {
@@ -131,7 +131,8 @@ export interface HeroCard {
   stats: Stat[]
   weapon?: { name: string; stats: Stat[] }
   abilities: AbilityRef[]
-  hash: string
+  /** Fingerprint der Spielwerte – erkennt Patches (siehe fingerprint.ts) */
+  fingerprint: string
 }
 
 export interface AbilityUpgrade {
@@ -161,7 +162,8 @@ export interface AbilityCard {
   timings: Timing[]
   stats: Stat[]
   upgrades: AbilityUpgrade[]
-  hash: string
+  /** Fingerprint der Spielwerte – erkennt Patches (siehe fingerprint.ts) */
+  fingerprint: string
 }
 
 /** Varianten beim Hero-Erraten */

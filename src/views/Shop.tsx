@@ -2,6 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { db } from '../data/db'
 import { SLOT_LABEL, type ItemCard, type SlotType } from '../data/model'
+import { isRecentPatch, type PatchRecord } from '../data/patches'
+import { PatchBadge } from '../components/PatchNote'
 import { currentNav, pushNav, type NavState } from '../nav'
 import { searchItems, shopTiers } from '../shop/search'
 import { ItemDetail } from './ItemDetail'
@@ -12,7 +14,7 @@ interface Props {
 
 const SLOTS: SlotType[] = ['weapon', 'vitality', 'spirit']
 
-function ShopTile({ card, onOpen }: { card: ItemCard; onOpen: (id: string) => void }) {
+function ShopTile({ card, patch, onOpen }: { card: ItemCard; patch?: PatchRecord; onOpen: (id: string) => void }) {
   return (
     <button className="shop-tile" onClick={() => onOpen(card.id)}>
       <span className={`tile-icon tile-${card.slot}`}>
@@ -20,6 +22,7 @@ function ShopTile({ card, onOpen }: { card: ItemCard; onOpen: (id: string) => vo
           ? <img src={card.image} alt="" loading="lazy" draggable={false} />
           : <span className="tile-fallback">{card.name.slice(0, 2)}</span>}
         {card.isActive && <span className="tile-active">Aktiv</span>}
+        {patch && <PatchBadge patch={patch} short />}
       </span>
       <span className="tile-name">{card.name}</span>
     </button>
@@ -28,6 +31,11 @@ function ShopTile({ card, onOpen }: { card: ItemCard; onOpen: (id: string) => vo
 
 export function Shop({ onBack }: Props) {
   const cards = useLiveQuery(() => db.items.toArray(), [])
+  // Nur Patches der letzten 14 Tage bekommen ein Badge
+  const patches = useLiveQuery(async () => {
+    const now = Date.now()
+    return new Map((await db.patches.toArray()).filter(p => isRecentPatch(p, now)).map(p => [p.id, p]))
+  }, [])
   const [tab, setTab] = useState<SlotType>('weapon')
   const [query, setQuery] = useState('')
   const [detailId, setDetailId] = useState<string | null>(() => currentNav().item ?? null)
@@ -97,7 +105,7 @@ export function Shop({ onBack }: Props) {
             <h2 className="tier-head"><span>{results.length === 1 ? '1 Treffer' : `${results.length} Treffer`}</span></h2>
             {results.length === 0 && <p className="muted">Nichts gefunden. Versuch einen anderen Begriff.</p>}
             <div className="shop-grid">
-              {results.map(c => <ShopTile key={c.id} card={c} onOpen={openItem} />)}
+              {results.map(c => <ShopTile key={c.id} card={c} patch={patches?.get(c.id)} onOpen={openItem} />)}
             </div>
           </section>
         ) : (
@@ -108,7 +116,7 @@ export function Shop({ onBack }: Props) {
                 {t.price && <span className="souls">{t.price.toLocaleString('de-DE')} Souls</span>}
               </h2>
               <div className="shop-grid">
-                {t.items.map(c => <ShopTile key={c.id} card={c} onOpen={openItem} />)}
+                {t.items.map(c => <ShopTile key={c.id} card={c} patch={patches?.get(c.id)} onOpen={openItem} />)}
               </div>
             </section>
           ))

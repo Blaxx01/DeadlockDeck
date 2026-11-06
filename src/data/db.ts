@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Card } from 'ts-fsrs'
 import type { DeckId } from '../decks'
+import type { PatchRecord } from './patches'
 import { GUESS_KINDS, QUIZ_KINDS, type AbilityCard, type GuessKind, type HeroCard, type ItemCard, type QuizKind, type SlotType } from './model'
 
 export interface ReviewRecord extends Card {
@@ -47,6 +48,8 @@ export class DeckDB extends Dexie {
   items!: EntityTable<ItemCard, 'id'>
   heroes!: EntityTable<HeroCard, 'id'>
   abilities!: EntityTable<AbilityCard, 'id'>
+  /** Im Sync erkannte Patch-Änderungen (neueste je Karte) */
+  patches!: EntityTable<PatchRecord, 'id'>
   reviews!: EntityTable<ReviewRecord, 'id'>
   days!: EntityTable<DayRecord, 'date'>
   meta!: EntityTable<MetaRecord, 'key'>
@@ -63,6 +66,10 @@ export class DeckDB extends Dexie {
     this.version(2).stores({
       heroes: 'id',
       abilities: 'id, heroId',
+    })
+    // Patch-Erkennung
+    this.version(3).stores({
+      patches: 'id, detectedAt',
     })
   }
 }
@@ -106,3 +113,10 @@ export const getQuizHighscore = (database: DeckDB = db) => getHighscore('quizHig
 export const submitQuizScore = (score: number, database: DeckDB = db) => submitHighscore('quizHighscore', score, database)
 export const getGuessHighscore = (database: DeckDB = db) => getHighscore('guessHighscore', database)
 export const submitGuessScore = (score: number, database: DeckDB = db) => submitHighscore('guessHighscore', score, database)
+
+/** Zusammenfassung des letzten erkannten Patches (für den Hinweis auf der Startseite) */
+export interface LastPatch {
+  at: number
+  changed: number
+  added: number
+}

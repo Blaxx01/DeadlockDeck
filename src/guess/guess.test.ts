@@ -17,7 +17,7 @@ function seeded(seed = 7) {
 
 function hero(n: number, extra: Partial<HeroCard> = {}): HeroCard {
   return {
-    id: `hero:h${n}`, heroId: n, className: `h${n}`, name: `Hero ${n}`, order: n, tags: [], stats: [], hash: '',
+    id: `hero:h${n}`, heroId: n, className: `h${n}`, name: `Hero ${n}`, order: n, tags: [], stats: [], fingerprint: '',
     image: `https://cdn/h${n}_card.webp`, smallImage: `https://cdn/h${n}_sm.webp`,
     poses: [`https://cdn/h${n}_card.webp`, `https://cdn/h${n}_critical.webp`, `https://cdn/h${n}_gloat.webp`],
     abilities: [1, 2, 3, 4].map(s => ({ id: `ability:a${n}_${s}`, name: `Ability ${n}.${s}`, image: `https://cdn/a${n}_${s}.webp`, slot: s })),

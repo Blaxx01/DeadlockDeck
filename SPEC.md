@@ -41,8 +41,20 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 - Limit für neue Karten pro Tag, **je Deck**; Tagesziel und Streak zählen alle Decks zusammen
 
 ### Patches
-- Jede Karte speichert einen Hash ihres Inhalts. Ändert ein Patch den Inhalt, wird die Karte
-  **zurückgesetzt** (kommt sofort wieder dran) und bekommt das Badge **„Geändert im Patch“**
+- Jede Karte speichert einen **Fingerprint ihrer Spielwerte** (aus den englischen API-Rohdaten):
+  - Items: Kosten, Tier, Kategorie, Aktiv, Bauteile, Werte, Broker-Boni
+  - Fähigkeiten: Werte und Upgrade-Werte; Heroes: Startwerte, Waffenwerte, die 4 Abilities
+  - **Nicht** enthalten: Texte, Übersetzungen, Labels, Bild-URLs, Formatierung der App → App-Updates
+    und Übersetzungskorrekturen lösen keinen Fehlalarm aus
+  - Fingerprints sind versioniert; ändert sich die Berechnung, wird still neu eingemessen
+- Bei jedem Sync (automatisch alle 24 h mit Netz oder „Items neu laden“) werden alte und neue Karten verglichen:
+  - **Geändert**: Patch-Eintrag mit **„vorher → nachher“** der angezeigten Werte; schon gelernte Karten werden
+    **sofort fällig** (Lernverlauf bleibt)
+  - **Neu** (wenn das Deck vorher schon Karten hatte): Eintrag „Neu im Patch“
+- Anzeige:
+  - Lernkarte: Badge vorne, „vorher → nachher“ hinten – bis die Karte nach dem Patch einmal wiederholt wurde
+  - Shop: Badge „Geändert“ / „Neu“ an der Kachel (14 Tage), Hinweis auf der Detailseite (30 Tage)
+  - Startseite: Hinweis „Patch erkannt“ mit Anzahl (7 Tage, wegklickbar)
 
 ## Quiz
 - Fragetypen: **Bild → Name**, **Beschreibung → Item** (Item-Name im Text geschwärzt),
@@ -100,8 +112,8 @@ Die Startseite zeigt die drei Decks untereinander mit „fällig · neu · geler
 3. ✅ Shop (Nachschlagen)
 4. ✅ Hero-Decks (Fähigkeiten, Heroes)
 5. ✅ Hero erraten (offizielle Assets)
-6. Eigene Screenshots
-7. Patch-Erkennung (Reset + Badge)
+6. Eigene Screenshots – vorerst übersprungen
+7. ✅ Patch-Erkennung (Reset + Badge + vorher → nachher)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

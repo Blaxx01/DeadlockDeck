@@ -51,11 +51,11 @@ describe('buildItemCards', () => {
 
   it('erzeugt stabile Hashes, die sich bei Inhaltsänderung ändern', () => {
     const again = buildItemCards(englishItems, germanItems)
-    expect(again.map(c => c.hash)).toEqual(cards.map(c => c.hash))
+    expect(again.map(c => c.fingerprint)).toEqual(cards.map(c => c.fingerprint))
     const patched = structuredClone(englishItems)
     patched[1].properties!.BonusClipSizePercent.value = '90'
     const changed = buildItemCards(patched, germanItems).find(c => c.className === 'upgrade_titanic_magazine')!
-    expect(changed.hash).not.toBe(byClass.get('upgrade_titanic_magazine')!.hash)
+    expect(changed.fingerprint).not.toBe(byClass.get('upgrade_titanic_magazine')!.fingerprint)
   })
 
   it('sortiert nach Tier', () => {

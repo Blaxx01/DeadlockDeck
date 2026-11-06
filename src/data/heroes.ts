@@ -1,6 +1,7 @@
 import type { ApiHero, ApiItem, ApiItemProperty, ApiStatValue } from './apiTypes'
 import type { AbilityCard, AbilityRef, AbilityUpgrade, HeroCard, Stat, Timing, TimingKind } from './model'
-import { formatPropertyValue, hashString, isPropertyVisible, replacePlaceholders } from './normalize'
+import { bonusPairs, makeFingerprint, normValue, propertyValues } from './fingerprint'
+import { formatPropertyValue, isPropertyVisible, replacePlaceholders } from './normalize'
 
 const SIGNATURE_SLOTS = ['signature1', 'signature2', 'signature3', 'signature4'] as const
 
@@ -149,11 +150,7 @@ function resolve(ref: string | number | null | undefined, byClass: Map<string, A
   return ref ? byClass.get(ref) : undefined
 }
 
-/** Hash über den Inhalt (ohne Bild-URL), um spätere Patch-Änderungen zu erkennen */
-function contentHash(card: { image?: string }): string {
-  const { image: _image, ...content } = card
-  return hashString(JSON.stringify(content))
-}
+const WEAPON_FINGERPRINT_KEYS = ['bullet_damage', 'bullets', 'clip_size', 'reload_duration', 'cycle_time', 'burst_shot_count', 'intra_burst_cycle_time']
 
 /**
  * Baut die Hero- und Ability-Karten. Namen englisch (wie ingame), Texte deutsch
@@ -193,7 +190,7 @@ export function buildHeroDecks(
       const id = `ability:${abilityEn.class_name}`
       const abilityImage = abilityEn.image_webp || abilityEn.image || undefined
       refs.push({ id, name: abilityEn.name, image: abilityImage, slot })
-      const ability: Omit<AbilityCard, 'hash'> = {
+      const ability: Omit<AbilityCard, 'fingerprint'> = {
         id,
         className: abilityEn.class_name,
         name: abilityEn.name,
@@ -209,10 +206,16 @@ export function buildHeroDecks(
         stats: abilityStats(abilityDe),
         upgrades: abilityUpgrades(abilityDe),
       }
-      abilities.push({ ...ability, hash: contentHash(ability) })
+      abilities.push({
+        ...ability,
+        fingerprint: makeFingerprint({
+          values: propertyValues(abilityEn.properties, isPropertyVisible),
+          upgrades: (abilityEn.upgrades ?? []).map(u => bonusPairs(u.property_upgrades)),
+        }),
+      })
     })
 
-    const hero: Omit<HeroCard, 'hash'> = {
+    const hero: Omit<HeroCard, 'fingerprint'> = {
       id: `hero:${en.class_name}`,
       heroId: en.id,
       className: en.class_name,
@@ -231,7 +234,15 @@ export function buildHeroDecks(
       weapon: weaponOf(en, enByClass, enById),
       abilities: refs,
     }
-    heroes.push({ ...hero, hash: contentHash(hero) })
+    const weaponInfo = resolve(en.items?.weapon_primary, enByClass, enById)?.weapon_info ?? {}
+    heroes.push({
+      ...hero,
+      fingerprint: makeFingerprint({
+        stats: HERO_STATS.map(({ key }) => [key, normValue(statNumber(en.starting_stats?.[key]))]),
+        weapon: WEAPON_FINGERPRINT_KEYS.map(k => [k, normValue(weaponInfo[k])]),
+        abilities: SIGNATURE_SLOTS.map(slot => String(en.items?.[slot] ?? '')),
+      }),
+    })
   })
 
   return { heroes, abilities }

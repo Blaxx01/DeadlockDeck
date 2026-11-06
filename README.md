@@ -10,6 +10,9 @@ Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgeba
 Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ – und **Hero erraten**: Silhouette, Zoom-Ausschnitt,
 unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore.
 
+Nach einem **Spiel-Patch** erkennt die App beim nächsten Sync geänderte und neue Karten, zeigt „vorher → nachher“
+und holt schon gelernte geänderte Karten sofort in die Wiederholung.
+
 Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
 
 ## Aufs Handy
@@ -39,6 +42,7 @@ Aufbau:
 | `src/data/heroes.ts` | API-Heroes + Abilities → Hero- und Fähigkeiten-Karten |
 | `src/decks.ts` | Die drei Decks, Neu-Limit je Deck |
 | `src/guess/guess.ts`, `src/views/Guess.tsx` | Hero erraten: Runden, Aufdeck-Stufen, Joker, Punkte |
+| `src/data/fingerprint.ts`, `src/data/patches.ts` | Patch-Erkennung: Fingerprints der Spielwerte, Vergleich, „vorher → nachher“ |
 | `src/data/sync.ts` | Laden von der API, Bilder für offline vorladen |
 | `src/data/db.ts` | IndexedDB (Dexie): Karten, Fortschritt, Tagesstatistik, Einstellungen |
 | `src/srs/srs.ts` | Lernlogik: Warteschlange, FSRS-Bewertung, Streak |
