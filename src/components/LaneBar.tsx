@@ -59,7 +59,7 @@ export function LaneBar({ lane, shown, onOpen }: Props) {
   const patron = PATRON_LABEL[lane.patron]
   const label = `Lane-Angriff: ${LANE_NAME[lane.lane]} gegen ${patron}${lane.won ? ' – Sieg' : ''}. `
     + lane.targets.map(t => `${targetLabel(t.kind, lane.patron)} ${t.hp <= 0 ? 'zerstört' : `${hpPercent(t.hp)} % Leben`}`).join(', ')
-    + '. Lane-Map öffnen'
+    + '. Auf der Map zeigen'
 
   return (
     <>
