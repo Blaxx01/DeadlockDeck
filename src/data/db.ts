@@ -17,6 +17,8 @@ export interface ReviewRecord extends Card {
   id: string
   /** Per „Jetzt lernen“ vorgemerkt: kommt in die nächste Session, auch wenn die Kategorie ausgeblendet ist */
   requested?: boolean
+  /** Neue Karte kennengelernt (umgedreht, gelesen) – die erste Abfrage steht noch aus */
+  introduced?: boolean
 }
 
 export interface DayRecord {
@@ -68,6 +70,8 @@ export interface Settings {
   /** Map-Quiz: Bereiche und Fragetypen */
   mapGroups: MapGroup[]
   mapQuestionTypes: MapQuestionType[]
+  /** Neue Karten erst kennenlernen (umdrehen, lesen, „Weiter“), die erste Abfrage folgt ein paar Karten später */
+  introNew: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -81,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quizScope: 'learned-first',
   mapGroups: [...MAP_QUIZ_GROUPS],
   mapQuestionTypes: [...MAP_QUESTION_TYPES],
+  introNew: true,
 }
 
 export class DeckDB extends Dexie {

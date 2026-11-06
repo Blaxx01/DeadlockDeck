@@ -56,6 +56,19 @@ Die Startseite zeigt die vier Decks untereinander mit „fällig · neu · geler
     dann die neuen Rückrichtungs-Karten ebenso
   - die Lernen-Knöpfe der einzelnen Decks bleiben (dann nicht mehr hervorgehoben); Antwort eintippen gilt je Karte
     nach ihrem Deck
+- **Neue Karten erst kennenlernen** (Einstellung, standardmäßig an): beim ersten Mal nicht bewerten, sondern
+  kennenlernen – vorne „Neue Karte“, antippen dreht um, dann **„Weiter“** statt „gewusst/nicht gewusst“ (Wischen in
+  beide Richtungen und Enter gehen auch); kein Eintippen beim Kennenlernen
+  - die **erste Abfrage** kommt nach 3 anderen Karten in derselben Session (wie bei „nicht gewusst“), ganz normal
+    mit Bewertung – erst sie zählt fürs Lernsystem; ist die Karte die letzte, wird sie beim nächsten Mal abgefragt
+  - Abgebrochen nach dem Kennenlernen: Die Karte kommt beim nächsten Mal direkt als Abfrage (zählt als fällig)
+  - Tagesziel, +10 Souls und Neu-Limit zählen schon beim Kennenlernen (die Abfrage am selben Tag nicht noch einmal)
+  - „gelernt“ (Bronze im Album, „Gelerntes zuerst“) erst nach der ersten Abfrage
+  - Rückrichtungs-Karten werden gleich abgefragt (der Inhalt ist von der normalen Karte bekannt)
+  - gilt überall, wo neue Karten vorkommen: Decks, „Alles lernen“, „+10 neue“, Vormerkungen, „Schwächen üben“
+  - aus: neue Karten werden wie früher sofort bewertet
+- **Schwächen beim Lernen**: „nicht gewusst“ zählt nur bei Karten, die die Lernphase schon einmal geschafft haben
+  (wie bei „hartnäckig“) – Vergessen kurz nach dem Kennenlernen ist normal und zählt nicht
 
 ### Patches
 - Jede Karte speichert einen **Fingerprint ihrer Spielwerte** (aus den englischen API-Rohdaten):
@@ -203,7 +216,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 
 ### Schwächen-Training (Etappe 2)
 - Fehler aus allen Modi werden gesammelt (je Karte, mit Quelle und Datum):
-  - Karteikarten: jedes „nicht gewusst“
+  - Karteikarten: „nicht gewusst“ – seit dem Kennenlernen nur bei Karten, die die Lernphase schon geschafft haben
   - Quiz: jede falsche Antwort – zählt fürs Item, bei Counter-Fragen für die **Counter-Karte** des Heroes
   - Hero erraten: Hero mit Fehltipp oder „aufgelöst“ (einmal je Frage) → Hero-Karte
   - Build-Quiz: erster Fehlversuch je Icon → Item
@@ -400,6 +413,7 @@ Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Mini
 12. ✅ Gelerntes zuerst (einstellbar: Gelerntes zuerst / Nur Gelerntes / Alles)
 13. ✅ Fortschritt absichern (dauerhafter Speicher, Backup-Erinnerung, Sichern übers Teilen-Menü), „Alles lernen“
 14. ✅ Map-Wissen: Map-Seite (Ebenen, Antippen, Zoom) und Map-Quiz („Wo ist …?“, „Was ist hier?“)
+15. ✅ Neue Karten erst kennenlernen (umdrehen, lesen, „Weiter“), erste Abfrage 3 Karten später
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

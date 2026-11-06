@@ -6,6 +6,8 @@ Vier Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Coo
 und **Counter** (Hero → die 3 Items, die Spieler ab Orakel gegen ihn am deutlichsten öfter kaufen, mit Kauf-Faktor –
 Statistik der API, wöchentlich aktualisiert).
 Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
+Neue Karten lernt man erst **kennen** (umdrehen, lesen, „Weiter“); drei Karten später kommt die erste echte Abfrage.
+„Nicht gewusst“ zählt erst als Schwäche, wenn eine Karte die Lernphase schon einmal geschafft hat.
 Neue Item-Karten kommen **meistgekauft zuerst** (Kaufstatistik ab Orakel). Gelernte Items, Fähigkeiten und Heroes
 kommen auch in **Rückrichtung** (Name → Bild und Wirkung); bei Items und Counter kann man die **Antwort eintippen**
 (Tippfehler werden toleriert). **Alles lernen** fasst alle Decks in einer Session zusammen (fällige zuerst, dann die

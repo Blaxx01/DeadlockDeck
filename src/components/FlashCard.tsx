@@ -19,9 +19,11 @@ interface Props {
   slotClass?: string
   /** z. B. Hintergrund in Hero-Farbe */
   frontStyle?: CSSProperties
+  /** Kennenlernen: Wischen in beide Richtungen heißt „Weiter“ */
+  intro?: boolean
 }
 
-export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass, frontStyle }: Props) {
+export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass, frontStyle, intro = false }: Props) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
   /** onControl: Druck begann auf einem Link/Button der Karte (z. B. Build-Pfad) */
@@ -95,8 +97,8 @@ export function FlashCard({ ref, front, back, onRate, flipped, onFlip, slotClass
           {/* inert: Links auf der verdeckten Rückseite sind nicht per Tab erreichbar */}
           <div className="face back" aria-hidden={!flipped} inert={!flipped}>{back}</div>
         </div>
-        <div className="swipe-label known" style={{ opacity: Math.max(0, progress) }}>Gewusst</div>
-        <div className="swipe-label unknown" style={{ opacity: Math.max(0, -progress) }}>Nicht gewusst</div>
+        <div className={`swipe-label ${intro ? 'next' : 'known'}`} style={{ opacity: Math.max(0, progress) }}>{intro ? 'Weiter' : 'Gewusst'}</div>
+        <div className={`swipe-label ${intro ? 'next right' : 'unknown'}`} style={{ opacity: Math.max(0, -progress) }}>{intro ? 'Weiter' : 'Nicht gewusst'}</div>
       </div>
     </div>
   )

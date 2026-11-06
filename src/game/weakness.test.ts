@@ -40,9 +40,17 @@ describe('rankWeaknesses', () => {
 })
 
 describe('Schwächen sammeln und beheben', () => {
-  it('„nicht gewusst“ zählt als Fehler, „gewusst“ im Training behebt die Schwäche', async () => {
+  it('„nicht gewusst“ zählt erst nach der Lernphase als Fehler, „gewusst“ im Training behebt die Schwäche', async () => {
     const database = await setup()
+    // neue Karte und Lernphase: Vergessen ist normal, kein Fehler
+    await rateCard('item:item_1', false, at(5), database)
+    await rateCard('item:item_1', true, at(5, 13), database)
+    expect(await getWeaknesses(at(5), database)).toEqual([])
+    // gelernt (Review) – jetzt zählt „nicht gewusst“
+    const learned = { ...review('item:item_1', 5), difficulty: 5 }
+    await database.reviews.put(learned)
     await rateCard('item:item_1', false, at(6), database)
+    await database.reviews.put(learned)
     await rateCard('item:item_1', false, at(6, 13), database)
     await logMistake('item:item_1', 'quiz', at(6), database)
     await logMistake('hero:hero_haze', 'guess', at(6), database)
@@ -54,9 +62,10 @@ describe('Schwächen sammeln und beheben', () => {
     expect((await getWeaknesses(at(6), database))[0].count).toBe(3)
     // im Training schon
     await rateCard('item:item_1', true, at(6, 15), database, { weak: true })
+    // nie gelernte Karte: „nicht gewusst“ im Training kommt nicht dazu (bleibt bei dem einen Fehler aus Hero erraten)
     await rateCard('hero:hero_haze', false, at(6, 15), database, { weak: true })
     weak = await getWeaknesses(at(6), database)
-    expect(weak.map(w => [w.cardId, w.count])).toEqual([['hero:hero_haze', 2]])
+    expect(weak.map(w => [w.cardId, w.count])).toEqual([['hero:hero_haze', 1]])
     expect((await database.days.get('2026-11-06'))?.weak).toEqual(['item:item_1', 'hero:hero_haze'])
   })
 

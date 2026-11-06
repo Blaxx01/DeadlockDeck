@@ -14,7 +14,9 @@ import {
   type DeckId, type LearnDeck,
 } from '../decks'
 import { currentNav, pushNav, type NavState, type View } from '../nav'
-import { afterRating, buildDeckQueue, buildMixedQueue, isInLearnScope, localDate, rateCard, type DeckQueueInput } from '../srs/srs'
+import {
+  afterRating, buildDeckQueue, buildMixedQueue, introduceCard, isInLearnScope, localDate, needsIntro, rateCard, type DeckQueueInput,
+} from '../srs/srs'
 import { checkAnswer } from '../srs/typing'
 import { AnswerInput, TypedResult, type TypedAnswer } from '../components/AnswerInput'
 import { ReverseFront, ReverseImage } from '../components/ReverseCards'
@@ -236,6 +238,10 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
   const [achieved, setAchieved] = useState<SoulsGain[]>([])
   /** Eingetippte Antwort zur aktuellen Karte (Antwort eintippen) */
   const [typed, setTyped] = useState<TypedAnswer | null>(null)
+  /** Neue Karten, die erst kennengelernt werden (umdrehen, lesen, „Weiter“) – danach kommt ihre erste Abfrage */
+  const [introIds, setIntroIds] = useState<ReadonlySet<string>>(new Set())
+  /** Zuletzt kennengelernte Karte war die letzte: ihre Abfrage kommt beim nächsten Mal */
+  const [deferredIntro, setDeferredIntro] = useState(0)
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
   // Detailseite eines Items (aus dem Build-Pfad) über der Session – als Verlaufseintrag,
@@ -315,6 +321,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       if (cancelled) return
       setSettings(s)
       setCards(new Map(entries.map(e => [e.id, e])))
+      setIntroIds(new Set(s.introNew ? q.filter(id => needsIntro(id, reviews.get(id))) : []))
       setQueue(q)
     })()
     return () => { cancelled = true }
@@ -325,7 +332,8 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
 
   // Antwort eintippen (Items, Counter – je Deck in den Einstellungen): Vorschlag für die Bewertung
   const allItemNames = useMemo(() => (allItems ?? []).map(i => i.name), [allItems])
-  const typing = !!current?.answers?.names.length && !current.reverse && !!settings?.typeAnswers.includes(deckOfCardId(current.id))
+  const isIntro = !!current && introIds.has(current.id)
+  const typing = !isIntro && !!current?.answers?.names.length && !current.reverse && !!settings?.typeAnswers.includes(deckOfCardId(current.id))
   const suggestion = typed ? typed.correct : null
   const submitAnswer = useCallback((text: string) => {
     if (!current?.answers) return
@@ -362,7 +370,26 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
     }
   }, [current, busy, queue, weakIds])
 
-  // Tastatur: Leertaste/Enter = umdrehen, ←/→ = bewerten, Esc = beenden
+  /** Kennenlernen fertig („Weiter“): zählt, die erste Abfrage kommt nach ein paar anderen Karten (wie „nicht gewusst“) */
+  const handleIntro = useCallback(async () => {
+    if (!current || busy) return
+    setBusy(true)
+    try {
+      await introduceCard(current.id)
+      setIntroIds(ids => new Set([...ids].filter(id => id !== current.id)))
+      const next = afterRating(queue, current.id, false)
+      setQueue(next.queue)
+      if (next.deferred) setDeferredIntro(d => d + 1)
+      setRated(r => (r.includes(current.id) ? r : [...r, current.id]))
+      setFlipped(false)
+      setTyped(null)
+      setTurn(t => t + 1)
+    } finally {
+      setBusy(false)
+    }
+  }, [current, busy, queue])
+
+  // Tastatur: Leertaste/Enter = umdrehen, ←/→ = bewerten (Kennenlernen: weiter), Esc = beenden
   const hasCard = !!current
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -380,15 +407,17 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       if (!hasCard) return
       // Andere Buttons (z. B. ✕) behalten ihr normales Enter/Leertaste-Verhalten
       const onOtherButton = e.target instanceof HTMLButtonElement && !e.target.classList.contains('rate')
+      // Kennenlernen: umgedreht heißt jede dieser Tasten „Weiter“
+      if (isIntro && flipped && ['Enter', ' ', 'ArrowRight', 'ArrowLeft'].includes(e.key) && !onOtherButton) { e.preventDefault(); cardRef.current?.swipe(true) }
       // Nach dem Eintippen: Enter bestätigt den Vorschlag
-      if (e.key === 'Enter' && flipped && suggestion !== null && !onOtherButton) { e.preventDefault(); cardRef.current?.swipe(suggestion) }
+      else if (e.key === 'Enter' && flipped && suggestion !== null && !onOtherButton) { e.preventDefault(); cardRef.current?.swipe(suggestion) }
       else if ((e.key === ' ' || e.key === 'Enter') && !onOtherButton) { e.preventDefault(); setFlipped(f => !f) }
       else if (flipped && e.key === 'ArrowRight') cardRef.current?.swipe(true)
       else if (flipped && e.key === 'ArrowLeft') cardRef.current?.swipe(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flipped, onExit, hasCard, detailId, closeDetail, noteId, closeNote, suggestion])
+  }, [flipped, onExit, hasCard, detailId, closeDetail, noteId, closeNote, suggestion, isIntro])
 
   if (!cards || !settings) return <div className="center muted">Lade…</div>
 
@@ -408,6 +437,12 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
 
       {current ? (
         <>
+          {isIntro && (
+            <p className="intro-note" role="status">
+              <span className="intro-tag">Neue Karte</span>
+              {flipped ? 'Lies dir alles durch – ein paar Karten später wird sie abgefragt.' : 'Erst kennenlernen: antippen zum Umdrehen.'}
+            </p>
+          )}
           <FlashCard
             key={`${current.id}-${turn}`}
             front={(
@@ -431,17 +466,24 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
             )}
             flipped={flipped}
             onFlip={() => setFlipped(f => !f)}
-            onRate={handleRate}
+            onRate={isIntro ? () => void handleIntro() : handleRate}
+            intro={isIntro}
             ref={cardRef}
             slotClass={current.frontClass}
             frontStyle={current.frontStyle}
           />
-          <div className={`rate-row${flipped ? '' : ' hidden'}`}>
-            <button className={`rate unknown${suggestion === false ? ' suggested' : ''}`} disabled={!flipped || busy}
-              onClick={() => cardRef.current?.swipe(false)}>← Nicht gewusst</button>
-            <button className={`rate known${suggestion === true ? ' suggested' : ''}`} disabled={!flipped || busy}
-              onClick={() => cardRef.current?.swipe(true)}>Gewusst →</button>
-          </div>
+          {isIntro ? (
+            <div className={`rate-row${flipped ? '' : ' hidden'}`}>
+              <button className="rate next" disabled={!flipped || busy} onClick={() => cardRef.current?.swipe(true)}>Weiter →</button>
+            </div>
+          ) : (
+            <div className={`rate-row${flipped ? '' : ' hidden'}`}>
+              <button className={`rate unknown${suggestion === false ? ' suggested' : ''}`} disabled={!flipped || busy}
+                onClick={() => cardRef.current?.swipe(false)}>← Nicht gewusst</button>
+              <button className={`rate known${suggestion === true ? ' suggested' : ''}`} disabled={!flipped || busy}
+                onClick={() => cardRef.current?.swipe(true)}>Gewusst →</button>
+            </div>
+          )}
         </>
       ) : (
         <div className="done">
@@ -454,6 +496,9 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
           )}
           {deferred > 0 && !weakIds && (
             <p className="muted small">Die nicht gewusste Karte kommt in ein paar Minuten wieder – schau dann nochmal rein.</p>
+          )}
+          {deferredIntro > 0 && (
+            <p className="muted small">Die zuletzt kennengelernte Karte wird beim nächsten Mal abgefragt.</p>
           )}
           {reviewedToday >= settings.dailyGoal && <p className="good">Tagesziel erreicht.</p>}
           <MilestoneSummary gains={achieved} />

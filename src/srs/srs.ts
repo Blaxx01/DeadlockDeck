@@ -137,6 +137,46 @@ export interface RateOptions {
   weak?: boolean
 }
 
+/**
+ * Zählt eine Karte für heute (in einer Transaktion über days und souls): Tagesziel und +10 Souls einmal je Karte und
+ * Tag, neue Karten fürs Neu-Limit ihres Decks (`isNew`: es gab noch keinen Lernstand). Speichert den Tag nicht.
+ */
+async function countCardTodayInTx(database: DeckDB, id: string, now: Date, isNew: boolean): Promise<{ day: DayRecord; gain?: SoulsGain }> {
+  const date = localDate(now)
+  const day: DayRecord = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
+  let gain: SoulsGain | undefined
+  // Dieselbe Karte mehrfach bewerten (z. B. immer wieder „nicht gewusst“) zählt nicht mehrfach
+  const cards = day.cards ?? []
+  if (!cards.includes(id)) {
+    cards.push(id)
+    day.reviewed += 1
+    // +10 Souls je Karte und Tag – gewusst oder nicht (ehrliches Bewerten soll sich lohnen)
+    gain = await addCardSoulsInTx(database, now)
+  }
+  day.cards = cards
+  if (isNew) {
+    // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
+    const byDeck = day.newByDeck ?? { items: day.newIntroduced }
+    const deck = deckOfCardId(id)
+    if (isReverseId(id)) {
+      // Rückrichtung: eigenes Limit
+      const reverse = { ...(day.newReverseByDeck ?? {}) }
+      reverse[deck] = (reverse[deck] ?? 0) + 1
+      day.newReverseByDeck = reverse
+    } else {
+      byDeck[deck] = (byDeck[deck] ?? 0) + 1
+    }
+    day.newByDeck = byDeck
+    day.newIntroduced += 1
+  }
+  return { day, gain }
+}
+
+/** Hat die Karte die Lernphase schon einmal geschafft? (Dann ist „nicht gewusst“ echtes Vergessen.) */
+export function hasGraduated(review?: Pick<ReviewRecord, 'state'>): boolean {
+  return review?.state === State.Review || review?.state === State.Relearning
+}
+
 /** Speichert eine Bewertung (Swipe) und zählt die Karte fürs Tagesziel – jede Karte nur einmal pro Tag. */
 export async function rateCard(id: string, known: boolean, now = new Date(), database: DeckDB = db, options: RateOptions = {}): Promise<RateResult> {
   let gain: SoulsGain | undefined
@@ -146,44 +186,23 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
     const wasNew = !existing || existing.state === State.New
     const base: Card = existing ?? createEmptyCard(now)
     const updated = nextCard(base, known, now)
-    // Nur die FSRS-Felder übernehmen – eine Vormerkung ist mit der Bewertung erledigt
+    // Nur die FSRS-Felder übernehmen – Vormerkung und Kennenlernen sind mit der Bewertung erledigt
     const record: ReviewRecord = { ...updated, id }
     delete record.requested
+    delete record.introduced
     await database.reviews.put(record)
 
-    const date = localDate(now)
-    const day: DayRecord = (await database.days.get(date)) ?? { date, reviewed: 0, newIntroduced: 0 }
-    // Dieselbe Karte mehrfach bewerten (z. B. immer wieder „nicht gewusst“) zählt nicht mehrfach
-    const cards = day.cards ?? []
-    if (!cards.includes(id)) {
-      cards.push(id)
-      day.reviewed += 1
-      // +10 Souls je Karte und Tag – gewusst oder nicht (ehrliches Bewerten soll sich lohnen)
-      gain = await addCardSoulsInTx(database, now)
-    }
-    day.cards = cards
-    // Schwächen: „nicht gewusst“ zählt als Fehler; „gewusst“ im Training behebt die Schwäche
-    if (!known) await logMistakeInTx(database, id, 'learn', now)
+    const counted = await countCardTodayInTx(database, id, now, !existing)
+    const day = counted.day
+    gain = counted.gain
+    // Schwächen: „nicht gewusst“ zählt erst, wenn die Karte die Lernphase einmal geschafft hat – Vergessen kurz nach
+    // dem Kennenlernen ist normal; „gewusst“ im Training behebt die Schwäche
+    if (!known && hasGraduated(existing)) await logMistakeInTx(database, id, 'learn', now)
     if (options.weak) {
       if (known) await resolveWeaknessInTx(database, id)
       const weak = day.weak ?? []
       if (!weak.includes(id)) weak.push(id)
       day.weak = weak
-    }
-    if (!existing) {
-      // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
-      const byDeck = day.newByDeck ?? { items: day.newIntroduced }
-      const deck = deckOfCardId(id)
-      if (isReverseId(id)) {
-        // Rückrichtung: eigenes Limit
-        const reverse = { ...(day.newReverseByDeck ?? {}) }
-        reverse[deck] = (reverse[deck] ?? 0) + 1
-        day.newReverseByDeck = reverse
-      } else {
-        byDeck[deck] = (byDeck[deck] ?? 0) + 1
-      }
-      day.newByDeck = byDeck
-      day.newIntroduced += 1
     }
     await database.days.put(day)
     return { wasNew, due: updated.due }
@@ -193,6 +212,31 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
   const milestones = await checkCardMilestones([id], now, database)
   await checkDailyBonuses(now, database)
   return { ...result, milestones }
+}
+
+/** Braucht die Karte das Kennenlernen? Neue normale Karte (noch nie bewertet und noch nicht kennengelernt) */
+export function needsIntro(id: string, review?: Pick<ReviewRecord, 'state' | 'introduced'>): boolean {
+  return !isReverseId(id) && (!review || (review.state === State.New && !review.introduced))
+}
+
+/**
+ * Kennenlernen einer neuen Karte (umgedreht, gelesen, „Weiter“) – noch keine Bewertung fürs Lernsystem.
+ * Zählt fürs Tagesziel (+10 Souls) und das Neu-Limit wie eine bewertete Karte; die Karte ist danach fällig,
+ * damit die erste Abfrage auch nach einem Abbruch kommt. Schon bewertete Karten bleiben unverändert.
+ */
+export async function introduceCard(id: string, now = new Date(), database: DeckDB = db): Promise<void> {
+  let gain: SoulsGain | undefined
+  await database.transaction('rw', [database.reviews, database.days, database.souls, database.meta], async () => {
+    const existing = await database.reviews.get(id)
+    if (existing && existing.state !== State.New) return
+    // eine Vormerkung bleibt bis zur Abfrage (sie hält die Karte in der Session, auch bei ausgeblendeter Kategorie)
+    await database.reviews.put({ ...(existing ?? createEmptyCard(now)), id, due: now, introduced: true })
+    const counted = await countCardTodayInTx(database, id, now, !existing)
+    gain = counted.gain
+    await database.days.put(counted.day)
+  })
+  if (gain) announceGain(gain)
+  await checkDailyBonuses(now, database)
 }
 
 /** Alle 7 Streak-Tage gibt es einen Streak-Schutz, höchstens 2 */
@@ -269,6 +313,7 @@ export interface LearnState {
 
 /** Lernstand einer Karte für die Anzeige. */
 export function describeLearnState(review: ReviewRecord | undefined, now = new Date()): LearnState {
+  if (review?.introduced && review.state === State.New) return { label: 'Kennengelernt', detail: 'die erste Abfrage kommt in der nächsten Lern-Session' }
   if (review?.requested) return { label: 'Vorgemerkt', detail: 'kommt in der nächsten Lern-Session dran' }
   if (!review || review.state === State.New) return { label: 'Neu', detail: 'noch nicht gelernt' }
   const reps = `${review.reps}× wiederholt`

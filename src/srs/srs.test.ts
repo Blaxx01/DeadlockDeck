@@ -1,11 +1,11 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { State } from 'ts-fsrs'
+import { createEmptyCard, State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
 import { baseCardId, deckOfCardId, isReverseId, newIntroducedToday, reverseId, reverseIdsFor, reverseIntroducedToday } from '../decks'
 import {
   afterRating, buildDeckQueue, buildMixedQueue, buildQueue, interleave, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate,
-  rateCard, requestLearn, requeue,
+  introduceCard, needsIntro, rateCard, requestLearn, requeue,
 } from './srs'
 
 const now = new Date('2026-11-05T12:00:00')
@@ -197,6 +197,49 @@ describe('rateCard', () => {
     const stored = await database.reviews.get('item:b')
     expect(stored?.state).toBe(State.Review)
     expect(stored!.due.getTime() - now.getTime()).toBeGreaterThan(3 * 86400_000)
+  })
+})
+
+describe('Kennenlernen', () => {
+  it('neue Karte: gesehen, noch nicht bewertet – zählt Tagesziel, Souls und Neu-Limit einmal, die Abfrage nicht noch einmal', async () => {
+    const database = new DeckDB(`intro-${Math.random()}`)
+    await introduceCard('item:a', now, database)
+    let review = await database.reviews.get('item:a')
+    expect(review).toMatchObject({ id: 'item:a', state: State.New, introduced: true, due: now })
+    let day = await database.days.get('2026-11-05')
+    expect(day).toMatchObject({ reviewed: 1, newIntroduced: 1, cards: ['item:a'], newByDeck: { items: 1 } })
+    expect((await database.souls.toArray()).map(e => [e.reason, e.amount])).toEqual([['card', 10]])
+
+    // nochmal kennenlernen ändert nichts
+    await introduceCard('item:a', now, database)
+    expect((await database.days.get('2026-11-05'))?.reviewed).toBe(1)
+
+    // erste Abfrage: jetzt bewertet das Lernsystem; gezählt wird nicht noch einmal
+    const later = new Date(now.getTime() + 3 * 60_000)
+    const result = await rateCard('item:a', true, later, database)
+    expect(result.wasNew).toBe(true)
+    review = await database.reviews.get('item:a')
+    expect(review?.state).toBe(State.Learning)
+    expect(review?.introduced).toBeUndefined()
+    day = await database.days.get('2026-11-05')
+    expect(day).toMatchObject({ reviewed: 1, newIntroduced: 1, newByDeck: { items: 1 } })
+    expect(await database.souls.count()).toBe(1)
+    // schon bewertete Karten lernt man nicht noch einmal kennen
+    await introduceCard('item:a', later, database)
+    expect((await database.reviews.get('item:a'))?.state).toBe(State.Learning)
+  })
+
+  it('wer braucht das Kennenlernen: neue normale Karten (auch vorgemerkte), keine Rückrichtung, keine bewerteten', () => {
+    expect(needsIntro('item:a', undefined)).toBe(true)
+    expect(needsIntro('item:a', { state: State.New })).toBe(true)
+    expect(needsIntro('item:a', { state: State.New, introduced: true })).toBe(false)
+    expect(needsIntro('item:a', { state: State.Learning })).toBe(false)
+    expect(needsIntro('item:a~r', undefined)).toBe(false)
+  })
+
+  it('Lernstand-Text: „Kennengelernt“ bis zur ersten Abfrage', () => {
+    const review = { ...createEmptyCard(now), id: 'item:a', introduced: true }
+    expect(describeLearnState(review, now).label).toBe('Kennengelernt')
   })
 })
 

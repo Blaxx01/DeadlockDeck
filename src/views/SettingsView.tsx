@@ -161,6 +161,13 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
           <input type="number" min={0} max={200} value={settings.newPerDay}
             onChange={e => update({ newPerDay: Math.max(0, Number(e.target.value) || 0) })} />
         </label>
+        <label className="field toggle-field">
+          <span>
+            Neue Karten erst kennenlernen<br />
+            <span className="muted small">Beim ersten Mal umdrehen, lesen, „Weiter“ – ein paar Karten später die erste Abfrage</span>
+          </span>
+          <input type="checkbox" checked={settings.introNew} onChange={e => void update({ introNew: e.target.checked })} />
+        </label>
         <div className="field">
           <span>Item-Kategorien</span>
           <div className="chips">
