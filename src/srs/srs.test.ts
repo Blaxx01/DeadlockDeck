@@ -2,8 +2,11 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { State } from 'ts-fsrs'
 import { DeckDB } from '../data/db'
-import { deckOfCardId, newIntroducedToday } from '../decks'
-import { afterRating, buildQueue, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate, rateCard, requestLearn, requeue } from './srs'
+import { baseCardId, deckOfCardId, isReverseId, newIntroducedToday, reverseId, reverseIdsFor, reverseIntroducedToday } from '../decks'
+import {
+  afterRating, buildDeckQueue, buildQueue, computeStreak, computeStreakState, describeLearnState, formatRelative, isInLearnScope, localDate,
+  rateCard, requestLearn, requeue,
+} from './srs'
 
 const now = new Date('2026-11-05T12:00:00')
 const past = new Date('2026-11-04T12:00:00')
@@ -27,6 +30,46 @@ describe('buildQueue', () => {
 
   it('ignoriert negative Limits', () => {
     expect(buildQueue({ cards, reviews, now, newLimit: -3 })).toEqual(['e', 'd'])
+  })
+})
+
+describe('Rückrichtung', () => {
+  it('eigene ID, gleiches Deck; erst wenn die Vorwärts-Karte die Lernphase geschafft hat', () => {
+    expect(reverseId('item:x')).toBe('item:x~r')
+    expect([isReverseId('item:x~r'), isReverseId('item:x')]).toEqual([true, false])
+    expect(baseCardId('hero:hero_haze~r')).toBe('hero:hero_haze')
+    expect(deckOfCardId('ability:ability_a~r')).toBe('abilities')
+    const reviews = new Map([
+      ['item:a', { state: State.Review }], ['item:b', { state: State.New }], ['item:c', { state: State.Learning }],
+      ['item:e', { state: State.Relearning }],
+    ])
+    // direkt nach der ersten Bewertung (Lernphase) noch nicht
+    expect(reverseIdsFor('items', ['item:a', 'item:b', 'item:c', 'item:d', 'item:e'], reviews)).toEqual(['item:a~r', 'item:e~r'])
+    // Counter haben keine Rückrichtung
+    expect(reverseIdsFor('counters', ['counter:x'], new Map([['counter:x', { state: State.Review }]]))).toEqual([])
+  })
+
+  it('Session: alle fälligen zuerst, dann neue, dann neue Rückrichtung – je mit eigenem Limit', () => {
+    const cards = [{ id: 'a', order: 1 }, { id: 'b', order: 2 }, { id: 'n1', order: 3 }, { id: 'n2', order: 4 }]
+    const reverse = [{ id: 'a~r', order: 1 }, { id: 'b~r', order: 2 }]
+    const reviews = new Map([
+      ['a', { due: past }], ['b', { due: future }], ['b~r', { due: new Date('2026-11-05T08:00:00') }],
+    ])
+    expect(buildDeckQueue({ cards, reverse, reviews, now, newLimit: 1, reverseLimit: 5, rng: () => 0.5 })).toEqual(['a', 'b~r', 'n1', 'a~r'])
+    expect(buildDeckQueue({ cards, reverse, reviews, now, newLimit: 2, reverseLimit: 0, rng: () => 0.5 })).toEqual(['a', 'b~r', 'n1', 'n2'])
+  })
+
+  it('neue Rückrichtungs-Karten zählen nicht gegen das normale Neu-Limit', async () => {
+    const database = new DeckDB(`rev-${Math.random()}`)
+    await rateCard('item:a~r', true, now, database)
+    await rateCard('item:b', true, now, database)
+    await rateCard('hero:hero_haze~r', false, now, database)
+    const day = (await database.days.get(localDate(now)))!
+    expect(newIntroducedToday(day, 'items')).toBe(1)
+    expect(reverseIntroducedToday(day, 'items')).toBe(1)
+    expect(reverseIntroducedToday(day, 'heroes')).toBe(1)
+    expect(newIntroducedToday(day, 'heroes')).toBe(0)
+    expect(day).toMatchObject({ reviewed: 3, newIntroduced: 3 })
   })
 })
 

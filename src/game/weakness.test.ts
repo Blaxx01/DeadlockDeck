@@ -140,3 +140,16 @@ describe('Hartnäckige Karten', () => {
     expect(weak[0]).toMatchObject({ cardId: 'item:item_14', leech: 17, count: 0 })
   })
 })
+
+describe('Schwächen und Rückrichtung', () => {
+  it('Fehler auf Rückrichtungs-Karten zählen, mit eigenem Namen', async () => {
+    const database = await setup()
+    await logMistake('item:item_2~r', 'learn', at(6), database)
+    await logMistake('item:nope~r', 'learn', at(6), database)
+    const weak = await getWeaknesses(at(6), database)
+    expect(weak.map(w => w.cardId)).toEqual(['item:item_2~r'])
+    const cards = await describeCards(['item:item_2~r', 'item:item_2'], database)
+    expect(cards.get('item:item_2~r')).toMatchObject({ label: 'Item 2 (Rückrichtung)', kind: 'Item' })
+    expect(cards.get('item:item_2')?.label).toBe('Item 2')
+  })
+})

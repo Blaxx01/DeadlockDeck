@@ -1,19 +1,24 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { db } from '../data/db'
+import { baseCardId } from '../decks'
 import { NOTE_MAX_LENGTH, saveNote } from '../game/notes'
 import { LEECH_LAPSES } from '../game/weakness'
 
-/** Merkhilfe der Karte und wie oft sie nach dem Lernen vergessen wurde (live) */
+/**
+ * Merkhilfe der Karte und wie oft sie nach dem Lernen vergessen wurde (live). Die Merkhilfe gehört zur
+ * Vorwärts-Karte und gilt für beide Richtungen; „vergessen“ zählt je Karte.
+ */
 function useNoteState(cardId: string) {
   return useLiveQuery(async () => {
-    const [note, review] = await Promise.all([db.notes.get(cardId), db.reviews.get(cardId)])
+    const [note, review] = await Promise.all([db.notes.get(baseCardId(cardId)), db.reviews.get(cardId)])
     return { text: note?.text ?? '', lapses: review?.lapses ?? 0 }
   }, [cardId])
 }
 
 /** Eingabe einer Merkhilfe: Speichern, Löschen, Abbrechen (Esc), Strg+Enter speichert */
 export function NoteForm({ cardId, initial, onDone }: { cardId: string; initial: string; onDone: () => void }) {
+  const noteId = baseCardId(cardId)
   const [text, setText] = useState(initial)
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
@@ -24,12 +29,12 @@ export function NoteForm({ cardId, initial, onDone }: { cardId: string; initial:
   }, [])
 
   async function save() {
-    await saveNote(cardId, text)
+    await saveNote(noteId, text)
     onDone()
   }
 
   async function remove() {
-    await saveNote(cardId, '')
+    await saveNote(noteId, '')
     onDone()
   }
 

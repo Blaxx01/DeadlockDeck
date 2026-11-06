@@ -9,9 +9,15 @@ import { PatchBadge, PatchNote } from '../components/PatchNote'
 import { db, getSettings, type ReviewRecord, type Settings } from '../data/db'
 import type { AbilityCard, CounterCard, HeroCard, ItemCard } from '../data/model'
 import { newCardOrder, showPatchOnCard, type PatchRecord } from '../data/patches'
-import { newIntroducedToday, type DeckId } from '../decks'
+import {
+  baseCardId, deckOfCardId, isReverseId, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseId, reverseIdsFor, reverseIntroducedToday,
+  type DeckId,
+} from '../decks'
 import { currentNav, pushNav, type NavState, type View } from '../nav'
-import { afterRating, buildQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import { afterRating, buildDeckQueue, isInLearnScope, localDate, rateCard } from '../srs/srs'
+import { checkAnswer } from '../srs/typing'
+import { AnswerInput, TypedResult, type TypedAnswer } from '../components/AnswerInput'
+import { ReverseFront, ReverseImage } from '../components/ReverseCards'
 import { getItemPurchases, itemNewOrder, purchaseRanks } from '../data/popularity'
 import type { SoulsGain } from '../game/souls'
 import { MilestoneSummary } from '../components/MilestoneSummary'
@@ -43,15 +49,35 @@ interface LearnEntry {
   patch?: PatchRecord
   /** Name der Karte (Titel beim Bearbeiten der Merkhilfe) */
   label?: string
+  /** Rückrichtung: vorne der Name */
+  reverse?: boolean
+  /** Antwort eintippen: richtige Namen (Item: der Name, Counter: die Top 3) mit Item-IDs */
+  answers?: { ids: string[]; names: string[] }
+  /** Vorderseite mit Eingabefeld statt „Tippen zum Umdrehen“ */
+  renderFront?: (answer: ReactNode) => ReactNode
+  /** Rückseite mit markiertem eingetipptem Item (Counter) */
+  renderBack?: (highlight?: string) => ReactNode
 }
 
+type ItemClick = (name: string) => void
+
 /** onItemClick: Build-Pfad-Namen antippbar → Detailseite über der Session */
-function itemEntry(card: ItemCard, onItemClick?: (name: string) => void, ranks: ReadonlyMap<string, number> = new Map()): LearnEntry {
+function itemEntry(card: ItemCard, onItemClick?: ItemClick, ranks: ReadonlyMap<string, number> = new Map()): LearnEntry {
   return {
     // neue Karten: meistgekauft zuerst (ohne Statistik nach Tier)
     id: card.id, label: card.name, order: itemNewOrder(card, ranks), image: card.image, frontClass: `slot-bg-${card.slot}`,
     front: <ItemFront card={card} />,
     back: <ItemBack card={card} onItemClick={onItemClick} />,
+    answers: { ids: [card.id], names: [card.name] },
+    renderFront: answer => <ItemFront card={card} answer={answer} />,
+  }
+}
+
+function itemReverseEntry(card: ItemCard, onItemClick?: ItemClick, order = 0): LearnEntry {
+  return {
+    id: reverseId(card.id), label: `${card.name} (Rückrichtung)`, order, image: card.image, reverse: true,
+    front: <ReverseFront name={card.name} question="Wie sieht das Item aus, was macht es?" />,
+    back: <><ReverseImage src={card.image} kind="item" /><ItemBack card={card} onItemClick={onItemClick} /></>,
   }
 }
 
@@ -62,6 +88,14 @@ function abilityEntry(card: AbilityCard): LearnEntry {
   }
 }
 
+function abilityReverseEntry(card: AbilityCard): LearnEntry {
+  return {
+    id: reverseId(card.id), label: `${card.name} (Rückrichtung)`, order: card.order, image: card.image, reverse: true,
+    front: <ReverseFront name={card.name} question="Wessen Fähigkeit ist das, was macht sie?" />,
+    back: <><ReverseImage src={card.image} kind="ability" /><AbilityBack card={card} /></>,
+  }
+}
+
 function heroEntry(card: HeroCard): LearnEntry {
   return {
     id: card.id, label: card.name, order: card.order, image: card.image,
@@ -69,30 +103,63 @@ function heroEntry(card: HeroCard): LearnEntry {
   }
 }
 
+function heroReverseEntry(card: HeroCard): LearnEntry {
+  return {
+    id: reverseId(card.id), label: `${card.name} (Rückrichtung)`, order: card.order, image: card.image, reverse: true,
+    front: <ReverseFront name={card.name} question={`Wie sieht ${card.name} aus, welche Fähigkeiten?`} />,
+    back: <><ReverseImage src={card.image} kind="hero" /><HeroBack card={card} /></>,
+  }
+}
+
 /** onItemClick: Counter-Items antippbar → Detailseite über der Session */
-function counterEntry(card: CounterCard, items: ReadonlyMap<string, ItemCard>, onItemClick?: (name: string) => void): LearnEntry {
+function counterEntry(card: CounterCard, items: ReadonlyMap<string, ItemCard>, onItemClick?: ItemClick): LearnEntry {
+  const top = card.top.map(t => items.get(t.itemId)).filter((i): i is ItemCard => !!i)
   return {
     id: card.id, label: `Counter gegen ${card.heroName}`, order: card.order, image: card.image, frontStyle: heroGlow(card.color),
     front: <CounterFront card={card} />,
     back: <CounterBack card={card} items={items} onItemClick={onItemClick} />,
+    answers: { ids: top.map(i => i.id), names: top.map(i => i.name) },
+    renderFront: answer => <CounterFront card={card} answer={answer} />,
+    renderBack: highlight => <CounterBack card={card} items={items} onItemClick={onItemClick} highlight={highlight} />,
   }
 }
 
-async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
-  if (deck === 'abilities') return (await db.abilities.toArray()).map(abilityEntry)
-  if (deck === 'heroes') return (await db.heroes.toArray()).map(heroEntry)
+interface DeckEntries {
+  normal: LearnEntry[]
+  /** Rückrichtung zu schon gelernten Karten */
+  reverse: LearnEntry[]
+}
+
+async function deckEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: ItemClick): Promise<DeckEntries> {
+  const reversible = (ids: string[]) => new Set(reverseIdsFor(deck, ids, reviews))
+  if (deck === 'abilities') {
+    const cards = await db.abilities.toArray()
+    const rev = reversible(cards.map(c => c.id))
+    return { normal: cards.map(abilityEntry), reverse: cards.filter(c => rev.has(reverseId(c.id))).map(abilityReverseEntry) }
+  }
+  if (deck === 'heroes') {
+    const cards = await db.heroes.toArray()
+    const rev = reversible(cards.map(c => c.id))
+    return { normal: cards.map(heroEntry), reverse: cards.filter(c => rev.has(reverseId(c.id))).map(heroReverseEntry) }
+  }
   const items = await db.items.toArray()
   if (deck === 'counters') {
     const byId = new Map(items.map(i => [i.id, i]))
-    return (await db.counters.toArray()).map(c => counterEntry(c, byId, onItemClick))
+    return { normal: (await db.counters.toArray()).map(c => counterEntry(c, byId, onItemClick)), reverse: [] }
   }
   const ranks = purchaseRanks(await getItemPurchases())
-  return items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id))).map(i => itemEntry(i, onItemClick, ranks))
+  const inScope = items.filter(i => isInLearnScope(settings.slots.includes(i.slot), reviews.get(i.id)))
+  const rev = reversible(inScope.map(i => i.id))
+  return {
+    normal: inScope.map(i => itemEntry(i, onItemClick, ranks)),
+    reverse: inScope.filter(i => rev.has(reverseId(i.id))).map(i => itemReverseEntry(i, onItemClick, itemNewOrder(i, ranks))),
+  }
 }
 
-/** Bestimmte Karten aus allen Decks (Schwächen-Training), in der gegebenen Reihenfolge */
-async function entriesForIds(ids: readonly string[], onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
-  const of = (prefix: string) => ids.filter(id => id.startsWith(`${prefix}:`))
+/** Bestimmte Karten aus allen Decks, auch Rückrichtung (Schwächen-Training), in der gegebenen Reihenfolge */
+async function entriesForIds(ids: readonly string[], onItemClick?: ItemClick): Promise<LearnEntry[]> {
+  const bases = ids.map(baseCardId)
+  const of = (prefix: string) => bases.filter(id => id.startsWith(`${prefix}:`))
   const [items, abilities, heroes, counters] = await Promise.all([
     db.items.toArray(),
     db.abilities.bulkGet(of('ability')),
@@ -100,34 +167,43 @@ async function entriesForIds(ids: readonly string[], onItemClick?: (name: string
     db.counters.bulkGet(of('counter')),
   ])
   const itemsById = new Map(items.map(i => [i.id, i]))
-  const byId = new Map<string, LearnEntry>()
-  for (const id of of('item')) {
-    const card = itemsById.get(id)
-    if (card) byId.set(id, itemEntry(card, onItemClick))
+  const abilityById = new Map(abilities.filter(c => c !== undefined).map(c => [c.id, c]))
+  const heroById = new Map(heroes.filter(c => c !== undefined).map(c => [c.id, c]))
+  const counterById = new Map(counters.filter(c => c !== undefined).map(c => [c.id, c]))
+  const entryFor = (id: string): LearnEntry | undefined => {
+    const base = baseCardId(id)
+    const rev = isReverseId(id)
+    const item = itemsById.get(base)
+    if (item) return rev ? itemReverseEntry(item, onItemClick) : itemEntry(item, onItemClick)
+    const ability = abilityById.get(base)
+    if (ability) return rev ? abilityReverseEntry(ability) : abilityEntry(ability)
+    const hero = heroById.get(base)
+    if (hero) return rev ? heroReverseEntry(hero) : heroEntry(hero)
+    const counter = counterById.get(base)
+    return counter && !rev ? counterEntry(counter, itemsById, onItemClick) : undefined
   }
-  for (const c of abilities) if (c) byId.set(c.id, abilityEntry(c))
-  for (const c of heroes) if (c) byId.set(c.id, heroEntry(c))
-  for (const c of counters) if (c) byId.set(c.id, counterEntry(c, itemsById, onItemClick))
-  return ids.map(id => byId.get(id)).filter((e): e is LearnEntry => !!e)
+  return ids.map(entryFor).filter((e): e is LearnEntry => !!e)
 }
 
-async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: (name: string) => void): Promise<LearnEntry[]> {
-  return withPatches(await deckEntries(deck, settings, reviews, onItemClick), reviews)
+async function loadEntries(deck: DeckId, settings: Settings, reviews: Map<string, ReviewRecord>, onItemClick?: ItemClick): Promise<DeckEntries> {
+  const { normal, reverse } = await deckEntries(deck, settings, reviews, onItemClick)
+  return { normal: await withPatches(normal, reviews), reverse: await withPatches(reverse, reviews) }
 }
 
-/** Patch-Hinweise an die Karten hängen; neue Karten aus einem Patch kommen zuerst */
+/** Patch-Hinweise an die Karten hängen (Rückrichtung: die der Vorwärts-Karte); neue Karten aus einem Patch kommen zuerst */
 async function withPatches(entries: LearnEntry[], reviews: Map<string, ReviewRecord>): Promise<LearnEntry[]> {
   const patches = new Map((await db.patches.toArray()).map(p => [p.id, p]))
   const now = Date.now()
   return entries.map(e => {
-    const patch = patches.get(e.id)
+    const patch = patches.get(baseCardId(e.id))
     // Neue Karten aus einem Patch vor den übrigen neuen; Badge nur, solange es gilt
     const order = newCardOrder(e.order, patch)
     return showPatchOnCard(patch, reviews.get(e.id)?.last_review, now) ? { ...e, order, patch } : { ...e, order }
   })
 }
 
-function ItemFront({ card }: { card: ItemCard }) {
+/** `answer`: Eingabefeld (Antwort eintippen) statt „Tippen zum Umdrehen“ */
+function ItemFront({ card, answer }: { card: ItemCard; answer?: ReactNode }) {
   const [failed, setFailed] = useState(false)
   return (
     <div className="front-content">
@@ -136,7 +212,7 @@ function ItemFront({ card }: { card: ItemCard }) {
       ) : (
         <div className="img-missing">Bild nicht verfügbar<br /><small>(offline noch nicht geladen)</small></div>
       )}
-      <p className="hint">Tippen zum Umdrehen</p>
+      {answer ?? <p className="hint">Tippen zum Umdrehen</p>}
     </div>
   )
 }
@@ -157,6 +233,8 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
   const [resolved, setResolved] = useState<string[]>([])
   /** Meilensteine der Session (Silber, Gold, Hero-Sterne) */
   const [achieved, setAchieved] = useState<SoulsGain[]>([])
+  /** Eingetippte Antwort zur aktuellen Karte (Antwort eintippen) */
+  const [typed, setTyped] = useState<TypedAnswer | null>(null)
   const today = useLiveQuery(() => db.days.get(localDate()), [])
 
   // Detailseite eines Items (aus dem Build-Pfad) über der Session – als Verlaufseintrag,
@@ -214,10 +292,13 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
         entries = await withPatches(await entriesForIds(weakIds, onItemClick), reviews)
         q = entries.map(e => e.id)
       } else {
-        entries = await loadEntries(deck, s, reviews, onItemClick)
+        const { normal, reverse } = await loadEntries(deck, s, reviews, onItemClick)
+        entries = [...normal, ...reverse]
         const day = await db.days.get(localDate())
         const newLimit = extraNew > 0 ? extraNew : s.newPerDay - newIntroducedToday(day, deck)
-        q = buildQueue({ cards: entries, reviews, now: new Date(), newLimit })
+        // Rückrichtung: eigenes Limit (bei „+10 neue“ nur normale Karten)
+        const reverseLimit = extraNew > 0 ? 0 : REVERSE_NEW_PER_DAY - reverseIntroducedToday(day, deck)
+        q = buildDeckQueue({ cards: normal, reverse, reviews, now: new Date(), newLimit, reverseLimit })
       }
       if (cancelled) return
       setSettings(s)
@@ -229,6 +310,21 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
 
   const current = cards && queue.length ? cards.get(queue[0]) : undefined
   const next = cards && queue.length > 1 ? cards.get(queue[1]) : undefined
+
+  // Antwort eintippen (Items, Counter – je Deck in den Einstellungen): Vorschlag für die Bewertung
+  const allItemNames = useMemo(() => (allItems ?? []).map(i => i.name), [allItems])
+  const typing = !!current?.answers?.names.length && !current.reverse && !!settings?.typeAnswers.includes(deckOfCardId(current.id))
+  const suggestion = typed ? typed.correct : null
+  const submitAnswer = useCallback((text: string) => {
+    if (!current?.answers) return
+    const { correct, match } = checkAnswer(text, current.answers.names, allItemNames)
+    setTyped({ text, correct, matched: match !== undefined ? current.answers.names[match] : undefined, matchedId: match !== undefined ? current.answers.ids[match] : undefined })
+    setFlipped(true)
+  }, [current, allItemNames])
+  const giveUp = useCallback(() => {
+    setTyped({ text: '', correct: false })
+    setFlipped(true)
+  }, [])
 
   // Nächstes Bild vorladen
   useEffect(() => {
@@ -247,6 +343,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       if (next.deferred) setDeferred(d => d + 1)
       setRated(r => (r.includes(current.id) ? r : [...r, current.id]))
       setFlipped(false)
+      setTyped(null)
       setTurn(t => t + 1)
     } finally {
       setBusy(false)
@@ -271,13 +368,15 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       if (!hasCard) return
       // Andere Buttons (z. B. ✕) behalten ihr normales Enter/Leertaste-Verhalten
       const onOtherButton = e.target instanceof HTMLButtonElement && !e.target.classList.contains('rate')
-      if ((e.key === ' ' || e.key === 'Enter') && !onOtherButton) { e.preventDefault(); setFlipped(f => !f) }
+      // Nach dem Eintippen: Enter bestätigt den Vorschlag
+      if (e.key === 'Enter' && flipped && suggestion !== null && !onOtherButton) { e.preventDefault(); cardRef.current?.swipe(suggestion) }
+      else if ((e.key === ' ' || e.key === 'Enter') && !onOtherButton) { e.preventDefault(); setFlipped(f => !f) }
       else if (flipped && e.key === 'ArrowRight') cardRef.current?.swipe(true)
       else if (flipped && e.key === 'ArrowLeft') cardRef.current?.swipe(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flipped, onExit, hasCard, detailId, closeDetail, noteId, closeNote])
+  }, [flipped, onExit, hasCard, detailId, closeDetail, noteId, closeNote, suggestion])
 
   if (!cards || !settings) return <div className="center muted">Lade…</div>
 
@@ -299,13 +398,23 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
         <>
           <FlashCard
             key={`${current.id}-${turn}`}
-            front={<>{current.patch && <PatchBadge patch={current.patch} />}{current.front}</>}
+            front={(
+              <>
+                {current.patch && <PatchBadge patch={current.patch} />}
+                {typing && current.renderFront
+                  ? current.renderFront(typed
+                    ? <p className="typed-echo">{typed.text ? `Du: „${typed.text.trim()}“` : 'Weiß nicht'}</p>
+                    : <AnswerInput placeholder={current.answers!.names.length > 1 ? 'Ein Top-Counter-Item' : 'Name des Items'} onSubmit={submitAnswer} onGiveUp={giveUp} />)
+                  : current.front}
+              </>
+            )}
             back={(
               <>
+                {typed && current.answers && <TypedResult typed={typed} answers={current.answers.names} />}
                 {current.patch && <PatchNote patch={current.patch} />}
-                <CardNote cardId={current.id} onEdit={() => openNote(current.id)} />
-                {current.back}
-                <NoteButton cardId={current.id} onEdit={() => openNote(current.id)} />
+                <CardNote cardId={current.id} onEdit={() => openNote(baseCardId(current.id))} />
+                {typed?.matchedId && current.renderBack ? current.renderBack(typed.matchedId) : current.back}
+                <NoteButton cardId={current.id} onEdit={() => openNote(baseCardId(current.id))} />
               </>
             )}
             flipped={flipped}
@@ -316,8 +425,10 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
             frontStyle={current.frontStyle}
           />
           <div className={`rate-row${flipped ? '' : ' hidden'}`}>
-            <button className="rate unknown" disabled={!flipped || busy} onClick={() => cardRef.current?.swipe(false)}>← Nicht gewusst</button>
-            <button className="rate known" disabled={!flipped || busy} onClick={() => cardRef.current?.swipe(true)}>Gewusst →</button>
+            <button className={`rate unknown${suggestion === false ? ' suggested' : ''}`} disabled={!flipped || busy}
+              onClick={() => cardRef.current?.swipe(false)}>← Nicht gewusst</button>
+            <button className={`rate known${suggestion === true ? ' suggested' : ''}`} disabled={!flipped || busy}
+              onClick={() => cardRef.current?.swipe(true)}>Gewusst →</button>
           </div>
         </>
       ) : (
@@ -341,7 +452,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       {detail && allItems && (
         <ItemDetail key={detail.id} card={detail} cards={allItems} onBack={closeDetail} onOpen={openItem} backLabel="Lernsession" />
       )}
-      {noteId && <NoteSheet cardId={noteId} title={cards.get(noteId)?.label} onClose={closeNote} />}
+      {noteId && <NoteSheet cardId={noteId} title={(cards.get(noteId) ?? cards.get(reverseId(noteId)))?.label} onClose={closeNote} />}
     </div>
   )
 }

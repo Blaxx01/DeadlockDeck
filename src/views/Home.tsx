@@ -4,9 +4,9 @@ import { State } from 'ts-fsrs'
 import { RankBadge } from '../components/RankBadge'
 import {
   db, getBuildBests, getGuessHighscore, getMeta, getQuizHighscore, getSettings, getSprintHighscores, getSurvivalHighscore, setMeta,
-  type LastPatch, type ReviewRecord,
+  type DayRecord, type LastPatch, type ReviewRecord,
 } from '../data/db'
-import { DECKS, newIntroducedToday, type DeckId } from '../decks'
+import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
@@ -58,6 +58,19 @@ interface DeckStats {
   learned: number
   /** Text, solange das Deck noch keine Karten hat */
   emptyText: string
+}
+
+/** Rückrichtung: fällige und heute noch mögliche neue Karten (eigenes Limit) */
+function countReverse(deck: DeckId, ids: string[], reviews: Map<string, ReviewRecord>, now: number, today: DayRecord | undefined) {
+  const reverse = reverseIdsFor(deck, ids, reviews)
+  let due = 0
+  let fresh = 0
+  for (const id of reverse) {
+    const r = reviews.get(id)
+    if (!r) fresh++
+    else if (r.due.getTime() <= now) due++
+  }
+  return { due, newLeft: Math.max(0, Math.min(fresh, REVERSE_NEW_PER_DAY - reverseIntroducedToday(today, deck))) }
 }
 
 function countDeck(ids: string[], reviews: Map<string, ReviewRecord>, now: number, newAllowed: number): Omit<DeckStats, 'id' | 'label' | 'emptyText'> {
@@ -220,12 +233,15 @@ function useHomeStats() {
     const now = Date.now()
     const days = await db.days.toArray()
     const today = days.find(d => d.date === localDate())
-    const decks: DeckStats[] = DECKS.map(d => ({
-      id: d.id,
-      label: d.label,
-      emptyText: emptyText(d.id),
-      ...countDeck(ids[d.id], reviews, now, settings.newPerDay - newIntroducedToday(today, d.id)),
-    }))
+    const decks: DeckStats[] = DECKS.map(d => {
+      const normal = countDeck(ids[d.id], reviews, now, settings.newPerDay - newIntroducedToday(today, d.id))
+      // Rückrichtung zählt bei „fällig“ und „neu“ mit (gelernt: nur die normalen Karten)
+      const reverse = countReverse(d.id, ids[d.id], reviews, now, today)
+      return {
+        id: d.id, label: d.label, emptyText: emptyText(d.id),
+        ...normal, due: normal.due + reverse.due, newLeft: normal.newLeft + reverse.newLeft,
+      }
+    })
     return {
       settings,
       decks,

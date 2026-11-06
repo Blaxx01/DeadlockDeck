@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBackup, downloadBackup, parseBackup, restoreBackup } from '../data/backup'
 import { db, getSettings, saveSettings, setMeta, type Settings } from '../data/db'
+import { deckLabel, type DeckId } from '../decks'
 import { resetMilestonesInTx } from '../game/milestones'
 import { setEffectsEnabled } from '../game/effects'
 import { GUESS_KIND_LABEL, GUESS_KINDS, QUIZ_KIND_LABEL, QUIZ_KINDS, SLOT_LABEL, type GuessKind, type QuizKind, type SlotType } from '../data/model'
@@ -13,6 +14,8 @@ interface Props {
 }
 
 const SLOTS: SlotType[] = ['weapon', 'vitality', 'spirit']
+/** Decks, bei denen man die Antwort eintippen kann */
+const TYPE_DECKS: DeckId[] = ['items', 'counters']
 
 export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -64,6 +67,12 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
     }
   }
 
+  function toggleTyping(deck: DeckId) {
+    if (!settings) return
+    const on = settings.typeAnswers.includes(deck)
+    update({ typeAnswers: on ? settings.typeAnswers.filter(d => d !== deck) : [...settings.typeAnswers, deck] })
+  }
+
   async function resetProgress() {
     if (!confirm('Gesamten Lernfortschritt löschen? Das kann nicht rückgängig gemacht werden (außer mit einem Backup).')) return
     await db.transaction('rw', [db.reviews, db.days, db.souls, db.meta, db.mistakes], async () => {
@@ -112,6 +121,21 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
             ))}
           </div>
         </div>
+        <div className="field">
+          <span>Antwort eintippen</span>
+          <div className="chips">
+            {TYPE_DECKS.map(deck => (
+              <button key={deck} className={`chip toggle${settings.typeAnswers.includes(deck) ? ' on' : ''}`}
+                onClick={() => toggleTyping(deck)} aria-pressed={settings.typeAnswers.includes(deck)}>
+                {deckLabel(deck)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="muted small">
+          Statt nur umzudrehen tippst du den Namen ein (bei Counter eins der Top-3-Items) – kleine Tippfehler und ein
+          eindeutiger Anfang zählen. Danach ist „Gewusst“ bzw. „Nicht gewusst“ vorgewählt.
+        </p>
       </div>
 
       <div className="panel">

@@ -137,3 +137,13 @@ describe('Meilensteine beim Start nachträglich gutschreiben', () => {
     expect(await lastActiveDate(database)).toBe('2026-11-01')
   })
 })
+
+describe('Meilensteine der Rückrichtung', () => {
+  it('Souls für Silber/Gold, aber keine Hero-Sterne', async () => {
+    const database = await setup()
+    await database.reviews.put(review('hero:hero_haze~r', 30))
+    const gains = await checkCardMilestones(['hero:hero_haze~r'], at(6), database)
+    expect(gains.map(g => [g.reason, g.amount])).toEqual([['milestone', 25]])
+    expect(await getMeta('heroStars', {}, database)).toEqual({})
+  })
+})

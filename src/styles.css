@@ -791,3 +791,33 @@ button.link {
 /* Auf der Kartenrückseite außerhalb von .back-content → eigener Abstand */
 .face.back > .card-note { margin: 16px 16px 0; }
 .face.back > .note-add { margin: 0 auto 22px; }
+
+/* ---------- Eintippen & Rückrichtung (Lernen vertiefen, Etappe C) ---------- */
+.reverse-front { gap: 14px; text-align: center; }
+.reverse-tag {
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 99px; padding: 3px 10px;
+}
+.reverse-name { font-size: 1.9rem; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.reverse-question { margin: 0; color: var(--muted); }
+.reverse-image { display: grid; place-items: center; margin: 16px 16px 0; padding: 12px; border-radius: 14px; background: var(--panel-2); }
+.reverse-image img { max-width: 120px; max-height: 120px; object-fit: contain; }
+.reverse-image.kind-hero { padding: 0; overflow: hidden; }
+.reverse-image.kind-hero img { max-width: none; max-height: 200px; width: auto; }
+.answer-form { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+.answer-form input {
+  width: 100%; font: inherit; font-size: 1.05rem; color: var(--text); padding: 11px 14px; text-align: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.answer-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.answer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.answer-actions button { padding: 10px; }
+.typed-echo { margin: 0; color: var(--muted); }
+.typed-result { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); }
+.face.back > .typed-result { margin: 16px 16px 0; }
+.good-box { border-color: color-mix(in srgb, var(--good) 55%, var(--line)); background: color-mix(in srgb, var(--good) 12%, var(--panel-2)); }
+.good-box b { color: var(--good); }
+.bad-box { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 10%, var(--panel-2)); }
+.bad-box b { color: color-mix(in srgb, var(--bad) 70%, var(--text)); }
+.rate.suggested { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor; font-weight: 800; }
+.counter-list li.typed { outline: 2px solid color-mix(in srgb, var(--good) 70%, transparent); outline-offset: 4px; border-radius: 10px; }

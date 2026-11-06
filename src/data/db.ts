@@ -27,6 +27,8 @@ export interface DayRecord {
   newByDeck?: Partial<Record<DeckId, number>>
   /** Heute im Schwächen-Training bewertete Karten (für die Mission) */
   weak?: string[]
+  /** Neue Rückrichtungs-Karten je Deck (eigenes Limit, zählen nicht gegen newByDeck) */
+  newReverseByDeck?: Partial<Record<DeckId, number>>
 }
 
 /** Eigene Merkhilfe zu einer Karte */
@@ -54,6 +56,8 @@ export interface Settings {
   guessKinds: GuessKind[]
   /** Animationen und Vibration (Souls, Aufstieg, Fehler) */
   effects: boolean
+  /** Decks, bei denen man die Antwort eintippt (Items, Counter) */
+  typeAnswers: DeckId[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -63,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quizKinds: [...QUIZ_KINDS],
   guessKinds: [...GUESS_KINDS],
   effects: true,
+  typeAnswers: [],
 }
 
 export class DeckDB extends Dexie {

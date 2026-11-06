@@ -6,6 +6,7 @@
 import { addDays, localDate } from '../data/dates'
 import { db, type DeckDB, type ReviewRecord } from '../data/db'
 import { atLeast, masteryOf, type Mastery } from './mastery'
+import { baseCardId, isReverseId } from '../decks'
 
 export type MistakeSource = 'learn' | 'quiz' | 'guess' | 'build' | 'sprint' | 'survival'
 
@@ -91,13 +92,13 @@ export function rankWeaknesses(entries: readonly MistakeEntry[], since: string):
 
 const CARD_TABLES = { item: 'items', ability: 'abilities', hero: 'heroes', counter: 'counters' } as const
 
-/** Welche der Karten gibt es (noch)? */
+/** Welche der Karten gibt es (noch)? Rückrichtung: wenn es die Vorwärts-Karte gibt */
 async function existingCardIds(ids: readonly string[], database: DeckDB): Promise<Set<string>> {
   const found = new Set<string>()
   for (const [prefix, table] of Object.entries(CARD_TABLES)) {
     const wanted = ids.filter(id => id.startsWith(`${prefix}:`))
     if (!wanted.length) continue
-    const rows = await database.table(table).bulkGet(wanted)
+    const rows = await database.table(table).bulkGet(wanted.map(baseCardId))
     rows.forEach((row, i) => { if (row) found.add(wanted[i]) })
   }
   return found
@@ -152,8 +153,18 @@ export interface CardInfo {
   kind: string
 }
 
-/** Name und Bild einer Karte für die Übersicht */
+/** Name und Bild einer Karte für die Übersicht (Rückrichtung: „Name (Rückrichtung)“) */
 export async function describeCards(ids: readonly string[], database: DeckDB = db): Promise<Map<string, CardInfo>> {
+  const base = await describeBaseCards([...new Set(ids.map(baseCardId))], database)
+  const out = new Map<string, CardInfo>()
+  for (const id of ids) {
+    const info = base.get(baseCardId(id))
+    if (info) out.set(id, isReverseId(id) ? { ...info, label: `${info.label} (Rückrichtung)` } : info)
+  }
+  return out
+}
+
+async function describeBaseCards(ids: readonly string[], database: DeckDB): Promise<Map<string, CardInfo>> {
   const out = new Map<string, CardInfo>()
   const of = (prefix: string) => ids.filter(id => id.startsWith(`${prefix}:`))
   const [items, abilities, heroes, counters] = await Promise.all([

@@ -5,7 +5,7 @@ import { MasteryBar, MasteryLegend } from '../components/Mastery'
 import { SoulsChart } from '../components/SoulsChart'
 import { localDate, parseLocalDate } from '../data/dates'
 import { db, getSettings } from '../data/db'
-import { DECKS, type DeckId } from '../decks'
+import { DECKS, reverseId, type DeckId } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { atLeast, countMastery, MASTERY_MEDAL, masteryText } from '../game/mastery'
 import { describeCards, getLeeches, LEECH_LAPSES } from '../game/weakness'
@@ -46,7 +46,12 @@ async function loadStats() {
     totals: learningTotals(days, goal),
     weeks: calendarWeeks(days, goal, today, streak.protectedDays),
     series: soulsSeries(entries, today),
-    decks: DECKS.map(d => ({ ...d, counts: countMastery(ids[d.id], reviews) })),
+    decks: DECKS.map(d => ({
+      ...d,
+      counts: countMastery(ids[d.id], reviews),
+      // Rückrichtung: gelernte Karten (zählen nicht fürs Sammelalbum)
+      reverseLearned: countMastery(ids[d.id].map(reverseId), reviews).learned,
+    })),
     stars: heroes.reduce((sum, m) => sum + m.stars.length, 0),
     maxStars: heroes.length * MAX_STARS,
     leeches,
@@ -131,6 +136,7 @@ export function Stats({ onBack, onHeroes }: Props) {
               <span className="deck-name">{d.label}</span>
               <span className="small">
                 <b>{fmt(d.counts.learned)}</b>/{fmt(d.counts.total)} gelernt · <b>{fmt(d.counts.gold)}</b> gemeistert
+                {d.reverseLearned > 0 && <> · <b>{fmt(d.reverseLearned)}</b> rückwärts</>}
               </span>
             </div>
             <MasteryBar counts={d.counts} />

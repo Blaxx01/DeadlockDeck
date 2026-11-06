@@ -292,13 +292,18 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
   Umdrehen“ ein Eingabefeld
   - kleine Tippfehler und ein eindeutiger Anfang (ab 4 Buchstaben) zählen als richtig; keine Vorschlagsliste
   - Counter: eins der Top-3-Items reicht; die Rückseite markiert es
-  - nach dem Umdrehen ist „Gewusst“ bzw. „Nicht gewusst“ vorgewählt – ein Tipp bestätigt, umentscheiden geht
+  - nach dem Umdrehen ist „Gewusst“ bzw. „Nicht gewusst“ vorgewählt – ein Tipp (oder Enter) bestätigt, umentscheiden
+    geht; „Weiß nicht“ dreht ohne Eingabe um; oben auf der Rückseite steht das Ergebnis („✓ Richtig“ bzw. „Du: … ·
+    richtig: …“)
 - **Rückrichtung** bei Items, Fähigkeiten und Heroes: vorne nur der Name („Was macht Headhunter?“), hinten Bild
   und Wirkung
-  - eigene Karten mit eigenem Wiederholungsplan, erst wenn die normale Karte gelernt ist
+  - eigene Karten mit eigenem Wiederholungsplan, erst wenn die normale Karte gelernt ist (die Lernphase einmal
+    geschafft hat – nicht schon direkt nach der ersten Bewertung)
   - zusätzlich bis zu **5 neue Rückrichtungs-Karten** pro Tag und Deck (das normale Neu-Limit bleibt)
   - Sammelalbum und Sterne zählen nur die normale Karte; die Rückrichtung bringt Souls (auch Meilensteine),
-    zählt fürs Tagesziel und in der Statistik
+    zählt fürs Tagesziel und in der Statistik („n rückwärts“ je Deck)
+  - Startseite: fällige und neue Rückrichtungs-Karten zählen bei „fällig“ und „neu“ mit; die Merkhilfe gilt für
+    beide Richtungen; ein Patch macht auch die Rückrichtung gelernter Karten fällig
 
 ## Daten & Fortschritt
 - Fortschritt, Einstellungen, Highscores, Build-Quiz-Bestwerte, Souls-Verlauf, Meilensteine und Screenshots: lokal in IndexedDB
@@ -322,7 +327,7 @@ Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalte
 11. Lernen vertiefen in 3 Etappen:
     1. ✅ Neue Quiz-Fragen (Upgrades, Item-Effekte), Items nach Beliebtheit
     2. ✅ Hartnäckige Karten, Merkhilfen
-    3. Eintippen, Rückrichtung
+    3. ✅ Eintippen, Rückrichtung
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

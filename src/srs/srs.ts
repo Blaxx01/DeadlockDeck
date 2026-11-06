@@ -4,7 +4,7 @@ import { addCardSoulsInTx, announceGain, type SoulsGain } from '../game/souls'
 import { checkCardMilestones } from '../game/milestones'
 import { checkDailyBonuses } from '../game/missions'
 import { logMistakeInTx, resolveWeaknessInTx } from '../game/weakness'
-import { deckOfCardId } from '../decks'
+import { deckOfCardId, isReverseId } from '../decks'
 import { addDays, localDate } from '../data/dates'
 
 export const scheduler = fsrs({ enable_fuzz: true, request_retention: 0.9 })
@@ -39,6 +39,27 @@ export function buildQueue({ cards, reviews, now, newLimit, rng = Math.random }:
     .map(c => c.id)
 
   return [...due, ...fresh]
+}
+
+export interface DeckQueueInput {
+  /** Vorwärts-Karten des Decks */
+  cards: { id: string; order: number }[]
+  /** Rückrichtungs-Karten, die es schon geben kann (Vorwärts-Karte gelernt) */
+  reverse: { id: string; order: number }[]
+  reviews: Map<string, Pick<ReviewRecord, 'due'>>
+  now: Date
+  newLimit: number
+  /** Neue Rückrichtungs-Karten (eigenes Limit) */
+  reverseLimit: number
+  rng?: () => number
+}
+
+/** Lernsession eines Decks: alle fälligen (beide Richtungen, älteste zuerst), dann neue, dann neue Rückrichtung */
+export function buildDeckQueue({ cards, reverse, reviews, now, newLimit, reverseLimit, rng = Math.random }: DeckQueueInput): string[] {
+  const due = buildQueue({ cards: [...cards, ...reverse], reviews, now, newLimit: 0, rng })
+  const fresh = (list: { id: string; order: number }[], limit: number) =>
+    buildQueue({ cards: list, reviews, now, newLimit: limit, rng }).filter(id => !reviews.has(id))
+  return [...due, ...fresh(cards, newLimit), ...fresh(reverse, reverseLimit)]
 }
 
 /** Wie viele Karten nach einem "nicht gewusst" dazwischen liegen, bevor sie wiederkommt. */
@@ -116,7 +137,14 @@ export async function rateCard(id: string, known: boolean, now = new Date(), dat
       // Tage von vor den Hero-Decks: bisherige neue Karten waren alle Items
       const byDeck = day.newByDeck ?? { items: day.newIntroduced }
       const deck = deckOfCardId(id)
-      byDeck[deck] = (byDeck[deck] ?? 0) + 1
+      if (isReverseId(id)) {
+        // Rückrichtung: eigenes Limit
+        const reverse = { ...(day.newReverseByDeck ?? {}) }
+        reverse[deck] = (reverse[deck] ?? 0) + 1
+        day.newReverseByDeck = reverse
+      } else {
+        byDeck[deck] = (byDeck[deck] ?? 0) + 1
+      }
       day.newByDeck = byDeck
       day.newIntroduced += 1
     }

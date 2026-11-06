@@ -1,13 +1,15 @@
+import type { ReactNode } from 'react'
 import { COUNTER_MIN_RANK, effectSummary, formatFactor } from '../data/counters'
 import type { CounterCard, ItemCard } from '../data/model'
 import { CardImage } from './CardParts'
 
-export function CounterFront({ card }: { card: CounterCard }) {
+/** `answer`: Eingabefeld (Antwort eintippen) statt „Tippen zum Umdrehen“ */
+export function CounterFront({ card, answer }: { card: CounterCard; answer?: ReactNode }) {
   return (
     <div className="front-content">
       <CardImage src={card.image} alt={card.heroName} className="hero-portrait" />
       <p className="counter-question">Was kaufst du gegen <b>{card.heroName}</b>?</p>
-      <p className="hint">Tippen zum Umdrehen</p>
+      {answer ?? <p className="hint">Tippen zum Umdrehen</p>}
     </div>
   )
 }
@@ -18,9 +20,11 @@ interface BackProps {
   items: ReadonlyMap<string, ItemCard>
   /** Item-Namen antippbar → Detailseite */
   onItemClick?: (name: string) => void
+  /** Eingetipptes Item (Antwort eintippen) – wird markiert */
+  highlight?: string
 }
 
-export function CounterBack({ card, items, onItemClick }: BackProps) {
+export function CounterBack({ card, items, onItemClick, highlight }: BackProps) {
   const top = card.top
     .map(c => ({ ...c, item: items.get(c.itemId) }))
     .filter((c): c is typeof c & { item: ItemCard } => !!c.item)
@@ -38,7 +42,7 @@ export function CounterBack({ card, items, onItemClick }: BackProps) {
         {top.map(({ item, factor }) => {
           const summary = effectSummary(item)
           return (
-            <li key={item.id}>
+            <li key={item.id} className={item.id === highlight ? 'typed' : undefined}>
               <span className={`counter-icon slot-bg-${item.slot}`}>
                 {item.image && <img src={item.image} alt="" draggable={false} />}
               </span>

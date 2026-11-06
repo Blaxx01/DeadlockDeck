@@ -1,4 +1,5 @@
 import { State } from 'ts-fsrs'
+import { reverseId } from '../decks'
 import type { ApiGenericData, ApiHero, ApiItem } from './apiTypes'
 import { db, getMeta, setMeta, type DeckDB, type LastPatch } from './db'
 import { buildHeroDecks } from './heroes'
@@ -87,9 +88,12 @@ export async function syncItems(database: DeckDB = db): Promise<SyncResult> {
       // Schon gelernte, geänderte Karten kommen sofort wieder dran (Lernverlauf bleibt)
       for (const r of records) {
         if (r.kind !== 'changed') continue
-        const review = await database.reviews.get(r.id)
-        if (review && review.state !== State.New && review.due.getTime() > now) {
-          await database.reviews.put({ ...review, due: new Date(now) })
+        // beide Richtungen
+        for (const id of [r.id, reverseId(r.id)]) {
+          const review = await database.reviews.get(id)
+          if (review && review.state !== State.New && review.due.getTime() > now) {
+            await database.reviews.put({ ...review, due: new Date(now) })
+          }
         }
       }
       const added = records.filter(r => r.kind === 'added')
