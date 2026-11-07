@@ -1,77 +1,106 @@
-# DeadlockDeck
+<p align="center">
+  <img src="docs/readme/banner.webp" alt="DeadlockDeck – Deadlock lernen wie Vokabeln: Items, Heroes, Counter und die Map" width="100%">
+</p>
 
-Karteikarten-App fürs Handy zum Lernen der **Deadlock**-Items, auch offline unterwegs.
-Vier Kartendecks: **Items** (vorne Bild, hinten Kosten, Tier, Stats, Effekt, Cooldown, Build-Pfad),
-**Fähigkeiten** (Ability-Icon → Hero, Effekt, Upgrades mit AP-Kosten), **Heroes** (Porträt → Rolle, Fähigkeiten, Werte)
-und **Counter** (Hero → die 3 Items, die Spieler ab Orakel gegen ihn am deutlichsten öfter kaufen, mit Kauf-Faktor –
-Statistik der API, wöchentlich aktualisiert).
-Gelernt wird mit Spaced Repetition (FSRS): **Antippen** dreht die Karte um, **Swipe rechts** = gewusst, **Swipe links** = nicht gewusst.
-Neue Karten lernt man erst **kennen** (umdrehen, lesen, „Weiter“); drei Karten später kommt die erste echte Abfrage.
-„Nicht gewusst“ zählt erst als Schwäche, wenn eine Karte die Lernphase schon einmal geschafft hat.
-Neue Item-Karten kommen **meistgekauft zuerst** (Kaufstatistik ab Orakel). Gelernte Items, Fähigkeiten und Heroes
-kommen auch in **Rückrichtung** (Name → Bild und Wirkung); bei Items und Counter kann man die **Antwort eintippen**
-(Tippfehler werden toleriert). **Alles lernen** fasst alle Decks in einer Session zusammen (fällige zuerst, dann die
-neuen abwechselnd aus den Decks).
-Items im Build-Pfad sind antippbar und öffnen die Detailseite aus dem Shop; **Zurück** führt wieder in die Lernsession.
+<p align="center">
+  <a href="https://blaxx01.github.io/DeadlockDeck/"><img src="docs/readme/app-oeffnen.webp" alt="App öffnen" height="64"></a>
+</p>
 
-Dazu gibt es ein **Quiz** mit Runden à 10 Fragen (Bild → Name, Effekt → Item, Cooldown/Kosten/Tier, Build-Pfad, Counter,
-Fähigkeiten-Upgrades „Was macht das 5-AP-Upgrade?“, Item-Effekte „Welches Item hat …?“ / „Wer gibt am meisten?“),
-Punkten mit Zeitbonus und Highscore, einen **Shop** zum Nachschlagen – aufgebaut wie ingame, mit Suche,
-Detailseiten (inkl. Broker-Variante) und „Jetzt lernen“ –, **Hero erraten**: Silhouette, Zoom-Ausschnitt,
-unscharf → scharf oder an einer Fähigkeit, mit Aufdecken, Joker und Highscore – und das **Build-Quiz**: alle Items
-eines Hero-Builds (typischer Build aus den Kaufdaten oder meistgespielter Community-Build) Icon für Icon benennen,
-mit Bestwert je Hero und „Fehler-Items lernen“. Für Tempo sorgen der **60-Sekunden-Sprint** (Items, Fähigkeiten und
-Heroes am Bild erkennen, falsch kostet 3 Sekunden, Highscore je Auswahl) und **Überleben** (3 Leben, alle
-Quiz-Fragetypen gemischt, die Zeit pro Frage wird immer knapper). Gefragt wird **Gelerntes zuerst**: Quiz, Überleben,
-Sprint und Hero erraten nehmen erst Karten, die man schon gelernt hat, und füllen bei Bedarf mit neuen auf (als „Neu“
-markiert, Fehler zählen dort nicht als Schwäche) – einstellbar auf „Nur Gelerntes“ oder „Alles“.
+<p align="center">
+  Karteikarten-App fürs Handy, mit der du <b>Deadlock</b> lernst wie Vokabeln: was jedes Item kostet und kann, welche
+  Fähigkeiten ein Hero hat, was gegen ihn hilft und wo auf der Map was ist.<br>
+  Kostenlos, ohne Konto, auf Deutsch – und nach dem ersten Start auch offline.
+</p>
 
-Für **Map-Wissen** gibt es die **Map** zum Nachschlagen (Minimap aus der API mit Lanes, Guardians, Walkern, Patron,
-Mid Boss, Camps, Vaults, Shops, Teleportern, Urne, Brücken-Buffs, Seilen, Sprungpads … – Ebenen ein/aus, Antippen
-zeigt Name und Erklärung, Lupe zum Vergrößern) und das **Map-Quiz**: „Wo ist …?“ (auf die Map tippen) und
-„Was ist hier?“ (markierte Stelle, 4 Antworten), mit Punkten, Highscore und Souls.
+## Karteikarten
 
-Fürs Dranbleiben gibt es **Souls & Rang**: jede Lern-Aktion bringt Souls (je Karte gleich viel, ob gewusst oder nicht),
-die Summe bestimmt den Rang mit den echten Deadlock-Abzeichen (Unwissender → Ewiger 6, rund ein halbes Jahr bei
-täglichem Lernen). Dazu **3 Tagesmissionen**, **Streak-Schutz** (alle 7 Tage einer) und ein leichter **Rang-Verfall**
-ab dem 6. Tag ohne Lernen. Die Tagesmissionen sind ein **Lane-Angriff**: Jeden Tag gibt es eine Lane (Gelb, Blau oder
-Grün) und einen Gegner (Hidden King oder Archmother); jede geschaffte Mission zerstört das vorderste Ziel – Guardian,
-Walker, dann den Patron –, bis dahin macht die Mission, die am weitesten ist, Schaden. Die Startseite zeigt die
-Lebensbalken (antippen öffnet die Lane auf der Map), Siege und Niederlagen stehen in der Statistik. **Schwächen üben** sammelt Fehler aus allen Modi (14 Tage) und trainiert die
-häufigsten gezielt – „gewusst“ im Training behebt die Schwäche. **Hartnäckige Karten** (4× vergessen) bleiben darin,
-bis sie wieder sitzen; zu jeder Karte lässt sich eine eigene **Merkhilfe** schreiben, die auf der Rückseite erscheint. Was wirklich sitzt, zeigt das **Sammelalbum** im Shop
-(Rahmen Bronze/Silber/Gold je nach Abstand bis zur nächsten Wiederholung), die **Hero-Meisterschaft** (5 Sterne je Hero:
-Hero-, Fähigkeiten- und Counter-Karte, Build-Quiz ohne Fehler, Hero erraten ohne Hilfe) und die **Statistik** mit
-Kalender der Lerntage, Souls-Verlauf und Karten je Deck. Neue Silber- und Gold-Karten und neue Sterne bringen
-**Meilenstein-Souls**.
+<p align="center">
+  <img src="docs/readme/karte.webp" alt="Rückseite einer Item-Karte: Abklingzeit, Werte, Effekt und Build-Pfad" width="260">
+  <img src="docs/readme/karte-wischen.webp" alt="Animation: Karte antippen, Rückseite lesen, nach rechts wischen" width="260">
+  <img src="docs/readme/album.webp" alt="Shop als Sammelalbum: Items mit Bronze-, Silber- und Gold-Rahmen" width="260">
+</p>
 
-Nach einem **Spiel-Patch** erkennt die App beim nächsten Sync geänderte und neue Karten, zeigt „vorher → nachher“
-und holt schon gelernte geänderte Karten sofort in die Wiederholung.
+- **Vier Decks:** Items, Fähigkeiten, Heroes und Counter (die 3 Items, die Spieler gegen einen Hero am deutlichsten
+  öfter kaufen – aus der Statistik der Community-API)
+- **Antippen** dreht die Karte um, nach **rechts wischen** heißt gewusst, nach **links** nicht gewusst. Das Lernsystem
+  (FSRS) holt jede Karte wieder, kurz bevor du sie vergessen würdest
+- Neue Karten lernst du erst **kennen**, die Abfrage kommt ein paar Karten später
+- **Merkhilfen** auf der Rückseite, Rückrichtung (Name → Bild) und Antwort eintippen
+- Der **Shop** ist Nachschlagewerk und **Sammelalbum** zugleich: Bronze, Silber, Gold – je nachdem, wie fest eine
+  Karte sitzt
 
-Was geplant ist (Quiz, Hero-Decks, Hero-Erraten …): siehe [SPEC.md](SPEC.md).
+## Spielmodi
+
+<p align="center">
+  <img src="docs/readme/quiz.webp" alt="Quiz: Welches Item ist das? – richtig beantwortet" width="260">
+  <img src="docs/readme/hero-erraten.webp" alt="Hero erraten an der Silhouette" width="260">
+  <img src="docs/readme/sprint.webp" alt="60-Sekunden-Sprint: Item am Bild erkennen" width="260">
+</p>
+
+- **Quiz** in Runden à 10 Fragen: Bild → Name, Effekt → Item, Kosten und Abklingzeiten, Build-Pfad, Counter,
+  Fähigkeiten-Upgrades
+- **Hero erraten** an Silhouette, Ausschnitt, unscharfem Bild oder einer Fähigkeit – mit Aufdecken und Joker
+- **60-Sekunden-Sprint**, **Überleben** mit 3 Leben und das **Build-Quiz** (alle Items eines Hero-Builds benennen)
+- Gefragt wird zuerst, was du schon gelernt hast; Fehler sammelt **Schwächen üben** für gezieltes Training
+
+## Map
+
+<p align="center">
+  <img src="docs/readme/map.webp" alt="Map mit Ebenen und Legende, Teleporter hervorgehoben" width="260">
+  <img src="docs/readme/map-quiz.webp" alt="Map-Quiz „Wo ist …?“: richtig auf den Patron getippt" width="260">
+  <img src="docs/readme/map-quiz-was.webp" alt="Map-Quiz „Was ist hier?“ mit markierter Stelle und vier Antworten" width="260">
+</p>
+
+- Die **Map** zum Nachschlagen: Lanes, Guardians, Walker, Patron, Camps, Shops, Teleporter, Urne und mehr – in Ebenen,
+  antippen zeigt, was es ist
+- **Map-Quiz:** „Wo ist …?“ – auf die Map tippen – und „Was ist hier?“ mit vier Antworten
+
+## Fortschritt
+
+<p align="center">
+  <img src="docs/readme/start.webp" alt="Startseite: Rang, Streak, Tagesmissionen mit Lane-Angriff" width="260">
+  <img src="docs/readme/lane-sieg.webp" alt="Animation: Walker und Patron fallen, Sieg mit Konfetti" width="260">
+  <img src="docs/readme/statistik.webp" alt="Statistik: Kalender der Lerntage, Lane-Angriff, Souls-Verlauf" width="260">
+</p>
+
+- **Souls und Rang** mit den echten Deadlock-Abzeichen, dazu ein **Streak** mit Streak-Schutz
+- **3 Tagesmissionen als Lane-Angriff:** Jede geschaffte Mission zerstört ein Ziel – Guardian, Walker und am Ende den
+  Patron (Hidden King oder Archmother)
+- **Statistik** mit Kalender der Lerntage, Siegen und Niederlagen und Souls-Verlauf; **Hero-Meisterschaft** mit bis zu
+  5 Sternen je Hero
+
+Alle Funktionen und Entscheidungen im Detail: [SPEC.md](SPEC.md)
 
 ## Aufs Handy
 
-1. Die GitHub-Pages-URL im Handy-Browser öffnen (`https://<user>.github.io/DeadlockDeck/`)
-2. **Android/Chrome:** Menü → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“
+1. **[App öffnen](https://blaxx01.github.io/DeadlockDeck/)** im Handy-Browser
+2. **Android/Chrome:** Menü → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“<br>
    **iPhone/Safari:** Teilen → „Zum Home-Bildschirm“
-3. Einmal mit Internet öffnen. Die App lädt alle Items und Bilder, danach geht alles offline.
+3. Einmal mit Internet öffnen – die App lädt alle Daten und Bilder, danach geht alles offline
 
-Der Lernfortschritt liegt nur auf dem Gerät. Unter ⚙ → *Backup* lässt er sich sichern (auf dem Handy übers Teilen-Menü,
-z. B. in Drive) und wieder importieren; die Startseite erinnert alle zwei Wochen daran. Die App bittet den Browser
-außerdem um dauerhaften Speicher, damit er die Daten nicht bei Platzmangel löscht.
+Dein **Fortschritt bleibt auf dem Gerät** – kein Konto, keine Anmeldung. Unter ⚙ → *Backup* sicherst du ihn (auf dem
+Handy übers Teilen-Menü, z. B. in Drive) und spielst ihn auf einem neuen Gerät wieder ein; die Startseite erinnert
+alle zwei Wochen daran. Nach einem **Spiel-Patch** erkennt die App geänderte Karten und zeigt „vorher → nachher“.
 
 ## Entwicklung
 
+React und TypeScript mit Vite, IndexedDB über Dexie, Lernsystem FSRS (ts-fsrs), PWA mit vite-plugin-pwa.
+
 ```bash
 npm install
-npm run dev      # Dev-Server
-npm test         # Unit-Tests (Vitest)
-npm run lint     # oxlint
-npm run build    # Produktions-Build nach dist/
+npm run dev          # Dev-Server
+npm test             # Unit-Tests (Vitest)
+npm run lint         # oxlint
+npm run build        # Produktions-Build nach dist/
+npm run screenshots  # Bilder dieser README neu erzeugen (docs/readme/)
 ```
 
-Aufbau:
+`npm run screenshots` baut die App, lädt echte Daten aus der API, spielt einen erfundenen Lernstand ein und nimmt
+Screenshots und Animationen auf. Dafür braucht es Chromium für Playwright (einmalig `npx playwright install chromium`)
+und ffmpeg.
+
+<details>
+<summary><b>Aufbau</b> – welche Datei was macht</summary>
 
 | Pfad | Inhalt |
 |---|---|
@@ -113,8 +142,12 @@ Aufbau:
 | `src/shop/search.ts` | Shop-Aufbau und Suche (Name + Effekttext) |
 | `src/nav.ts` | Navigation über den Browser-Verlauf (Zurück-Geste) |
 | `src/components/FlashCard.tsx` | Karte mit Umdrehen + Swipe |
+| `scripts/screenshots.mjs` | Bilder dieser README: Demo-Stand, Screenshots, Animationen, Banner |
 
-## Deploy (GitHub Pages)
+</details>
+
+<details>
+<summary><b>Deploy</b> auf GitHub Pages</summary>
 
 Der Workflow `.github/workflows/deploy.yml` baut und veröffentlicht bei jedem Push auf `main`
 (oder manuell unter *Actions → Deploy to GitHub Pages → Run workflow*). Einmalig einrichten:
@@ -123,7 +156,10 @@ Der Workflow `.github/workflows/deploy.yml` baut und veröffentlicht bei jedem P
 2. *Settings → Pages → Source:* **GitHub Actions**
 3. `main` als Standard-Branch
 
-## Daten
+</details>
 
-Item-Daten, Bilder, die Counter-Statistik und die Builds kommen von der Community-API [deadlock-api.com](https://deadlock-api.com).
-Inoffizielles Fan-Projekt, nicht mit Valve verbunden.
+## Daten & Rechtliches
+
+Item-Daten, Bilder, Map, Counter-Statistik und Builds kommen von der Community-API
+[deadlock-api.com](https://deadlock-api.com). Inoffizielles Fan-Projekt, nicht mit Valve verbunden;
+Deadlock und alle Spielbilder © Valve.
