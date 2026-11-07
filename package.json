@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "screenshots": "vite build && node scripts/screenshots.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.7",
@@ -25,6 +26,7 @@
     "fake-indexeddb": "^6.2.7",
     "jsdom": "^31.0.0",
     "oxlint": "^1.91.0",
+    "playwright": "1.63.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0",
