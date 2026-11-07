@@ -178,9 +178,10 @@ function review(id, interval, ago, extra = {}) {
 /** Siege (W), Niederlagen (L) und Tage ohne Lernen (-) der letzten Tage beim Lane-Angriff, ältester zuerst */
 const LANE_DAYS = 'WWLWWWWWWLWW-WWLWWWWWWW'.split('')
 /** Tage ohne Lernen bzw. unter dem Tagesziel (Tage zurück) */
-const MISSED = new Set([47, 46, 33, 11])
-const LOW = new Set([39, 21, 7])
-const HISTORY_DAYS = 60
+const MISSED = new Set([97, 96, 83, 72, 71, 58, 47, 46, 33, 11])
+const LOW = new Set([88, 64, 39, 21, 7])
+/** 16 Wochen – füllt den Kalender der Statistik (20 Wochen) gut */
+const HISTORY_DAYS = 112
 const MISSION_IDS = ['learn-items', 'learn-abilities', 'learn-heroes', 'learn-counters', 'quiz-7', 'guess-600', 'sprint-15', 'map-7', 'survival-10']
 /** Missionen heute: Item-Karten (geschafft), Quiz (5 von 7), Map-Quiz (offen) */
 const TODAY_MISSIONS = ['learn-items', 'quiz-7', 'map-7']
@@ -412,14 +413,6 @@ async function takePictures({ browser, context, page, url, watch }) {
   shots.karte = await shot(page, 'karte')
   await page.keyboard.press('Escape')
 
-  await deckRow('Heroes').getByRole('button', { name: /^Lernen/ }).click()
-  await page.locator('.card-swipe').waitFor()
-  await settle(page)
-  await page.keyboard.press('Space')
-  await page.waitForTimeout(600)
-  await shot(page, 'held')
-  await page.keyboard.press('Escape')
-
   await button('Shop öffnen').click()
   await page.locator('.album-summary').waitFor()
   await shot(page, 'album')
@@ -546,19 +539,19 @@ async function takePictures({ browser, context, page, url, watch }) {
     body { margin: 0; width: 1280px; height: 640px; overflow: hidden; display: flex; align-items: center; color: #ece4d6;
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       background: radial-gradient(circle at 78% 50%, #3b2c14 0%, #1b1712 38%, #0f0d0b 70%); }
-    .text { padding-left: 84px; width: 640px; }
-    .name { display: flex; align-items: center; gap: 24px; font-size: 68px; font-weight: 800; letter-spacing: 0.01em; }
+    .text { padding-left: 80px; width: 640px; flex: none; }
+    .name { display: flex; align-items: center; gap: 22px; font-size: 56px; font-weight: 800; letter-spacing: 0.01em; }
     .claim { margin: 30px 0 0; font-size: 31px; line-height: 1.38; color: #ddd2c0; }
     .facts { margin: 22px 0 0; font-size: 23px; color: #a39783; }
     .facts b { color: #e0b25c; font-weight: 700; }
     .phones { position: relative; flex: 1; height: 100%; }
-    .phone { position: absolute; width: 262px; border-radius: 30px; border: 3px solid #4a4134;
+    .phone { position: absolute; width: 236px; border-radius: 28px; border: 3px solid #4a4134;
       box-shadow: 0 30px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04); }
-    .a { left: 18px; top: 46px; transform: rotate(-6deg); }
-    .b { left: 290px; top: 78px; transform: rotate(5deg); }
+    .a { left: 34px; top: 54px; transform: rotate(-6deg); }
+    .b { left: 300px; top: 70px; transform: rotate(5deg); }
   </style></head><body>
     <div class="text">
-      <div class="name"><img src="data:image/svg+xml;base64,${icon}" width="116" height="116" alt="">DeadlockDeck</div>
+      <div class="name"><img src="data:image/svg+xml;base64,${icon}" width="104" height="104" alt="">DeadlockDeck</div>
       <p class="claim">Deadlock lernen wie Vokabeln:<br>Items, Heroes, Counter und die Map.</p>
       <p class="facts"><b>Kostenlos</b> · ohne Konto · <b>offline</b> auf dem Handy</p>
     </div>
