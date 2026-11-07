@@ -10,7 +10,7 @@
  * und ffmpeg (WebP und Animationen).
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -20,6 +20,8 @@ import { preview } from 'vite'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'docs', 'readme')
 const TMP = mkdtempSync(join(tmpdir(), 'deadlockdeck-shots-'))
+/** Erst hier sammeln – nach docs/readme/ kommt nur ein vollständiger Satz */
+const STAGE = join(TMP, 'out')
 /** Handy im Vollbild (installierte App) */
 const VIEW = { width: 412, height: 915 }
 /** Pixel je CSS-Pixel: ~536 px breit – in der README mit 260 px gezeigt, scharf auch auf Retina */
@@ -60,14 +62,14 @@ function ffmpeg(args) {
 
 /** PNG → WebP (verlustbehaftet, klein); `alpha`: durchsichtiger Hintergrund */
 function toWebp(png, name, { alpha = false, quality = 86 } = {}) {
-  const out = join(OUT, `${name}.webp`)
+  const out = join(STAGE, `${name}.webp`)
   ffmpeg(['-i', png, '-c:v', 'libwebp', '-quality', String(quality), '-compression_level', '6', ...(alpha ? ['-pix_fmt', 'yuva420p'] : []), out])
   log('✓', `${name}.webp`)
 }
 
 /** Ausschnitt eines aufgenommenen Videos → animiertes WebP */
 function videoToWebp(video, name, { start, duration, crop }) {
-  const out = join(OUT, `${name}.webp`)
+  const out = join(STAGE, `${name}.webp`)
   const filters = [crop && `crop=${crop.width}:${crop.height}:${crop.x}:${crop.y}`, 'fps=20', `scale=${ANIM_WIDTH}:-2:flags=lanczos`].filter(Boolean)
   ffmpeg(['-ss', (start / 1000).toFixed(2), '-t', (duration / 1000).toFixed(2), '-i', video, '-vf', filters.join(','),
     '-c:v', 'libwebp_anim', '-quality', '72', '-compression_level', '6', '-loop', '0', out])
@@ -321,7 +323,7 @@ function demoBackup(data) {
 // ---------- Ablauf ----------
 
 async function main() {
-  mkdirSync(OUT, { recursive: true })
+  mkdirSync(STAGE, { recursive: true })
   const server = await preview({ root: ROOT, logLevel: 'warn', preview: { port: 4180, strictPort: false, open: false } })
   const url = server.resolvedUrls.local[0]
   log('App:', url)
@@ -349,13 +351,16 @@ async function main() {
     await browser.close()
     await new Promise(resolve => server.httpServer.close(resolve))
   }
-  rmSync(TMP, { recursive: true, force: true })
   if (errors.length) {
+    rmSync(TMP, { recursive: true, force: true })
     console.error('Fehler in der App:', errors)
     process.exitCode = 1
-  } else {
-    log(`Fertig: ${OUT}`)
+    return
   }
+  mkdirSync(OUT, { recursive: true })
+  cpSync(STAGE, OUT, { recursive: true })
+  rmSync(TMP, { recursive: true, force: true })
+  log(`Fertig: ${OUT}`)
 }
 
 async function takePictures({ browser, context, page, url, watch }) {
