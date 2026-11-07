@@ -209,7 +209,11 @@ function demoBackup(data) {
     list.forEach((id, i) => learn(id, i < gold ? 'gold' : i < gold + silver ? 'silver' : 'bronze'))
   }
   // Ausstellungsstück: diese Item-Karte ist als erste fällig (Lern-Screenshots)
-  const showcase = data.items.find(i => i.slot === 'spirit' && i.tier === 3 && i.buildsFrom?.length && i.upgradesTo?.length)
+  // aktives Item mit Build-Pfad und möglichst vielen Werten (passt noch auf die Karte)
+  const lines = i => (i.sections ?? []).reduce((n, sec) => n + (sec.stats?.length ?? 0), 0) + (i.timings?.length ?? 0)
+  const showcase = data.items
+    .filter(i => i.isActive && i.tier >= 2 && i.tier <= 3 && i.buildsFrom?.length && lines(i) <= 7)
+    .sort((a, b) => lines(b) - lines(a) || a.name.localeCompare(b.name))[0]
     ?? data.items.find(i => i.tier >= 2 && i.buildsFrom?.length)
   levels(data.items.map(i => i.id).filter(id => id !== showcase?.id), 30, 36, 44)
   levels(data.abilities.map(a => a.id), 16, 26, 30)
@@ -262,7 +266,7 @@ function demoBackup(data) {
 
   // Rückwirkend gutgeschrieben (vor den 60 Tagen): Rang mitten in einer Stufe – der Sieg später bringt keinen Aufstieg
   const sum = souls.reduce((s, e) => s + e.amount, 0)
-  let history = 6000
+  let history = 1500
   const VICTORY = 90 + 80 + 100 + 100 + 150
   const nextAbove = total => RANK_SOULS.find(s => s > total) ?? Infinity
   while (nextAbove(sum + history) - (sum + history) < VICTORY + 300) history += 50
@@ -355,7 +359,7 @@ async function main() {
 }
 
 async function takePictures({ browser, context, page, url, watch }) {
-  const button = name => page.getByRole('button', { name })
+  const button = name => page.getByRole('button', { name, exact: true })
   const deckRow = name => page.locator('.deck-row').filter({ has: page.locator('.deck-name', { hasText: new RegExp(`^${name}$`) }) })
 
   // 1) Daten aus der API laden (Items, Heroes, Map, Counter, Builds)
@@ -401,6 +405,14 @@ async function takePictures({ browser, context, page, url, watch }) {
   await page.keyboard.press('Space')
   await page.waitForTimeout(600)
   shots.karte = await shot(page, 'karte')
+  await page.keyboard.press('Escape')
+
+  await deckRow('Heroes').getByRole('button', { name: /^Lernen/ }).click()
+  await page.locator('.card-swipe').waitFor()
+  await settle(page)
+  await page.keyboard.press('Space')
+  await page.waitForTimeout(600)
+  await shot(page, 'held')
   await page.keyboard.press('Escape')
 
   await button('Shop öffnen').click()
