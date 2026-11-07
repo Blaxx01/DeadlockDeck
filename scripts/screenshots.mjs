@@ -125,6 +125,16 @@ const getMeta = (page, key) => page.evaluate(dbOp, { op: 'getMeta', key })
 const putMeta = (page, values) => page.evaluate(dbOp, { op: 'putMeta', values })
 const addSouls = (page, entries) => page.evaluate(dbOp, { op: 'addSouls', entries })
 
+/**
+ * Zur Startseite: Die App öffnet nach dem Neuladen die zuletzt offene Ansicht (Verlaufseintrag) –
+ * den also vorher leeren. Gleiche Adresse noch einmal laden zählt als Neuladen.
+ */
+async function openHome(page, url) {
+  if (page.url().startsWith(url)) await page.evaluate(() => history.replaceState(null, ''))
+  await page.goto(url)
+  await page.locator('.lane-bar').waitFor()
+}
+
 async function settle(page) {
   await page.waitForFunction(() => [...document.images].every(i => i.complete), null, { timeout: 30_000 })
   await page.waitForTimeout(250)
@@ -377,8 +387,7 @@ async function takePictures({ browser, context, page, url, watch }) {
     laneShown: { date: today, hp: [0, 1 - 5 / 7, 1], won: false },
     persistAskedOn: today,
   })
-  await page.goto(url)
-  await page.locator('.lane-bar').waitFor()
+  await openHome(page, url)
   log('Demo-Stand eingespielt', showcase ? `(erste Karte: ${showcase.name})` : '')
 
   // 3) Screenshots
@@ -420,8 +429,7 @@ async function takePictures({ browser, context, page, url, watch }) {
   await page.locator('.sprint-options').waitFor()
   await page.waitForTimeout(2500)
   await shot(page, 'sprint')
-  await page.goto(url)
-  await page.locator('.lane-bar').waitFor()
+  await openHome(page, url)
 
   await button('Map öffnen').click()
   await page.locator('.map-overlay').waitFor()
@@ -447,7 +455,7 @@ async function takePictures({ browser, context, page, url, watch }) {
   // „Was ist hier?“ (Orientierung): Frage mit markierter Stelle
   const settings = await getMeta(page, 'settings')
   await putMeta(page, { settings: { ...settings, mapGroups: ['orientation', 'camps'], mapQuestionTypes: ['what'] } })
-  await page.goto(url)
+  await openHome(page, url)
   await button('Map-Quiz starten').click()
   await page.locator('.map-options').waitFor()
   await page.evaluate(() => window.scrollTo(0, 0))
