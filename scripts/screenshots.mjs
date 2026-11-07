@@ -323,6 +323,28 @@ async function main() {
   }
   const page = await context.newPage()
   watch(page)
+  try {
+    await takePictures({ browser, context, page, url, watch })
+  } catch (e) {
+    // Zum Nachsehen: was die App beim Fehler zeigte
+    const debug = join(tmpdir(), 'deadlockdeck-screenshots-fehler.png')
+    await page.screenshot({ path: debug }).catch(() => {})
+    console.error(`Abgebrochen – Bildschirm beim Fehler: ${debug}`, errors.length ? `\nFehler in der App: ${errors.join('\n')}` : '')
+    throw e
+  } finally {
+    await browser.close()
+    await new Promise(resolve => server.httpServer.close(resolve))
+  }
+  rmSync(TMP, { recursive: true, force: true })
+  if (errors.length) {
+    console.error('Fehler in der App:', errors)
+    process.exitCode = 1
+  } else {
+    log(`Fertig: ${OUT}`)
+  }
+}
+
+async function takePictures({ browser, context, page, url, watch }) {
   const button = name => page.getByRole('button', { name })
   const deckRow = name => page.locator('.deck-row').filter({ has: page.locator('.deck-name', { hasText: new RegExp(`^${name}$`) }) })
 
@@ -535,15 +557,6 @@ async function main() {
   await art.locator('#w').screenshot({ path: buttonPng, omitBackground: true })
   toWebp(buttonPng, 'app-oeffnen', { alpha: true, quality: 92 })
 
-  await browser.close()
-  await new Promise(resolve => server.httpServer.close(resolve))
-  rmSync(TMP, { recursive: true, force: true })
-  if (errors.length) {
-    console.error('Fehler in der App:', errors)
-    process.exitCode = 1
-  } else {
-    log(`Fertig: ${OUT}`)
-  }
 }
 
 main().catch(e => {
