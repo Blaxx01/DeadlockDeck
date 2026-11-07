@@ -435,6 +435,8 @@ async function takePictures({ browser, context, page, url, watch }) {
   await page.keyboard.press('Escape')
 
   await button('Sprint starten').click()
+  // Items: am Bild am besten zu erkennen
+  await page.getByRole('tab', { name: 'Items', exact: true }).click()
   await page.getByRole('button', { name: 'Start', exact: true }).click()
   await page.locator('.sprint-options').waitFor()
   await page.waitForTimeout(2500)
@@ -523,12 +525,11 @@ async function takePictures({ browser, context, page, url, watch }) {
     await p.goto(url)
     await p.locator('.lane-bar').waitFor()
     const start = Date.now() - t0
-    const panel = await p.locator('.panel.today').boundingBox()
     await p.waitForTimeout(5600)
     const end = Date.now() - t0
     await p.close()
-    const height = Math.min(VIEW.height, Math.round(panel.y + panel.height + 16)) & ~1
-    videoToWebp(await p.video().path(), 'lane-sieg', { start, duration: end - start, crop: { x: 0, y: 0, width: VIEW.width, height } })
+    // ganzer Bildschirm wie die Screenshots daneben (gleich hoch in der Bilderreihe)
+    videoToWebp(await p.video().path(), 'lane-sieg', { start, duration: end - start })
   }
 
   // 6) Banner und Knopf „App öffnen“
