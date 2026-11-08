@@ -133,6 +133,7 @@ export function SettingsView({ onBack, onSync, onCacheImages, syncing }: Props) 
       // Souls & Rang gehören zum Fortschritt
       await db.souls.clear()
       await setMeta('soulsTotal', 0)
+      await setMeta('soulsBest', 0)
       await setMeta('missions', null)
       // Lane-Angriff: Bilanz neu ab heute (Siege und Niederlagen kommen aus dem Souls-Verlauf)
       await setMeta('laneStart', null)

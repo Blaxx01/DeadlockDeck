@@ -124,6 +124,23 @@ describe('Backup', () => {
     expect(await getMeta('laneStart', null, dst)).toBe('2026-11-04')
   })
 
+  it('nimmt den höchsten Kontostand mit (Missions-Stufen); ohne Angabe aus dem Verlauf', async () => {
+    const src = new DeckDB(`b-${Math.random()}`)
+    await awardRound('quiz', 120, { score: 1200, correct: 9 }, new Date(2026, 10, 5, 13), src)
+    await src.meta.put({ key: 'soulsBest', value: 13_000 })
+    const backup = await createBackup(src)
+    expect(backup.soulsBest).toBe(13_000)
+    const dst = new DeckDB(`b-${Math.random()}`)
+    await restoreBackup(parseBackup(JSON.stringify(backup)), dst)
+    expect(await getMeta('soulsBest', null, dst)).toBe(13_000)
+    // ohne Angabe: Höchststand aus dem Verlauf
+    const { soulsBest: _ignored, ...older } = backup
+    const souls = [{ id: 1, at: 1, date: '2026-11-01', amount: 900, reason: 'quiz' }, { id: 2, at: 2, date: '2026-11-08', amount: -300, reason: 'decay' }]
+    await restoreBackup(parseBackup(JSON.stringify({ ...older, souls })), dst)
+    expect(await getSoulsTotal(dst)).toBe(600)
+    expect(await getMeta('soulsBest', null, dst)).toBe(900)
+  })
+
   it('lehnt fremde Dateien ab', () => {
     expect(() => parseBackup('{"foo":1}')).toThrow(/keine DeadlockDeck/)
     expect(() => parseBackup('nope')).toThrow(/kein gültiges JSON/)

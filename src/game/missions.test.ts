@@ -5,12 +5,13 @@ import { DeckDB, getMeta, getSettings, saveSettings } from '../data/db'
 import { hero, item } from '../test/counterFixtures'
 import { abilityCards, counterCard, fullHero, review } from '../test/masteryFixtures'
 import { heroOffer } from './dayHero'
-import { getLaneSummary, laneEvents, laneForDay, trackLane, type LaneChange } from './laneAttack'
+import { getLaneSummary, laneEvents, laneForDay, laneHistory, trackLane, type LaneChange } from './laneAttack'
+import { swapPrice } from './missionLevels'
 import {
   ALL_MISSIONS_BONUS, checkDailyBonuses, chooseHero, dailyStatus, finishRound, heroSessionCards, learnedOnlyCounts, MISSION_SOULS,
-  MISSIONS, pickMissions, todayMissionIds, todayMissions, type MissionContext,
+  missionById, MISSIONS, pickMissions, swapLane, todayMissionIds, todayMissions, type MissionContext,
 } from './missions'
-import { getSoulsTotal } from './souls'
+import { awardRound, getSoulsBest, getSoulsTotal } from './souls'
 import { logMistake } from './weakness'
 
 const ctxAll: MissionContext = { entries: [], deckSizes: { items: 100, abilities: 100, heroes: 40, counters: 40 }, heroCount: 40, buildCount: 40, weakCount: 10 }
@@ -81,8 +82,8 @@ describe('Tagesmissionen', () => {
 
   it('werden einmal gutgeschrieben, alle drei bringen den Bonus', async () => {
     const database = await setup()
-    // Missionen dieses Tages fest vorgeben: Quiz, Hero erraten, neue Karten
-    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    // Missionen dieses Tages fest vorgeben (höchste Stufe): Quiz, Hero erraten, neue Karten
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', level: 3, ids: ['quiz-7', 'guess-600', 'learn-new'] } })
     expect(await todayMissionIds(now, database)).toEqual(['quiz-7', 'guess-600', 'learn-new'])
 
     await finishRound('quiz', 50, { score: 500, correct: 6 }, now, database)
@@ -120,7 +121,7 @@ describe('Lane-Angriff', () => {
 
   it('der Gesamtfortschritt zerstört Guardian → Walker → Patron', async () => {
     const database = await setup()
-    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', level: 3, ids: ['quiz-7', 'guess-600', 'learn-new'] } })
     const seen: LaneChange[] = []
     const listener = (e: Event) => seen.push((e as CustomEvent<LaneChange>).detail)
     laneEvents.addEventListener('lane', listener)
@@ -156,7 +157,7 @@ describe('Lane-Angriff', () => {
 
   it('nicht geschafft: Niederlage, sobald der Tag vorbei ist', async () => {
     const database = await setup()
-    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', level: 3, ids: ['quiz-7', 'guess-600', 'learn-new'] } })
     await finishRound('quiz', 90, { score: 900, correct: 8 }, now, database)
     expect(await getLaneSummary(now, database)).toMatchObject({ wins: 0, losses: 0 })
     expect(await getLaneSummary(new Date(2026, 10, 7, 9), database)).toMatchObject({ wins: 0, losses: 1, streak: 0 })
@@ -221,7 +222,10 @@ describe('Held des Tages', () => {
 
   it('alle Karten gelernt: Build-Quiz mit ihm (höchstens 2 Fehler), ohne Build: Karten wiederholen', async () => {
     const { database, heroes } = await heroSetup()
+    // höchste Stufe (Wächter 1)
+    await database.meta.put({ key: 'soulsBest', value: 20_350 })
     const stored = await todayMissions(now, database, true)
+    expect(stored.level).toBe(3)
     const [withBuild, withoutBuild] = stored.heroOffer!.map(id => heroes.find(h => h.id === id)!)
     for (const h of [withBuild, withoutBuild]) {
       await database.reviews.bulkPut([h.id, ...h.abilities.map(a => a.id), `counter:${h.className}`].map(id => review(id, 5)))
@@ -278,11 +282,17 @@ describe('Mid Boss', () => {
     }
   })
 
-  it('zu wenige Schwächen: eine schwere Spiel-Aufgabe', async () => {
+  it('zu wenige Schwächen: eine Spiel-Aufgabe eine Stufe über den Missionen – ab Wächter 1 eine schwere', async () => {
     const database = await setup()
     const stored = await todayMissions(now, database, true)
+    expect(stored.level).toBe(0)
     expect(stored.midBoss?.kind).toBe('play')
-    expect(['quiz-9', 'sprint-25', 'survival-20']).toContain(stored.midBoss?.kind === 'play' ? stored.midBoss.id : '')
+    // Ziele von Kultist 1 (ohne Map-Daten kein Map-Quiz)
+    expect(['quiz-6', 'sprint-10', 'survival-7']).toContain(stored.midBoss?.kind === 'play' ? stored.midBoss.id : '')
+    const top = await setup()
+    await top.meta.put({ key: 'soulsBest', value: 20_350 })
+    const hard = await todayMissions(now, top, true)
+    expect(['quiz-9', 'sprint-25', 'survival-20']).toContain(hard.midBoss?.kind === 'play' ? hard.midBoss.id : '')
   })
 })
 
@@ -294,7 +304,7 @@ describe('Sieg', () => {
     await database.meta.put({ key: 'laneStart', value: '2026-11-01' })
     // gestern gelernt, aber nicht gewonnen → Niederlage
     await database.souls.add({ at: new Date(2026, 10, 5, 12).getTime(), date: '2026-11-05', amount: 10, reason: 'card' })
-    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['quiz-7', 'guess-600', 'learn-new'] } })
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', level: 3, ids: ['quiz-7', 'guess-600', 'learn-new'] } })
     await finishRound('quiz', 90, { score: 900, correct: 8 }, now, database)
     await finishRound('guess', 70, { score: 700 }, now, database)
     await database.days.put({ date: '2026-11-06', reviewed: 5, newIntroduced: 5, cards: ['item:a', 'item:b', 'item:c', 'item:d', 'item:e'] })
@@ -306,6 +316,162 @@ describe('Sieg', () => {
     expect(bonus.data).toMatchObject({ patron, revenge: true, lane: laneForDay('2026-11-06').lane })
     expect((await dailyStatus(now, database)).lane).toMatchObject({ won: true, revenge: true, patron, streak: 1, trophy: 1 })
     expect(await getLaneSummary(now, database)).toMatchObject({ wins: 1, losses: 1, streak: 1 })
+    trackLane(null)
+  })
+})
+
+describe('Stufen', () => {
+  const now = new Date(2026, 10, 6, 12)
+
+  it('neue Auslosung: Stufe aus dem höchsten Kontostand – Verfall und Ausgaben machen nichts leichter', async () => {
+    const fresh = await setup()
+    const start = await todayMissions(now, fresh, true)
+    expect(start.level).toBe(0)
+    expect(start.ids.map(id => missionById(id)?.group ?? id).filter(g => ['build', 'guess', 'sprint'].includes(g))).toEqual([])
+    // Mid Boss nie dieselbe Aufgabe wie eine Tagesmission
+    expect(start.ids).not.toContain(start.midBoss?.kind === 'play' ? start.midBoss.id : '')
+
+    const database = await setup()
+    await database.meta.put({ key: 'soulsBest', value: 12_300 })
+    await database.meta.put({ key: 'soulsTotal', value: 5_000 })
+    expect(await getSoulsBest(database)).toBe(12_300)
+    expect((await todayMissions(now, database, true)).level).toBe(2)
+    expect((await dailyStatus(now, database)).nextUnlock).toMatchObject({ level: 3, souls: 20_350, missing: 8_050 })
+  })
+
+  it('Auslosung von vor den Stufen: zu schwere Missionen ohne Fortschritt werden ersetzt, mit Fortschritt bleiben sie', async () => {
+    const database = await setup()
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['learn-new', 'quiz-7', 'guess-600'], midBoss: { kind: 'play', id: 'quiz-9' } } })
+    // Hero erraten schon gespielt → bleibt
+    await awardRound('guess', 30, { score: 300 }, now, database)
+    const stored = await todayMissions(now, database, true)
+    expect(stored.level).toBe(0)
+    expect(stored.ids[0]).toBe('learn-new')
+    expect(['quiz-5', 'survival-5']).toContain(stored.ids[1])
+    expect(stored.ids[2]).toBe('guess-600')
+    // Mid Boss: Ziele von Kultist 1 statt Quiz 9/10
+    expect(['quiz-6', 'sprint-10', 'survival-7']).toContain(stored.midBoss?.kind === 'play' ? stored.midBoss.id : '')
+    expect(await getMeta('missions', null, database)).toMatchObject({ level: 0, ids: stored.ids })
+    // passt schon: bleibt
+    expect(await todayMissions(now, database, true)).toEqual(stored)
+  })
+
+  it('Held des Tages: Build-Quiz erst ab Akolyth 1 (höchstens 4 Fehler), davor seine Karten wiederholen', async () => {
+    for (const [best, expected] of [[0, 'review'], [12_250, 'build']] as const) {
+      const { database, heroes } = await heroSetup()
+      await database.meta.put({ key: 'soulsBest', value: best })
+      const stored = await todayMissions(now, database, true)
+      const h = heroes.find(x => x.id === stored.heroOffer![0])!
+      await database.reviews.bulkPut([h.id, ...h.abilities.map(a => a.id), `counter:${h.className}`].map(id => review(id, 5)))
+      await database.builds.put({ id: `typical:${h.className}`, source: 'typical', heroId: h.heroId, heroName: h.name, sections: [], updatedAt: 0 })
+      expect((await dailyStatus(now, database)).heroOffer?.[0].mode).toBe(expected)
+      expect(await chooseHero(h.id, now, database)).toBe(true)
+      const status = await dailyStatus(now, database)
+      expect(status.hero?.mode).toBe(expected)
+      if (expected === 'build') {
+        expect(status.missions[0].def.title).toBe(`Build-Quiz mit ${h.name}: höchstens 4 Fehler`)
+        await finishRound('build', 40, { errors: 4, items: 12, heroId: h.heroId, source: 'typical' }, now, database)
+        expect((await dailyStatus(now, database)).missions[0].done).toBe(true)
+      } else {
+        expect(status.missions[0].def.title).toBe(`Karten von ${h.name} wiederholen`)
+      }
+    }
+    trackLane(null)
+  })
+
+  it('altes Build-Quiz des Helden (vor den Stufen) wird ohne Fortschritt an die Stufe angepasst', async () => {
+    const { database, heroes } = await heroSetup()
+    const h = heroes[0]
+    await database.reviews.bulkPut([h.id, ...h.abilities.map(a => a.id), `counter:${h.className}`].map(id => review(id, 5)))
+    await database.builds.put({ id: `typical:${h.className}`, source: 'typical', heroId: h.heroId, heroName: h.name, sections: [], updatedAt: 0 })
+    const old = { id: h.id, name: h.name, heroId: h.heroId, mode: 'build', cards: [] }
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', ids: ['hero', 'quiz-5', 'survival-5'], heroOffer: [h.id], hero: old } })
+    expect((await todayMissions(now, database, true)).hero).toMatchObject({ id: h.id, mode: 'review' })
+  })
+})
+
+describe('Lane tauschen', () => {
+  const now = new Date(2026, 10, 6, 12)
+
+  async function swapSetup(total = 12_500) {
+    const database = await setup()
+    await database.meta.put({ key: 'missions', value: { date: '2026-11-06', level: 3, ids: ['learn-new', 'quiz-7', 'guess-600'] } })
+    await database.meta.put({ key: 'soulsTotal', value: total })
+    return database
+  }
+
+  it('1× am Tag gegen Souls: neue Lane, gleicher Gegner, offene Spiel-Missionen neu – Geschafftes bleibt', async () => {
+    const database = await swapSetup()
+    // Quiz schon geschafft
+    await finishRound('quiz', 90, { score: 900, correct: 8 }, now, database)
+    const total = await getSoulsTotal(database)
+    let status = await dailyStatus(now, database)
+    const before = status.lane!
+    expect(status.swap).toEqual({ price: swapPrice(total), balance: total, open: 1, used: false, possible: true })
+
+    const result = await swapLane(now, database)
+    expect(result).not.toBeNull()
+    expect(result!.lane).not.toBe(before.lane)
+    expect(result!.price).toBe(swapPrice(total))
+    expect(await getSoulsTotal(database)).toBe(total - result!.price)
+    status = await dailyStatus(now, database)
+    expect(status.lane).toMatchObject({ lane: result!.lane, patron: before.patron })
+    const ids = status.missions.map(m => m.def.id)
+    expect(ids.slice(0, 2)).toEqual(['learn-new', 'quiz-7'])
+    expect(status.missions[1].done).toBe(true)
+    // neu: nicht die getauschte, nicht noch ein Quiz
+    expect(ids[2]).not.toBe('guess-600')
+    expect(missionById(ids[2])?.group).not.toBe('quiz')
+    expect(status.swap).toMatchObject({ used: true, possible: false, reason: 'Heute schon getauscht' })
+    expect(await swapLane(now, database)).toBeNull()
+    expect((await database.souls.toArray()).filter(e => e.reason === 'swap')).toMatchObject([
+      { amount: -result!.price, data: { lane: result!.lane, from: before.lane } },
+    ])
+    trackLane(null)
+  })
+
+  it('geht nicht ohne genug Souls, ohne offene Spiel-Mission oder wenn der Patron schon gefallen ist', async () => {
+    const poor = await swapSetup(150)
+    expect((await dailyStatus(now, poor)).swap).toMatchObject({ possible: false, reason: 'Dir fehlen 50 ◆' })
+    expect(await swapLane(now, poor)).toBeNull()
+    expect(await getSoulsTotal(poor)).toBe(150)
+
+    const done = await swapSetup()
+    await finishRound('quiz', 90, { score: 900, correct: 8 }, now, done)
+    await finishRound('guess', 70, { score: 700 }, now, done)
+    expect((await dailyStatus(now, done)).swap).toMatchObject({ possible: false, reason: 'Keine offene Spiel-Mission' })
+    await done.days.put({ date: '2026-11-06', reviewed: 5, newIntroduced: 5, cards: ['item:a', 'item:b', 'item:c', 'item:d', 'item:e'] })
+    await checkDailyBonuses(now, done)
+    expect((await dailyStatus(now, done)).swap).toMatchObject({ possible: false, reason: 'Der Patron ist schon gefallen' })
+    trackLane(null)
+  })
+
+  it('ein Sieg merkt sich die getauschte Lane; der Tausch allein ist kein gespielter Tag', async () => {
+    const database = await swapSetup()
+    const result = (await swapLane(now, database))!
+    const ids = (await todayMissions(now, database)).ids
+    expect(ids[0]).toBe('learn-new')
+    // die neuen Missionen schaffen
+    const [quiz, other] = ids.slice(1).map(id => missionById(id)!)
+    for (const m of [quiz, other]) {
+      if (m.group === 'quiz') await finishRound('quiz', 120, { score: 1200, correct: 10 }, now, database)
+      else if (m.group === 'guess') await finishRound('guess', 70, { score: 700 }, now, database)
+      else if (m.group === 'build') await finishRound('build', 60, { errors: 0, items: 12, heroId: 1, source: 'typical' }, now, database)
+      else if (m.group === 'sprint') await finishRound('sprint', 30, { score: 30 }, now, database)
+      else if (m.group === 'survival') await finishRound('survival', 30, { score: 30 }, now, database)
+      else if (m.group === 'map') await finishRound('map', 30, { score: 300, correct: 10 }, now, database)
+      else if (m.id === 'learn-weak') await database.days.put({ date: '2026-11-06', reviewed: 5, newIntroduced: 0, weak: ['a', 'b', 'c', 'd', 'e'] })
+      else await database.days.put({ date: '2026-11-06', reviewed: 10, newIntroduced: 5, cards: Array.from({ length: 10 }, (_, i) => `item:x${i}`) })
+    }
+    const day = await database.days.get('2026-11-06')
+    await database.days.put({ ...day, date: '2026-11-06', reviewed: (day?.reviewed ?? 0) + 5, newIntroduced: 5, cards: [...(day?.cards ?? []), 'item:a', 'item:b', 'item:c', 'item:d', 'item:e'] })
+    await checkDailyBonuses(now, database)
+    const bonus = (await database.souls.toArray()).find(e => e.reason === 'missions')
+    expect(bonus?.data).toMatchObject({ lane: result.lane })
+    expect((await getLaneSummary(now, database)).wins).toBe(1)
+    // nur getauscht, sonst nichts: kein gespielter Tag (keine Niederlage)
+    const history = laneHistory([{ date: '2026-11-04', reason: 'swap', data: { lane: 'blue' } }], '2026-11-01', '2026-11-06')
+    expect(history.days).toEqual([])
     trackLane(null)
   })
 })

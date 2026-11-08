@@ -7,7 +7,7 @@ import { setEffectsEnabled } from './game/effects'
 import { checkAllMilestones } from './game/milestones'
 import { checkDailyBonuses } from './game/missions'
 import { rankForSouls, rankImage, RANK_STEPS, type RankAsset } from './game/ranks'
-import { applyDecay, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
+import { applyDecay, ensureSoulsBest, getSoulsTotal, seedSoulsFromHistory } from './game/souls'
 import { pruneMistakes } from './game/weakness'
 import { getMapData, mapNeedsSync, syncMap } from './data/mapSync'
 import { needsAutoSync, prewarmImages, syncItems, waitForServiceWorker } from './data/sync'
@@ -48,6 +48,8 @@ async function startSouls() {
   const settings = await getSettings()
   setEffectsEnabled(settings.effects)
   await seedSoulsFromHistory(settings.dailyGoal)
+  // Höchster Kontostand (Missions-Stufen) – für Stände von vor dieser Angabe aus dem Verlauf
+  await ensureSoulsBest()
   await applyDecay()
   // Fehler älter als 14 Tage zählen nicht mehr als Schwäche
   await pruneMistakes()

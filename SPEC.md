@@ -206,6 +206,8 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   für die Daten da sind; je **+100 ◆**, alle drei **+150 ◆ Bonus**
   - seit Lane-Angriff 2.0 ist die Lern-Mission die Mission des **Helden des Tages** (siehe dort); die übrigen
     Lern-Missionen gibt es nur noch, solange keine Hero-Daten da sind
+  - seit den **Missions-Stufen** richten sich die Spiel-Missionen nach deinem Rang (siehe „Missions-Stufen & Lane
+    tauschen“): am Anfang leichte Ziele, schwere Modi erst später
 - **Streak-Schutz**: alle 7 Streak-Tage einer (höchstens 2). Ein verpasster Tag (Tagesziel nicht erreicht) verbraucht
   einen, statt den Streak zu beenden. Wird aus der Tageshistorie berechnet (auch nach Import korrekt)
 
@@ -326,6 +328,49 @@ Zusätzlicher Ansporn für die Tagesmissionen: Jeden Tag greifst du auf einer La
 - Ein Sieg zählt immer gegen den Gegner, gegen den er errungen wurde (beim Sieg gespeichert), auch wenn der Verlauf
   später anders aussieht (z. B. nach dem Einspielen eines älteren Backups); Siege aus der ersten Version ohne diese
   Angabe zählen gegen den Patron des Tages (damals noch ohne Revanche)
+
+### Missions-Stufen & Lane tauschen
+Wer gerade erst anfängt, bekam schon Missionen wie „Build-Quiz ohne Fehler“ – ohne Item-Wissen reines Raten. Jetzt
+richten sich die Tagesmissionen nach einer **Stufe aus dem Rang**:
+- **Stufen**: Start · ab **Kultist 1** (5.500 ◆, ~1 Woche) · ab **Akolyth 1** (12.250 ◆, ~3 Wochen) · ab **Wächter 1**
+  (20.350 ◆, ~1 Monat; Zeiten bei ~650 ◆ am Tag). Es zählt der **höchste je erreichte Rang** – Verfall oder ausgegebene
+  Souls machen nichts wieder leichter oder gesperrt
+- **Ziele je Stufe** (– = kommt noch nicht als Mission dran; ab Wächter 1 die bisherigen Ziele):
+
+  | Mission | Start | Kultist 1 | Akolyth 1 | Wächter 1 |
+  |---|---|---|---|---|
+  | Quiz: richtige Antworten | 5 | 6 | 7 | 7 |
+  | Quiz: Punkte | – | – | 800 | 1.000 |
+  | Map-Quiz: richtige Antworten | 5 | 6 | 7 | 7 |
+  | Überleben: Fragen | 5 | 7 | 10 | 10 |
+  | Sprint: richtige Antworten | – | 10 | 12 | 15 |
+  | Hero erraten: Punkte | – | 400 | 500 | 600 |
+  | Build-Quiz | – | – | höchstens 3 Fehler | ohne Fehler |
+
+- Gesperrt sind nur die **Missionen** – Build-Quiz, Sprint und Hero erraten lassen sich jederzeit freiwillig spielen
+- **Held des Tages**: sind alle seine Karten gelernt, heißt seine Mission vor Akolyth 1 „Karten von Haze wiederholen“;
+  ab Akolyth 1 Build-Quiz mit ihm mit höchstens 4 Fehlern, ab Wächter 1 höchstens 2
+- **Mid Boss** ohne genug Schwächen: eine Aufgabe mit den Zielen der **nächsten Stufe** (Quiz, Map-Quiz, Überleben,
+  Sprint); ab Wächter 1 die schweren Aufgaben (Quiz 9, Sprint 25, Map-Quiz 9, Überleben 20). Nie dieselbe Aufgabe wie
+  eine Tagesmission
+- Die Stufe wird **bei der Auslosung festgehalten**: ein Aufstieg im Lauf des Tages ändert die Ziele erst ab morgen.
+  Auslosungen von vor den Stufen werden beim ersten Öffnen angepasst: Missionen über der Stufe (auch Mid Boss und
+  Build-Quiz des Helden) werden ersetzt – nur, solange sie noch keinen Fortschritt haben
+- **Anzeige**: Das Aufstiegs-Fenster zeigt, was neu freigeschaltet ist („🔓 Ab morgen bei den Tagesmissionen: Sprint und
+  Hero erraten“); unter den Tagesmissionen steht die nächste Freischaltung („🔓 Ab Akolyth 1: Build-Quiz und Quiz-Punkte
+  · noch 2.300 ◆“). „Aufstieg!“ erscheint nur bei einem neuen höchsten Rang (nicht nach Verfall oder Tausch erneut)
+- Belohnungen bleiben gleich: +100 ◆ je Mission, +150 ◆ für alle drei
+- **Lane tauschen** (1× am Tag, auf der Lane-Map): neue Lane-Farbe, **gleicher Gegner** (eine Revanche bleibt), die
+  **offenen Spiel-Missionen** werden neu ausgelost – geschaffte Missionen, der Held des Tages und der Mid Boss bleiben
+  - Preis: **ein Viertel der Kosten der nächsten Rangstufe** (auf 10 gerundet, mindestens 200 ◆, höchstens 800 ◆) –
+    bewusst teuer: mehr, als die Missionen bringen. Er wird vom Kontostand abgezogen (der Rang kann sinken, die Stufe
+    nicht); reicht der Kontostand nicht, ist der Tausch gesperrt
+  - nur, solange der Patron steht und mindestens eine Spiel-Mission offen ist; vorher eine **Bestätigung** mit Preis
+    und neuem Kontostand
+  - die neue Auslosung meidet die getauschten Missionen; gibt die Stufe zu wenige Modi her, füllen Lern-Missionen auf
+    (z. B. „10 Item-Karten lernen“)
+  - im Souls-Verlauf als „Lane getauscht“ (zählt nicht als Lerntag und nicht als gespielter Tag im Lane-Angriff); ein
+    Sieg merkt sich die getauschte Lane
 
 ## Lernen vertiefen
 Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalten.
@@ -469,6 +514,7 @@ Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Mini
 16. ✅ Lane-Angriff: Tagesmissionen zerstören Guardian → Walker → Patron, Siege und Niederlagen in der Statistik
 17. ✅ Lane-Angriff 2.0: Gesamtfortschritt als Schaden, Held des Tages, Mid Boss mit Rejuvenator, Serien-Bonus,
     Revanche, Trophäen, Siege je Held
+18. ✅ Missions-Stufen nach Rang (leichter Einstieg, Build-Quiz-Missionen ab Akolyth 1), Lane tauschen gegen Souls
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

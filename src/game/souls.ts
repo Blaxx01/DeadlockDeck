@@ -15,12 +15,14 @@ export type SoulsReason =
   | 'streak'
   /** Lane-Angriff: Mid Boss besiegt (ohne Souls – der Rejuvenator ist die Belohnung) */
   | 'midboss'
+  /** Lane-Angriff: Lane getauscht (Souls ausgegeben) */
+  | 'swap'
 
 /**
- * Zählen nicht als Lerntag (Rang-Verfall): Verfall und Meilensteine. Meilensteine kommen sonst immer mit
- * einer Aktivität – nur das nachträgliche Gutschreiben beim Start wäre sonst ein Lerntag ohne Lernen.
+ * Zählen nicht als Lerntag (Rang-Verfall): Verfall, Meilensteine und Ausgaben (Lane tauschen). Meilensteine kommen
+ * sonst immer mit einer Aktivität – nur das nachträgliche Gutschreiben beim Start wäre sonst ein Lerntag ohne Lernen.
  */
-const NOT_ACTIVITY: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'milestone', 'star'])
+const NOT_ACTIVITY: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'milestone', 'star', 'swap'])
 
 /** Spielmodi mit Runden (je Modus und Tag: die ersten 3 Runden voll, danach ¼) */
 export type RoundMode = 'quiz' | 'guess' | 'build' | 'sprint' | 'survival' | 'map'
@@ -58,6 +60,8 @@ export interface SoulsGain {
   reason: SoulsReason
   before: number
   after: number
+  /** Höchster Kontostand vor dieser Buchung – „Aufstieg!“ nur bei einem neuen Höchststand */
+  best?: number
   /** Kurzer Text vor „+N ◆“, z. B. „🥈 Silber“ oder „★ Haze“ */
   label?: string
 }
@@ -73,14 +77,52 @@ export async function getSoulsTotal(database: DeckDB = db): Promise<number> {
   return getMeta<number>('soulsTotal', 0, database)
 }
 
+/**
+ * Höchster je erreichter Kontostand – für die Missions-Stufen: Verfall und ausgegebene Souls (Lane tauschen)
+ * machen nichts wieder leichter oder gesperrt.
+ */
+export async function getSoulsBest(database: DeckDB = db): Promise<number> {
+  const [best, total] = await Promise.all([getMeta<number | null>('soulsBest', null, database), getSoulsTotal(database)])
+  return Math.max(best ?? 0, total)
+}
+
+/** Höchster Kontostand aus dem Verlauf (in Buchungsreihenfolge) – für Stände von vor dieser Angabe */
+export function bestTotalOf(entries: readonly Pick<SoulsEntry, 'at' | 'amount'>[]): number {
+  let total = 0
+  let best = 0
+  for (const e of [...entries].sort((a, b) => a.at - b.at)) {
+    total += Number(e.amount) || 0
+    best = Math.max(best, total)
+  }
+  return best
+}
+
+/** Beim Start: Höchststand aus dem Verlauf nachtragen (Stände von vor dieser Angabe, eingespielte Backups) */
+export async function ensureSoulsBest(database: DeckDB = db): Promise<number> {
+  return database.transaction('rw', database.souls, database.meta, async () => {
+    const stored = await getMeta<number | null>('soulsBest', null, database)
+    const best = Math.max(stored ?? 0, await getSoulsTotal(database), bestTotalOf(await database.souls.toArray()))
+    if (best !== stored) await setMeta('soulsBest', best, database)
+    return best
+  })
+}
+
+/** Neuen Kontostand festhalten (in Transaktion über meta); gibt den bisherigen Höchststand zurück */
+async function trackBest(database: DeckDB, before: number, after: number): Promise<number> {
+  const best = Math.max(before, (await getMeta<number | null>('soulsBest', null, database)) ?? 0)
+  if (after > best) await setMeta('soulsBest', after, database)
+  return best
+}
+
 /** Neuer Eintrag – nur innerhalb einer Transaktion über souls + meta aufrufen */
 export async function addSoulsInTx(database: DeckDB, entry: NewSoulsEntry): Promise<SoulsGain> {
   const before = await getSoulsTotal(database)
-  // Verfall nie unter 0
+  // Verfall und Ausgaben nie unter 0
   const amount = entry.amount < 0 ? -Math.min(-entry.amount, before) : entry.amount
   await database.souls.add({ ...entry, amount })
   await setMeta('soulsTotal', before + amount, database)
-  return { amount, reason: entry.reason, before, after: before + amount }
+  const best = await trackBest(database, before, before + amount)
+  return { amount, reason: entry.reason, before, after: before + amount, best }
 }
 
 export async function awardSouls(entry: NewSoulsEntry, database: DeckDB = db): Promise<SoulsGain> {
@@ -102,7 +144,8 @@ export async function addCardSoulsInTx(database: DeckDB, now: Date): Promise<Sou
     await database.souls.add({ at: now.getTime(), date, amount: CARD_SOULS, reason: 'card', data: { count: 1 } })
   }
   await setMeta('soulsTotal', before + CARD_SOULS, database)
-  return { amount: CARD_SOULS, reason: 'card', before, after: before + CARD_SOULS }
+  const best = await trackBest(database, before, before + CARD_SOULS)
+  return { amount: CARD_SOULS, reason: 'card', before, after: before + CARD_SOULS, best }
 }
 
 /** Für rateCard: nach der Transaktion die Animation auslösen */

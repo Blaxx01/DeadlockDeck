@@ -1,5 +1,5 @@
 import { checkAllMilestones, getMilestones, resetMilestonesInTx, type MilestoneMap, type StarMap } from '../game/milestones'
-import { seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
+import { bestTotalOf, getSoulsBest, seedSoulsFromHistory, type SoulsEntry } from '../game/souls'
 import type { MistakeEntry } from '../game/weakness'
 import type { SprintHighscores } from '../sprint/sprint'
 import { addDays, daysBetween, localDate } from './dates'
@@ -27,6 +27,8 @@ export interface BackupFile {
   souls?: SoulsEntry[]
   /** Start der Souls-Funktion (für den Rang-Verfall) */
   soulsStart?: string
+  /** Höchster je erreichter Kontostand (Missions-Stufen) */
+  soulsBest?: number
   /** Erster Tag mit Lane-Angriff (ab dann zählen Siege und Niederlagen – sie ergeben sich aus dem Souls-Verlauf) */
   laneStart?: string
   /** Fehler der letzten 14 Tage (Schwächen-Training) */
@@ -57,6 +59,7 @@ export async function createBackup(database: DeckDB = db): Promise<BackupFile> {
     buildBest: await getBuildBests(database),
     souls: await database.souls.toArray(),
     soulsStart: await getMeta<string | undefined>('soulsStart', undefined, database),
+    soulsBest: await getSoulsBest(database),
     laneStart: (await getMeta<string | null>('laneStart', null, database)) ?? undefined,
     mistakes: await database.mistakes.toArray(),
     ...(await getMilestones(database)),
@@ -108,7 +111,11 @@ export async function restoreBackup(backup: BackupFile, database: DeckDB = db): 
     // Souls: aus dem Backup – bei alten Backups ohne Souls aus der Tageshistorie neu berechnen (unten)
     const souls = Array.isArray(backup.souls) ? backup.souls : []
     await database.souls.bulkAdd(souls)
-    await setMeta('soulsTotal', souls.reduce((sum, e) => sum + (Number(e.amount) || 0), 0), database)
+    const total = souls.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+    await setMeta('soulsTotal', total, database)
+    // Höchststand: aus dem Backup, sonst aus dem Verlauf (die Missions-Stufen hängen daran)
+    const best = typeof backup.soulsBest === 'number' && Number.isFinite(backup.soulsBest) ? backup.soulsBest : 0
+    await setMeta('soulsBest', Math.max(best, total, bestTotalOf(souls)), database)
     await setMeta('soulsSeeded', souls.length > 0, database)
     if (backup.soulsStart) await setMeta('soulsStart', backup.soulsStart, database)
     if (typeof backup.laneStart === 'string') await setMeta('laneStart', backup.laneStart, database)

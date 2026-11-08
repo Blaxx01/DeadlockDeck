@@ -18,6 +18,10 @@ function isPatron(value: unknown): value is Patron {
   return PATRONS.includes(value as Patron)
 }
 
+function isAttackLane(value: unknown): value is Lane {
+  return ATTACK_LANES.includes(value as Lane)
+}
+
 export const PATRON_LABEL: Record<Patron, string> = { hiddenKing: 'Hidden King', archmother: 'Archmother' }
 
 /** Lanes der Map (links → rechts) */
@@ -77,6 +81,8 @@ export interface LaneBoss {
 /** Was der Stand außer den Missionen braucht (aus dem Verlauf und der Wahl des Tages) */
 export interface LaneContext {
   patron: Patron
+  /** Lane getauscht: diese statt der Lane des Tages */
+  lane?: Lane
   /** Derselbe Patron wie bei der letzten Niederlage */
   revenge: boolean
   /** Rejuvenator auf Vorrat (schützt die Siegesserie einmal) */
@@ -89,7 +95,7 @@ export interface LaneContext {
   midBoss?: LaneBoss
 }
 
-export interface LaneState extends LaneDayInfo, Omit<LaneContext, 'patron'> {
+export interface LaneState extends LaneDayInfo, Omit<LaneContext, 'patron' | 'lane'> {
   date: string
   targets: LaneTarget[]
   /** Index des vordersten Ziels (3 = alle zerstört) */
@@ -115,7 +121,7 @@ export function laneState(date: string, missions: readonly LaneMission[], contex
   const front = targets.findIndex(t => t.hp > 0)
   const day = laneForDay(date)
   return {
-    date, lane: day.lane, patron: context?.patron ?? day.patron, targets, front: front < 0 ? LANE_TARGETS.length : front, won,
+    date, lane: context?.lane ?? day.lane, patron: context?.patron ?? day.patron, targets, front: front < 0 ? LANE_TARGETS.length : front, won,
     revenge: context?.revenge ?? false, rejuvenator: context?.rejuvenator ?? false, streak: context?.streak ?? 0,
     ...(context?.trophy ? { trophy: context.trophy } : {}),
     ...(context?.hero ? { hero: context.hero } : {}),
@@ -205,8 +211,8 @@ export async function markLaneShown(state: LaneState, database: DeckDB = db): Pr
 
 // ---------- Bilanz ----------
 
-/** Kein Lernen oder Spielen: Verfall, Nachträge, Meilensteine */
-const NOT_PLAYED: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'history', 'milestone', 'star'])
+/** Kein Lernen oder Spielen: Verfall, Nachträge, Meilensteine, Lane tauschen */
+const NOT_PLAYED: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'history', 'milestone', 'star', 'swap'])
 
 /** Trophäen je Patron bei so vielen Siegen */
 export const TROPHY_WINS = [1, 5, 10, 25, 50]
@@ -269,12 +275,15 @@ export function laneHistory(entries: readonly HistoryEntry[], start: string | nu
   const won = new Map<string, HistoryEntry['data']>()
   const played = new Set<string>()
   const boss = new Set<string>()
+  /** Getauschte Lanes je Tag */
+  const swapped = new Map<string, Lane>()
   if (start) {
     for (const e of entries) {
       if (e.date < start || e.date > today) continue
       if (e.reason === 'missions') won.set(e.date, e.data)
       else if (!NOT_PLAYED.has(e.reason) && e.date < today) played.add(e.date)
       if (e.reason === 'midboss') boss.add(e.date)
+      if (e.reason === 'swap' && isAttackLane(e.data?.lane)) swapped.set(e.date, e.data.lane)
     }
   }
   let stock = false
@@ -288,7 +297,8 @@ export function laneHistory(entries: readonly HistoryEntry[], start: string | nu
     const revenge = isWon ? record?.revenge === true : !!previous && !previous.won
     const patron = isWon ? (isPatron(record?.patron) ? record.patron : base.patron) : revenge ? previous!.patron : base.patron
     if (boss.has(date)) stock = true
-    const day: LaneDay = { date, lane: base.lane, patron, won: isWon, revenge }
+    const lane = isWon && isAttackLane(record?.lane) ? record.lane : swapped.get(date) ?? base.lane
+    const day: LaneDay = { date, lane, patron, won: isWon, revenge }
     if (day.won) {
       summary.streak++
       summary.best = Math.max(summary.best, summary.streak)

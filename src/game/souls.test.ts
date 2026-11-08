@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { DeckDB, getMeta, saveSettings, getSettings, setMeta } from '../data/db'
 import { localDate } from '../data/dates'
 import { rateCard } from '../srs/srs'
-import { applyDecay, awardRound, CARD_SOULS, decayDates, getSoulsTotal, GOAL_SOULS, lastActiveDate, roundSouls, seedSoulsFromHistory } from './souls'
+import {
+  applyDecay, awardRound, awardSouls, CARD_SOULS, decayDates, ensureSoulsBest, getSoulsBest, getSoulsTotal, GOAL_SOULS, lastActiveDate,
+  roundSouls, seedSoulsFromHistory,
+} from './souls'
 
 const newDb = () => new DeckDB(`souls-${Math.random()}`)
 const at = (d: number, h = 12) => new Date(2026, 10, d, h)
@@ -93,5 +96,38 @@ describe('Rückwirkende Gutschrift', () => {
     expect(await seedSoulsFromHistory(20, database)).toBe(0)
     expect(await getSoulsTotal(database)).toBe(400)
     expect(await getMeta('soulsStart', '', database)).toBe(localDate())
+  })
+})
+
+describe('Höchster Kontostand (Missions-Stufen)', () => {
+  it('Ausgaben und Verfall senken ihn nicht; jede Buchung nennt den bisherigen Höchststand', async () => {
+    const database = newDb()
+    await awardRound('quiz', 100, { score: 1000, correct: 9 }, at(5), database)
+    const spent = await awardSouls({ at: at(5, 13).getTime(), date: '2026-11-05', amount: -60, reason: 'swap' }, database)
+    expect(spent).toMatchObject({ amount: -60, before: 100, after: 40, best: 100 })
+    expect(await getSoulsTotal(database)).toBe(40)
+    expect(await getSoulsBest(database)).toBe(100)
+    const again = await awardRound('quiz', 30, { score: 300, correct: 3 }, at(5, 14), database)
+    expect(again.amount).toBe(30)
+    expect(await getSoulsBest(database)).toBe(100)
+    await awardRound('quiz', 90, { score: 900, correct: 8 }, at(5, 15), database)
+    expect(await getSoulsBest(database)).toBe(160)
+    // Ausgaben zählen nicht als Lerntag
+    await awardSouls({ at: at(9).getTime(), date: '2026-11-09', amount: -10, reason: 'swap' }, database)
+    expect(await lastActiveDate(database)).toBe('2026-11-05')
+  })
+
+  it('wird für Stände von vor dieser Angabe aus dem Verlauf nachgetragen', async () => {
+    const database = newDb()
+    await database.souls.bulkAdd([
+      { at: 1, date: '2026-11-01', amount: 500, reason: 'quiz' },
+      { at: 3, date: '2026-11-08', amount: 100, reason: 'card' },
+      { at: 2, date: '2026-11-07', amount: -200, reason: 'decay' },
+    ])
+    await setMeta('soulsTotal', 400, database)
+    expect(await getSoulsBest(database)).toBe(400)
+    expect(await ensureSoulsBest(database)).toBe(500)
+    expect(await getSoulsBest(database)).toBe(500)
+    expect(await getMeta('soulsBest', null, database)).toBe(500)
   })
 })
