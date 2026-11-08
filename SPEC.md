@@ -204,6 +204,8 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   („Quiz mit mind. 7 richtig“, „Hero erraten mit mind. 600 Punkten“, „Build-Quiz ohne Fehler“, ab Etappe 4 auch
   Sprint und Überleben) – nur aus Modi,
   für die Daten da sind; je **+100 ◆**, alle drei **+150 ◆ Bonus**
+  - seit Lane-Angriff 2.0 ist die Lern-Mission die Mission des **Helden des Tages** (siehe dort); die übrigen
+    Lern-Missionen gibt es nur noch, solange keine Hero-Daten da sind
 - **Streak-Schutz**: alle 7 Streak-Tage einer (höchstens 2). Ein verpasster Tag (Tagesziel nicht erreicht) verbraucht
   einen, statt den Streak zu beenden. Wird aus der Tageshistorie berechnet (auch nach Import korrekt)
 
@@ -228,7 +230,8 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   bewertet normal (FSRS, Souls, Tagesziel); **„gewusst“ im Training behebt die Schwäche** – normales Lernen nicht;
   am Ende „x von y Schwächen behoben“
 - Fehler älter als 14 Tage verfallen (beim Start aufgeräumt); im Backup enthalten
-- Neue Tagesmission **„5 Schwächen-Karten üben“** (sobald es mind. 5 Schwächen gibt)
+- Neue Tagesmission **„5 Schwächen-Karten üben“** (sobald es mind. 5 Schwächen gibt) – seit Lane-Angriff 2.0 ist das
+  Schwächen-Training stattdessen der Weg zum **Mid Boss**
 
 ### Sammelalbum, Hero-Meisterschaft, Statistik (Etappe 3)
 - **Stufe einer Karte** aus dem Abstand, den das Lernsystem bei der letzten Wiederholung gewählt hat („Jetzt lernen“
@@ -276,32 +279,49 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 - Offline: alle Hero-Posen werden mit vorgeladen (auch für Hero erraten)
 
 ### Lane-Angriff (Tagesmissionen)
-Zusätzlicher Ansporn für die Tagesmissionen: Jeden Tag greifst du auf einer Lane an.
+Zusätzlicher Ansporn für die Tagesmissionen: Jeden Tag greifst du auf einer Lane an – mit einem Helden des Tages.
 - **Lane und Gegner** fest pro Tag ausgelost (wie die Missionen, gleich auf allen Geräten): Lane Gelb, Blau oder Grün,
   Gegner ist der Patron **Hidden King** oder **Archmother**. Auf der Map wird immer die obere Basis angegriffen – nur
   der Name wechselt (welcher Patron in welcher Basis steht, spielt hier keine Rolle)
-- **Ziele** nacheinander: **Guardian → Walker → Patron**. Jede geschaffte Mission zerstört das vorderste Ziel – in der
-  Reihenfolge, in der du die Missionen schaffst, egal welche: die erste geschaffte den Guardian, die zweite den Walker,
-  die dritte den Patron
-- **Schaden**: Das vorderste Ziel verliert so viel Leben, wie die am weitesten fortgeschrittene offene Mission geschafft
-  ist – Lern-Missionen je Karte, Spiel-Missionen nach dem besten Rundenergebnis (5 von 7 richtigen = 71 %). Fällt es,
-  zeigt das nächste Ziel gleich den Stand der nächstbesten Mission. Leben wird aufgerundet (1 % bis zum Fall)
+  - **Revanche**: Nach einer Niederlage kommt am nächsten gezählten Tag derselbe Patron wieder (auf der Lane dieses Tages)
+- **Ziele** nacheinander: **Guardian → Walker → Patron**
+- **Schaden = Gesamtfortschritt** aller drei Missionen: jede Karte und jede Runde zählt (Lern-Missionen je Karte,
+  Spiel-Missionen nach dem besten Rundenergebnis, z. B. 5 von 7 richtigen = 71 %). Je eine volle Mission an Fortschritt
+  zerstört ein Ziel – 50 % + 50 % lassen den Guardian fallen, auch wenn noch keine Mission fertig ist. Der Patron fällt
+  erst, wenn alle drei Missionen geschafft sind. Leben wird aufgerundet (1 % bis zum Fall)
+- **Held des Tages**: Die App schlägt jeden Tag drei Heroes vor – bevorzugt die, die du am wenigsten kennst (wenige
+  Sterne, wenige gelernte Karten), dazu einer zufällig – und du wählst einen. Wechseln geht, solange seine Mission noch
+  bei 0 steht. Er steht mit Porträt in der Leiste und auf der Lane-Map vor dem nächsten Ziel
+  - seine Mission ersetzt die Lern-Mission (also Hero-Mission + 2 Spiel-Missionen), festgelegt bei der Wahl:
+    - noch nicht gelernte Karten (Hero-Karte, 4 Fähigkeiten, Counter): **„Karten von Haze lernen“** – genau diese Karten,
+      über „Mit Haze angreifen“ in einer eigenen Session (neue werden kennengelernt; zählt fürs Tagesziel)
+    - alle gelernt: **„Build-Quiz mit Haze: höchstens 2 Fehler“** – der Knopf startet das Build-Quiz mit ihm
+    - alle gelernt, aber kein Build: **„Karten von Haze wiederholen“** (vorgezogene Wiederholung)
+  - ohne Wahl macht seine Mission keinen Fortschritt – der Patron kann dann nicht fallen
+- **Mid Boss** (freiwilliges Bonusziel, jederzeit): **10 Schwächen-Karten üben** im Schwächen-Training (weniger als 10
+  Schwächen: alle; weniger als 5: eine schwere Spiel-Aufgabe wie „Quiz mit 9 von 10“, „Sprint mit 25“, „Map-Quiz mit 9
+  von 10“, „Überleben: 20 Fragen“, fest pro Tag). Besiegt → **Rejuvenator**: Er schützt die Siegesserie einmal vor einer
+  Niederlage (höchstens einer auf Vorrat, steht als Symbol an der Leiste; die Niederlage zählt trotzdem)
 - **Startseite**: im Feld „Heute“ unter dem Tagesziel eine Leiste in Lane-Farbe – Guardian, Walker, Patron mit
-  Lebensbalken –, darunter die Missionen wie bisher; nur, wenn es drei Missionen gibt
-  - Antippen öffnet die **Lane-Map**: die Map mit der Lane des Tages und den drei Zielen (zerstörte durchgestrichen, das
-    nächste hervorgehoben), je Ziel das Leben bzw. welche Mission es zerstört hat, dazu die Bilanz
+  Lebensbalken, daneben der Mid Boss mit seinem Fortschritt; darunter der Held (bzw. die drei Vorschläge) und die
+  Missionen; nur, wenn es drei Missionen gibt
+  - Antippen öffnet die **Lane-Map**: die Map mit der Lane des Tages, den drei Zielen (zerstörte durchgestrichen, das
+    nächste hervorgehoben, Lebensringe), dem Helden und dem Mid Boss, dazu Missionen und Bilanz
 - **Effekte** (abschaltbar wie die anderen): in Lern-Sessions und Spielen kurz „⚔ Guardian −20 %“, „💥 Guardian
-  zerstört!“ bzw. „🏆 Sieg gegen Hidden King!“ (oben bei „+10 ◆“); auf der Startseite laufen die Lebensbalken seit dem
+  zerstört!“, „🏆 Sieg gegen Hidden King!“ bzw. „⚔ Revanche gegen Hidden King!“, „💜 Mid Boss besiegt – Rejuvenator!“,
+  „🏅 Trophäe: 10 Siege gegen Hidden King“ (oben bei „+10 ◆“); auf der Startseite laufen die Lebensbalken seit dem
   letzten Blick darauf sichtbar herunter, mit „zerstört!“ und am Ende **„Sieg!“ mit Konfetti**
-- **Sieg**: Patron zerstört, also alle drei Missionen geschafft. Die Souls bleiben wie bisher (+100 je Mission, +150 für
-  alle drei)
+- **Sieg**: Patron zerstört, also alle drei Missionen geschafft. Souls wie bisher (+100 je Mission, +150 für alle drei),
+  dazu der **Serien-Bonus**: +10 ◆ je Tag der Siegesserie (mit dem heutigen), höchstens +100 – bei einer Revanche doppelt
 - **Niederlage**: Ist der Patron bis Mitternacht nicht gefallen, zählt der Tag als Niederlage; am nächsten Tag gibt es eine
-  neue Lane. Tage, an denen weder gelernt noch gespielt wurde, zählen gar nicht (nur die App öffnen, z. B. für den Shop,
-  ist keine Niederlage)
-- **Statistik**: Siege, Niederlagen, Siegesserie (und die beste), dazu je Patron; Tage, die nicht zählen, unterbrechen die
-  Serie nicht
-- Siege und Niederlagen ergeben sich aus dem Souls-Verlauf (der Bonus für alle drei Missionen = Sieg) – so sind sie im
-  Backup und mit „Fortschritt löschen“ weg. Gezählt wird ab dem ersten Tag mit Lane-Angriff (der Tag ist im Backup)
+  neue Lane (und Revanche). Tage, an denen weder gelernt noch gespielt wurde, zählen gar nicht (nur die App öffnen, z. B.
+  für den Shop, ist keine Niederlage)
+- **Trophäen** je Patron bei 1, 5, 10, 25 und 50 Siegen; **Siege je Held** (mit welchem Helden des Tages gewonnen)
+- **Statistik**: Siege, Niederlagen, Siegesserie (und die beste), je Patron mit Trophäen, Siege je Held; Tage, die nicht
+  zählen, unterbrechen die Serie nicht. Auf der Hero-Seite: „3 Siege als Held des Tages“
+- Siege, Niederlagen, Revanchen, Rejuvenator, Trophäen und Siege je Held ergeben sich aus dem Souls-Verlauf (Bonus für
+  alle drei Missionen = Sieg, mit Lane, Patron und Held; besiegter Mid Boss = Eintrag ohne Souls) – so sind sie im Backup
+  und mit „Fortschritt löschen“ weg. Gezählt wird ab dem ersten Tag mit Lane-Angriff (der Tag ist im Backup)
 
 ## Lernen vertiefen
 Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalten.
@@ -443,6 +463,8 @@ Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Mini
 14. ✅ Map-Wissen: Map-Seite (Ebenen, Antippen, Zoom) und Map-Quiz („Wo ist …?“, „Was ist hier?“)
 15. ✅ Neue Karten erst kennenlernen (umdrehen, lesen, „Weiter“), erste Abfrage 3 Karten später
 16. ✅ Lane-Angriff: Tagesmissionen zerstören Guardian → Walker → Patron, Siege und Niederlagen in der Statistik
+17. ✅ Lane-Angriff 2.0: Gesamtfortschritt als Schaden, Held des Tages, Mid Boss mit Rejuvenator, Serien-Bonus,
+    Revanche, Trophäen, Siege je Held
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.
