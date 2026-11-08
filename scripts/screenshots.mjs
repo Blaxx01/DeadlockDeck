@@ -106,6 +106,15 @@ async function dbOp(cmd) {
       for (const [key, value] of Object.entries(cmd.values)) tx.objectStore('meta').put({ key, value })
       return await done(tx)
     }
+    if (cmd.op === 'patchDay') {
+      const tx = db.transaction('days', 'readwrite')
+      const q = tx.objectStore('days').get(cmd.date)
+      q.onsuccess = () => {
+        const day = q.result
+        tx.objectStore('days').put({ ...day, cards: [...day.cards, ...cmd.cards], reviewed: day.reviewed + cmd.cards.length })
+      }
+      return await done(tx)
+    }
     if (cmd.op === 'addSouls') {
       const tx = db.transaction(['souls', 'meta'], 'readwrite')
       for (const e of cmd.entries) tx.objectStore('souls').add(e)
@@ -183,8 +192,10 @@ const LOW = new Set([88, 64, 39, 21, 7])
 /** 16 Wochen – füllt den Kalender der Statistik (20 Wochen) gut */
 const HISTORY_DAYS = 112
 const MISSION_IDS = ['learn-items', 'learn-abilities', 'learn-heroes', 'learn-counters', 'quiz-7', 'guess-600', 'sprint-15', 'map-7', 'survival-10']
-/** Missionen heute: Item-Karten (geschafft), Quiz (5 von 7), Map-Quiz (offen) */
-const TODAY_MISSIONS = ['learn-items', 'quiz-7', 'map-7']
+/** Missionen heute: Held des Tages (4 von 6 Karten), Quiz (5 von 7), Map-Quiz (offen) */
+const TODAY_MISSIONS = ['hero', 'quiz-7', 'map-7']
+/** Davon schon gelernt: so viele Karten des Helden */
+const HERO_DONE = 4
 
 function demoBackup(data) {
   const r = rng(20261107)
@@ -222,7 +233,14 @@ function demoBackup(data) {
   levels(data.abilities.map(a => a.id), 16, 26, 30)
   levels(data.heroes.map(h => h.id), 6, 9, 9)
   levels(data.counters.map(c => c.id), 3, 5, 6)
-  // Heute gelernt: 10 Item-Karten (Mission geschafft) und 2 Fähigkeiten
+  // Held des Tages: ein Hero, dessen Karten noch nicht gelernt sind – heute schon 4 seiner 6 Karten
+  const heroCardsOf = h => [h.id, ...h.abilities.map(a => a.id), ...(counterIds.has(`counter:${h.className}`) ? [`counter:${h.className}`] : [])]
+  const fresh = heroes.filter(h => h.abilities?.length === 4 && heroCardsOf(h).every(id => !reviews.has(id)))
+  const dayHero = fresh[0] ?? heroes[0]
+  const offer = [...new Set([...fresh.slice(0, 3), ...heroes]).values()].slice(0, 3).map(h => h.id)
+  const dayHeroCards = heroCardsOf(dayHero)
+  for (const id of dayHeroCards.slice(0, HERO_DONE)) reviews.set(id, review(id, 1, 0))
+  // Heute gelernt: 10 Item-Karten und 2 Fähigkeiten
   const todayItems = pick(data.items.filter(i => !reviews.has(i.id) && i.id !== showcase?.id), 10).map(i => i.id)
   const todayAbilities = pick(data.abilities.filter(a => !reviews.has(a.id)), 2).map(a => a.id)
   for (const id of [...todayItems, ...todayAbilities]) reviews.set(id, review(id, int(1, 3), 0))
@@ -258,19 +276,22 @@ function demoBackup(data) {
     const won = laneDay ? laneDay === 'W' : r() < 0.6
     const done = won ? 3 : int(1, 2)
     for (const id of pick(MISSION_IDS, done)) entry(ago, minute++, 100, 'mission', { id })
-    if (won) entry(ago, minute++, 150, 'missions')
+    if (won) entry(ago, minute++, 150, 'missions', laneDay ? { hero: pick(starHeroes.concat(heroes.slice(0, 6)), 1)[0].id } : undefined)
+    // Mid Boss vor zwei Tagen: Rejuvenator auf Vorrat
+    if (ago === 2) entry(ago, minute++, 0, 'midboss')
   }
-  // heute: 12 Karten, Item-Mission geschafft, eine Quiz-Runde mit 5 richtigen
-  days.push({ date: today, reviewed: 12, cards: [...todayItems, ...todayAbilities], newIntroduced: 0, newByDeck: {} })
+  // heute: 16 Karten (4 davon vom Helden), eine Quiz-Runde mit 5 richtigen, 2 Schwächen geübt (Mid Boss)
+  const todayCards = [...todayItems, ...todayAbilities, ...dayHeroCards.slice(0, HERO_DONE)]
+  days.push({ date: today, reviewed: todayCards.length, cards: todayCards, newIntroduced: HERO_DONE, newByDeck: { heroes: 1, abilities: 3 }, weak: todayItems.slice(0, 2) })
   const now = new Date()
-  souls.push({ at: now.getTime() - 3_600_000, date: today, amount: 120, reason: 'card', data: { count: 12 } })
-  souls.push({ at: now.getTime() - 3_500_000, date: today, amount: 100, reason: 'mission', data: { id: 'learn-items' } })
+  souls.push({ at: now.getTime() - 3_600_000, date: today, amount: 10 * todayCards.length, reason: 'card', data: { count: todayCards.length } })
   souls.push({ at: now.getTime() - 3_000_000, date: today, amount: 70, reason: 'quiz', data: { score: 700, correct: 5, base: 70 } })
 
   // Rückwirkend gutgeschrieben (vor den 60 Tagen): Rang mitten in einer Stufe – der Sieg später bringt keinen Aufstieg
   const sum = souls.reduce((s, e) => s + e.amount, 0)
   let history = 1500
-  const VICTORY = 90 + 80 + 100 + 100 + 150
+  // Sieg später: zwei Runden, drei Missionen, Bonus, Serien-Bonus (höchstens 100)
+  const VICTORY = 90 + 80 + 3 * 100 + 150 + 100
   const nextAbove = total => RANK_SOULS.find(s => s > total) ?? Infinity
   while (nextAbove(sum + history) - (sum + history) < VICTORY + 300) history += 50
   souls.unshift({ at: daysAgo(HISTORY_DAYS + 1, 20).getTime(), date: ymd(daysAgo(HISTORY_DAYS + 1)), amount: history, reason: 'history', data: { cards: 600 } })
@@ -303,6 +324,7 @@ function demoBackup(data) {
 
   return {
     showcase,
+    dayHero: { id: dayHero.id, name: dayHero.name, heroId: dayHero.heroId, image: dayHero.smallImage ?? dayHero.image, cards: dayHeroCards, offer },
     backup: {
       app: 'deadlockdeck', version: 1, exportedAt: new Date().toISOString(),
       settings: {
@@ -386,15 +408,20 @@ async function takePictures({ browser, context, page, url, watch }) {
   log(`${data.items.length} Items, ${data.abilities.length} Fähigkeiten, ${data.heroes.length} Heroes, ${data.counters.length} Counter`)
 
   // 2) Demo-Stand als Backup einspielen (über die App – Meilensteine, Souls usw. stimmen dann zusammen)
-  const { backup, showcase } = demoBackup(data)
+  const { backup, showcase, dayHero } = demoBackup(data)
   await button('Einstellungen').click()
   await page.locator('input[type=file]').setInputFiles({ name: 'demo.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
   await page.getByText(/^Backup eingespielt/).waitFor()
   const today = ymd(new Date())
   // Missionen von heute; die Leiste hat diesen Stand schon gesehen (keine Animation auf dem Screenshot)
+  // Gesamtfortschritt: 4 von 6 Hero-Karten + 5 von 7 im Quiz
+  const progress = HERO_DONE / dayHero.cards.length + 5 / 7
   await putMeta(page, {
-    missions: { date: today, ids: TODAY_MISSIONS },
-    laneShown: { date: today, hp: [0, 1 - 5 / 7, 1], won: false },
+    missions: {
+      date: today, ids: TODAY_MISSIONS, heroOffer: dayHero.offer, midBoss: { kind: 'weak', target: 5 },
+      hero: { id: dayHero.id, name: dayHero.name, heroId: dayHero.heroId, image: dayHero.image, mode: 'learn', cards: dayHero.cards },
+    },
+    laneShown: { date: today, hp: [0, 1 - (progress - 1), 1], won: false },
     persistAskedOn: today,
   })
   await openHome(page, url)
@@ -519,6 +546,8 @@ async function takePictures({ browser, context, page, url, watch }) {
       { at: now, date: today, amount: 90, reason: 'quiz', data: { score: 900, correct: 8, base: 90 } },
       { at: now + 1, date: today, amount: 80, reason: 'map', data: { score: 800, correct: 7, base: 80 } },
     ])
+    // die letzten beiden Karten des Helden
+    await page.evaluate(dbOp, { op: 'patchDay', date: today, cards: dayHero.cards.slice(HERO_DONE) })
     const p = await context.newPage()
     watch(p)
     const t0 = Date.now()

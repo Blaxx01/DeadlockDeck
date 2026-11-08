@@ -58,14 +58,15 @@
 ## Fortschritt
 
 <p align="center">
-  <img src="docs/readme/start.webp" alt="Startseite: Rang, Streak, Tagesmissionen mit Lane-Angriff" width="260">
+  <img src="docs/readme/start.webp" alt="Startseite: Rang, Streak, Lane-Angriff mit Held des Tages und Mid Boss" width="260">
   <img src="docs/readme/lane-sieg.webp" alt="Animation: Walker und Patron fallen, Sieg mit Konfetti" width="260">
   <img src="docs/readme/statistik.webp" alt="Statistik: Kalender der Lerntage, Lane-Angriff, Souls-Verlauf" width="260">
 </p>
 
 - **Souls und Rang** mit den echten Deadlock-Abzeichen, dazu ein **Streak** mit Streak-Schutz
-- **3 Tagesmissionen als Lane-Angriff:** Jede geschaffte Mission zerstört ein Ziel – Guardian, Walker und am Ende den
-  Patron (Hidden King oder Archmother)
+- **3 Tagesmissionen als Lane-Angriff:** Mit deinem **Helden des Tages** greifst du eine Lane an – jeder Fortschritt
+  macht Schaden, Guardian, Walker und am Ende der Patron (Hidden King oder Archmother) fallen. Dazu der **Mid Boss**
+  (Schwächen-Training) mit dem Rejuvenator, Revanche nach einer Niederlage, Serien-Bonus und Trophäen
 - **Statistik** mit Kalender der Lerntage, Siegen und Niederlagen und Souls-Verlauf; **Hero-Meisterschaft** mit bis zu
   5 Sternen je Hero
 
@@ -116,7 +117,8 @@ und ffmpeg.
 | `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
 | `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
-| `src/game/laneAttack.ts`, `src/components/LaneBar.tsx`, `src/views/LaneView.tsx` | Lane-Angriff: Lane und Gegner des Tages, Leben der Ziele, Einblendungen, Siege/Niederlagen; Leiste auf der Startseite und Lane-Map |
+| `src/game/laneAttack.ts`, `src/components/LaneBar.tsx`, `src/views/LaneView.tsx` | Lane-Angriff: Lane und Gegner des Tages, Leben der Ziele (Gesamtfortschritt), Einblendungen, Bilanz mit Revanche, Rejuvenator, Trophäen; Leiste auf der Startseite und Lane-Map |
+| `src/game/dayHero.ts`, `src/components/HeroOfDay.tsx`, `src/views/HeroLearn.tsx` | Held des Tages: Vorschläge, Hero-Mission (lernen, Build-Quiz, wiederholen), Wahl auf der Startseite, Session mit seinen Karten |
 | `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, hartnäckige Karten, Rangfolge, Training |
 | `src/game/notes.ts`, `src/components/Notes.tsx` | Merkhilfen: speichern, auf der Kartenrückseite zeigen, bearbeiten |
 | `src/game/mastery.ts`, `src/game/heroMastery.ts` | Stufe einer Karte (Bronze/Silber/Gold), Sterne je Hero |
