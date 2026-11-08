@@ -22,8 +22,10 @@ export type View =
   | { name: 'shop' }
   /** Hero-Meisterschaft (Sterne je Hero) */
   | { name: 'heroes' }
-  /** Statistik (über die Rang-Karte) */
+  /** Statistik (Kachel auf der Startseite) */
   | { name: 'stats' }
+  /** Alle Ränge (über die Rang-Karte) */
+  | { name: 'ranks' }
   /** Map zum Nachschlagen; `focus`: diese Art gleich hervorheben */
   | { name: 'map'; focus?: MapKind }
   /** Map-Quiz */

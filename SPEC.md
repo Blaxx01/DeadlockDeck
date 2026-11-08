@@ -214,6 +214,11 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
 ### Startseite & Effekte (Etappe 1)
 - Oben die **Rang-Karte** (Abzeichen, Rang, Souls, Fortschritt bis zur nächsten Stufe, Streak + Schutz, Verfall-Hinweis),
   darunter **Tagesmissionen** mit Tagesziel, dann die **Karteikarten**, dann alle Spielmodi als **Kacheln** mit Highscore
+- **Rang-Übersicht** (Rang-Karte antippen, „Ränge ›“): oben der eigene Rang (großes Abzeichen, Souls, Unterstufe 1–6,
+  Balken bis zur nächsten Stufe; nach Verfall oder Ausgaben auch der höchste Rang bisher), darunter **alle 12 Ränge**
+  von Unwissender bis Ewiger mit Abzeichen, Souls ab Stufe 1 und Stand (✓ erreicht · „Du bist hier“ · „noch N ◆“); bei
+  Kultist, Akolyth und Wächter, was sie bei den Tagesmissionen freischalten (🔓/🔒). Darunter, wie man Souls bekommt
+  und verliert, und „Statistik ›“. Die Abzeichen aller Ränge liegen im Offline-Cache
 - **Effekte** (in den Einstellungen abschaltbar, ohne Ton): „+10 ◆“ fliegt kurz hoch, **Aufstieg** mit Abzeichen und
   Konfetti, kurze **Vibration bei Fehlern** in Quiz, Hero erraten und Build-Quiz (nicht bei „nicht gewusst“ –
   ehrliches Bewerten soll sich nicht schlecht anfühlen)
@@ -247,7 +252,7 @@ Ziel: täglich dranbleiben, Fortschritt sichtbar machen, Schwächen gezielt übe
   - Die Sterne der Karten zeigen den aktuellen Stand (Karte vergessen → Stern weg, bis sie wieder sitzt)
   - Hero-Seite: Stand je Stern (Fähigkeiten einzeln mit Stufe) und „Neue Karten von … lernen“ – merkt die noch nie
     gelernten Karten des Heroes für die nächste Session ihres Decks vor
-- **Statistik-Seite** (Rang-Karte antippen oder Kachel „Statistik“):
+- **Statistik-Seite** (Kachel „Statistik“, auch von der Rang-Übersicht und der Lane-Map aus):
   - Kennzahlen: Streak (und längster), Lerntage, Bewertungen, Hero-Sterne
   - **Kalender der Lerntage**: 20 Wochen wie bei GitHub – gelernt / Tagesziel / doppeltes Tagesziel, verbrauchter
     Streak-Schutz markiert; Tag antippen zeigt die Details; auch als Liste
@@ -516,6 +521,7 @@ Ziel: wissen, wo auf der Map was ist. Daten aus der API (`/v1/assets/map`): Mini
 17. ✅ Lane-Angriff 2.0: Gesamtfortschritt als Schaden, Held des Tages, Mid Boss mit Rejuvenator, Serien-Bonus,
     Revanche, Trophäen, Siege je Held
 18. ✅ Missions-Stufen nach Rang (leichter Einstieg, Build-Quiz-Missionen ab Akolyth 1), Lane tauschen gegen Souls
+19. ✅ Rang-Übersicht: alle Ränge mit Abzeichen, Schwellen und Freischaltungen (Rang-Karte antippen)
 
 ## Offene Punkte / Risiken
 - Wo die API keine deutschen Texte liefert, wird auf Englisch zurückgefallen.

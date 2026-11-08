@@ -30,6 +30,7 @@ interface Props {
   onShop: () => void
   onHeroes: () => void
   onStats: () => void
+  onRanks: () => void
   onMap: () => void
   onMapQuiz: () => void
   onLane: () => void
@@ -190,15 +191,15 @@ interface RankCardProps {
   assets: RankAsset[]
   streak: StreakState
   warning?: string
-  onStats: () => void
+  onRanks: () => void
 }
 
-/** Rang-Karte – antippen öffnet die Statistik */
-function RankCard({ souls, assets, streak, warning, onStats }: RankCardProps) {
+/** Rang-Karte – antippen öffnet die Rang-Übersicht */
+function RankCard({ souls, assets, streak, warning, onRanks }: RankCardProps) {
   const rank = rankForSouls(souls)
   return (
     <div className="panel rank-card">
-      <button className="rank-main" onClick={onStats}>
+      <button className="rank-main" onClick={onRanks}>
         <span className="rank-row">
           <RankBadge rank={rank} assets={assets} />
           <span className="rank-info">
@@ -219,7 +220,7 @@ function RankCard({ souls, assets, streak, warning, onStats }: RankCardProps) {
               ? `noch ${(rank.next.souls - souls).toLocaleString('de-DE')} ◆ bis ${rankLabel(rank.next, assets)}`
               : 'Höchster Rang erreicht'}
           </span>
-          <span className="rank-more">Statistik ›</span>
+          <span className="rank-more">Ränge ›</span>
         </span>
       </button>
       {warning && <p className="rank-warning">⚠ {warning}</p>}
@@ -422,7 +423,7 @@ function DeckRow({ deck, onLearn, primary }: { deck: DeckStats; onLearn: Props['
 }
 
 export function Home({
-  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onLane, onHeroLearn,
+  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onRanks, onMap, onMapQuiz, onLane, onHeroLearn,
   onHeroBuild, onSettings,
   syncing, syncError, imageProgress, onSync,
 }: Props) {
@@ -462,7 +463,7 @@ export function Home({
         <BackupReminder status={s.backup} saved={backupSaved} onSaved={() => setBackupSaved(true)} onClose={() => setBackupSaved(false)} />
       )}
 
-      <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
+      <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onRanks={onRanks} />
 
       <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} assets={s.ranks} laneShown={s.laneShown} onLane={onLane}
         onHeroLearn={onHeroLearn} onHeroBuild={onHeroBuild} onWeak={onWeak} />

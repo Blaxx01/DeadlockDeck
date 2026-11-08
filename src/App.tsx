@@ -27,20 +27,22 @@ import { Survival } from './views/Survival'
 import { MapView } from './views/MapView'
 import { MapQuiz } from './views/MapQuiz'
 import { LaneView } from './views/LaneView'
+import { RanksView } from './views/RanksView'
 import { HeroLearn } from './views/HeroLearn'
 
 /**
  * Welche Bilder offline vorgeladen werden – erhöhen, wenn neue dazukommen, damit auch bestehende
  * Installationen sie einmal nachladen (2: alle Hero-Posen, 3: Minimap)
  */
-const IMAGE_SET = 3
+const IMAGE_SET = 4
 
-/** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) – damit sie offline da sind */
+/** Rang-Abzeichen: aktuelles und nächstes (für den Aufstieg) und das jedes Rangs (Rang-Übersicht) – offline da */
 async function rankImageUrls(): Promise<string[]> {
   const assets = await getMeta<RankAsset[]>('ranks', [])
   const rank = rankForSouls(await getSoulsTotal())
   const next = RANK_STEPS[rank.index + 1]
-  return [rankImage(rank, assets), next && rankImage(next, assets)].filter((u): u is string => !!u)
+  return [rankImage(rank, assets), next && rankImage(next, assets), ...assets.map(a => rankImage({ tier: a.tier, sub: 0 }, assets))]
+    .filter((u): u is string => !!u)
 }
 
 /** Souls beim Start: einmalig rückwirkend gutschreiben, fälligen Rang-Verfall buchen, offene Meilensteine */
@@ -182,6 +184,7 @@ export default function App() {
           onShop={() => navigate({ name: 'shop' })}
           onHeroes={() => navigate({ name: 'heroes' })}
           onStats={() => navigate({ name: 'stats' })}
+          onRanks={() => navigate({ name: 'ranks' })}
           onMap={() => navigate({ name: 'map' })}
           onMapQuiz={() => navigate({ name: 'mapquiz' })}
           onLane={() => navigate({ name: 'lane' })}
@@ -207,6 +210,7 @@ export default function App() {
       {view.name === 'map' && <MapView key={view.focus ?? ''} onBack={goBack} focus={view.focus} />}
       {view.name === 'mapquiz' && <MapQuiz onExit={goBack} />}
       {view.name === 'lane' && <LaneView onBack={goBack} onStats={() => navigate({ name: 'stats' })} />}
+      {view.name === 'ranks' && <RanksView onBack={goBack} onStats={() => navigate({ name: 'stats' })} />}
       {view.name === 'herolearn' && <HeroLearn onExit={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />

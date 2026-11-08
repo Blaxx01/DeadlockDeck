@@ -63,7 +63,8 @@
   <img src="docs/readme/statistik.webp" alt="Statistik: Kalender der Lerntage, Lane-Angriff, Souls-Verlauf" width="260">
 </p>
 
-- **Souls und Rang** mit den echten Deadlock-Abzeichen, dazu ein **Streak** mit Streak-Schutz
+- **Souls und Rang** mit den echten Deadlock-Abzeichen – eine Übersicht zeigt alle Ränge und was sie freischalten –,
+  dazu ein **Streak** mit Streak-Schutz
 - **3 Tagesmissionen als Lane-Angriff:** Mit deinem **Helden des Tages** greifst du eine Lane an – jeder Fortschritt
   macht Schaden, Guardian, Walker und am Ende der Patron (Hidden King oder Archmother) fallen. Dazu der **Mid Boss**
   (Schwächen-Training) mit dem Rejuvenator, Revanche nach einer Niederlage, Serien-Bonus und Trophäen
@@ -118,6 +119,7 @@ und ffmpeg.
 | `src/sprint/sprint.ts`, `src/views/Sprint.tsx` | 60-Sekunden-Sprint: Fragen je Sorte, Uhr mit −3 s und Pause, Highscore je Auswahl |
 | `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
+| `src/game/rankLadder.ts`, `src/views/RanksView.tsx` | Rang-Übersicht: alle Ränge, eigener Stand, Freischaltungen |
 | `src/game/missions.ts`, `src/game/missionLevels.ts` | Tagesmissionen, Tagesziel-Bonus, Missions-Stufen nach Rang, Lane tauschen |
 | `src/game/laneAttack.ts`, `src/components/LaneBar.tsx`, `src/views/LaneView.tsx` | Lane-Angriff: Lane und Gegner des Tages, Leben der Ziele (Gesamtfortschritt), Einblendungen, Bilanz mit Revanche, Rejuvenator, Trophäen; Leiste auf der Startseite und Lane-Map |
 | `src/game/dayHero.ts`, `src/components/HeroOfDay.tsx`, `src/views/HeroLearn.tsx` | Held des Tages: Vorschläge, Hero-Mission (lernen, Build-Quiz, wiederholen), Wahl auf der Startseite, Session mit seinen Karten |

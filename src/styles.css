@@ -608,7 +608,7 @@ button.link {
 .stars .off { color: var(--star-off); }
 
 /* Heroes: Raster und Hero-Seite */
-.heroes-page, .stats-page { display: flex; flex-direction: column; }
+.heroes-page, .stats-page, .ranks-page { display: flex; flex-direction: column; }
 .mastery-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 16px 6px; padding: 4px 0 16px;
 }
@@ -1089,3 +1089,25 @@ button.link {
 .lane-heroes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .lane-heroes li { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px; font-size: 0.9rem; }
 .hm-lane { display: block; margin-top: 2px; color: var(--accent); }
+
+/* ---------- Rang-Übersicht ---------- */
+.rank-now { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.rank-now .rank-bar { align-self: stretch; margin-top: 6px; }
+.rank-now-name { font-size: 1.5rem; font-weight: 800; }
+.rank-subs { display: flex; gap: 5px; margin-top: 4px; }
+.rank-subs > span { width: 22px; height: 6px; border-radius: 3px; background: var(--track); }
+.rank-subs > span.on { background: var(--accent); }
+.rank-best { margin: 6px 0 0; color: var(--accent); }
+.rank-ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rank-step { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; border: 1px solid transparent; }
+.rank-step .rank-badge { width: 52px; height: 44px; }
+.rank-step.open .rank-badge { opacity: 0.45; filter: grayscale(0.6); }
+.rank-step.current { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+.rank-step-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rank-step-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.rank-step-state { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rank-step.current .rank-step-state { color: var(--accent); font-weight: 700; }
+.rank-step.reached .rank-step-state { color: var(--good); }
+.rank-step-unlock { color: var(--muted); }
+.rank-step-unlock.on { color: var(--accent); }
+.rank-rules { margin: 0 0 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
