@@ -67,6 +67,8 @@
 - **3 Tagesmissionen als Lane-Angriff:** Mit deinem **Helden des Tages** greifst du eine Lane an – jeder Fortschritt
   macht Schaden, Guardian, Walker und am Ende der Patron (Hidden King oder Archmother) fallen. Dazu der **Mid Boss**
   (Schwächen-Training) mit dem Rejuvenator, Revanche nach einer Niederlage, Serien-Bonus und Trophäen
+- **Missionen wachsen mit deinem Rang:** am Anfang leichte Ziele, Sprint und Hero erraten ab Kultist, Build-Quiz ab
+  Akolyth – passt eine Lane gar nicht, lässt sie sich einmal am Tag gegen Souls tauschen (teuer)
 - **Statistik** mit Kalender der Lerntage, Siegen und Niederlagen und Souls-Verlauf; **Hero-Meisterschaft** mit bis zu
   5 Sternen je Hero
 
@@ -116,7 +118,7 @@ und ffmpeg.
 | `src/sprint/sprint.ts`, `src/views/Sprint.tsx` | 60-Sekunden-Sprint: Fragen je Sorte, Uhr mit −3 s und Pause, Highscore je Auswahl |
 | `src/survival/survival.ts`, `src/views/Survival.tsx` | Überleben: Leben, Zeit je Frage (Ablauf als Reducer), Fragen-Pakete |
 | `src/game/souls.ts`, `src/game/ranks.ts` | Souls-Konto (Verlauf, Rundenregel, Verfall, rückwirkende Gutschrift) und Rangstufen |
-| `src/game/missions.ts` | Tagesmissionen und Tagesziel-Bonus |
+| `src/game/missions.ts`, `src/game/missionLevels.ts` | Tagesmissionen, Tagesziel-Bonus, Missions-Stufen nach Rang, Lane tauschen |
 | `src/game/laneAttack.ts`, `src/components/LaneBar.tsx`, `src/views/LaneView.tsx` | Lane-Angriff: Lane und Gegner des Tages, Leben der Ziele (Gesamtfortschritt), Einblendungen, Bilanz mit Revanche, Rejuvenator, Trophäen; Leiste auf der Startseite und Lane-Map |
 | `src/game/dayHero.ts`, `src/components/HeroOfDay.tsx`, `src/views/HeroLearn.tsx` | Held des Tages: Vorschläge, Hero-Mission (lernen, Build-Quiz, wiederholen), Wahl auf der Startseite, Session mit seinen Karten |
 | `src/game/weakness.ts`, `src/views/Weakness.tsx` | Schwächen: Fehler aus allen Modi, hartnäckige Karten, Rangfolge, Training |

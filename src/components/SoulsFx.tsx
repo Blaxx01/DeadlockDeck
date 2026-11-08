@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { getMeta } from '../data/db'
 import { effectsEnabled } from '../game/effects'
 import { laneEvents, PATRON_LABEL, targetLabel, type LaneChange } from '../game/laneAttack'
+import { unlocksBetween } from '../game/missionLevels'
 import { rankForSouls, rankLabel, type RankAsset, type RankState } from '../game/ranks'
 import { soulsEvents, type SoulsGain } from '../game/souls'
 import { LANE_COLOR } from '../map/mapSymbols'
@@ -41,8 +42,15 @@ function laneFloats(change: LaneChange): Omit<Float, 'id'>[] {
   return out
 }
 
-/** Aufstieg: Abzeichen, neuer Rang, Konfetti (ohne Effekte schlicht) */
-function RankUp({ rank, assets, confetti, onClose }: { rank: RankState; assets: readonly RankAsset[]; confetti: Confetto[]; onClose: () => void }) {
+interface RankUpState {
+  rank: RankState
+  /** Neu freigeschaltet bei den Tagesmissionen (Missions-Stufen) */
+  unlocks: string[]
+  confetti: Confetto[]
+}
+
+/** Aufstieg: Abzeichen, neuer Rang, was neu freigeschaltet ist, Konfetti (ohne Effekte schlicht) */
+function RankUp({ rank, unlocks, assets, confetti, onClose }: RankUpState & { assets: readonly RankAsset[]; onClose: () => void }) {
   useEffect(() => {
     const timer = window.setTimeout(onClose, 6000)
     return () => window.clearTimeout(timer)
@@ -56,6 +64,7 @@ function RankUp({ rank, assets, confetti, onClose }: { rank: RankState; assets: 
         <RankBadge rank={rank} assets={assets} className="big" />
         <div className="rankup-title">Aufstieg!</div>
         <div className="rankup-rank">{rankLabel(rank, assets)}</div>
+        {unlocks.map(u => <p key={u} className="rankup-unlock small">🔓 Ab morgen bei den Tagesmissionen: {u}</p>)}
         <button className="primary" onClick={onClose}>Weiter</button>
       </div>
     </div>
@@ -66,7 +75,7 @@ function RankUp({ rank, assets, confetti, onClose }: { rank: RankState; assets: 
 export function SoulsFx() {
   const assets = useLiveQuery(() => getMeta<RankAsset[]>('ranks', []), []) ?? []
   const [floats, setFloats] = useState<Float[]>([])
-  const [rankUp, setRankUp] = useState<{ rank: RankState; confetti: Confetto[] } | null>(null)
+  const [rankUp, setRankUp] = useState<RankUpState | null>(null)
   const nextId = useRef(0)
   const closeRankUp = useCallback(() => setRankUp(null), [])
 
@@ -80,10 +89,17 @@ export function SoulsFx() {
     }
     function onSouls(e: Event) {
       const gain = (e as CustomEvent<SoulsGain>).detail
-      if (gain.amount > 0 && effectsEnabled()) show([{ text: `${gain.label ? `${gain.label} ` : ''}+${gain.amount} ◆` }])
-      const before = rankForSouls(gain.before)
+      if (effectsEnabled()) {
+        if (gain.amount > 0) show([{ text: `${gain.label ? `${gain.label} ` : ''}+${gain.amount} ◆` }])
+        // Ausgaben (Lane tauschen) – Verfall ohne Text bleibt still
+        else if (gain.amount < 0 && gain.label) show([{ text: `${gain.label} −${-gain.amount} ◆`, long: true }])
+      }
+      // „Aufstieg!“ nur bei einem neuen höchsten Rang – nicht noch einmal nach Verfall oder Ausgaben
+      const best = Math.max(gain.before, gain.best ?? 0)
       const after = rankForSouls(gain.after)
-      if (after.index > before.index) setRankUp({ rank: after, confetti: effectsEnabled() ? makeConfetti() : [] })
+      if (after.index > rankForSouls(best).index) {
+        setRankUp({ rank: after, unlocks: unlocksBetween(best, gain.after), confetti: effectsEnabled() ? makeConfetti() : [] })
+      }
     }
     function onLane(e: Event) {
       if (effectsEnabled()) show(laneFloats((e as CustomEvent<LaneChange>).detail))
@@ -107,7 +123,7 @@ export function SoulsFx() {
           </span>
         ))}
       </div>
-      {rankUp && <RankUp rank={rankUp.rank} assets={assets} confetti={rankUp.confetti} onClose={closeRankUp} />}
+      {rankUp && <RankUp {...rankUp} assets={assets} onClose={closeRankUp} />}
     </>
   )
 }

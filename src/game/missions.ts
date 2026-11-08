@@ -274,26 +274,29 @@ export function pickMissions(date: string, available: readonly MissionDef[], wit
 
 /**
  * Ersatz für einzelne Missionen (zu schwer nach den Stufen, Lane getauscht): andere Gruppen als die bleibenden,
- * zuerst Spiel-, dann Lern-Missionen; `avoid` (z. B. die getauschten) nie.
+ * zuerst Spiel-, dann Lern-Missionen; `avoid` (z. B. die getauschten) nie. Heute schon geschaffte Missionen nur zur
+ * Not – sonst ließe sich ein Tausch mit Erledigtem auszahlen.
  */
 export function drawReplacements(
-  rng: Rng, available: readonly MissionDef[], keep: readonly string[], count: number, avoid: readonly string[],
+  rng: Rng, available: readonly MissionDef[], keep: readonly string[], count: number, avoid: readonly string[], ctx?: MissionContext,
 ): string[] {
   const groups = new Set(keep.map(id => (id === HERO_MISSION_ID ? 'hero' : byId.get(id)?.group)).filter(g => g !== undefined))
   const candidates = [
     ...shuffle(available.filter(m => m.kind === 'play'), rng),
     ...shuffle(available.filter(m => m.kind === 'learn'), rng),
   ].filter(m => !avoid.includes(m.id) && !keep.includes(m.id))
+  const done = (m: MissionDef) => !!ctx && missionStatus(m, ctx).done
+  const open = candidates.filter(m => !done(m))
   const out: MissionDef[] = []
-  for (const m of candidates) {
+  for (const m of open) {
     if (out.length >= count) break
     if (!groups.has(m.group)) {
       out.push(m)
       groups.add(m.group)
     }
   }
-  // zu wenige Gruppen: auch aus schon vertretenen
-  for (const m of candidates) {
+  // zu wenige Gruppen: auch aus schon vertretenen, zuletzt schon geschaffte
+  for (const m of [...open, ...candidates.filter(done)]) {
     if (out.length >= count) break
     if (!out.includes(m)) out.push(m)
   }
@@ -388,7 +391,7 @@ async function adaptToLevel(stored: StoredMissions, now: Date, database: DeckDB)
   if (tooHard.length) {
     const keep = stored.ids.filter(id => !tooHard.includes(id))
     const rng = seededRng(hashString(`level:${stored.date}`))
-    const fresh = drawReplacements(rng, missionsForLevel(level).filter(m => m.available(ctx)), keep, tooHard.length, stored.ids)
+    const fresh = drawReplacements(rng, missionsForLevel(level).filter(m => m.available(ctx)), keep, tooHard.length, stored.ids, ctx)
     let k = 0
     ids = stored.ids.map(id => (tooHard.includes(id) ? fresh[k++] ?? id : id))
   }
@@ -599,7 +602,7 @@ export async function swapLane(now = new Date(), database: DeckDB = db): Promise
   const ctx = await missionContext(now, database)
   const rng = seededRng(hashString(`swap:${date}`))
   const available = missionsForLevel(status.level).filter(m => m.available(ctx))
-  const fresh = drawReplacements(rng, available, keep, open.length, [...stored.ids, ...(stored.swapped ?? [])])
+  const fresh = drawReplacements(rng, available, keep, open.length, [...stored.ids, ...(stored.swapped ?? [])], ctx)
   if (fresh.length < open.length) return null
   let k = 0
   const ids = stored.ids.map(id => (open.includes(id) ? fresh[k++] : id))

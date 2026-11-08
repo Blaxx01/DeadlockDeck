@@ -496,6 +496,7 @@ button.link {
 .mission-reward { color: var(--accent); font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
 .missions li.done .mission-reward { color: var(--good); }
 .mission-bonus { margin: 6px 0 0; }
+.mission-unlock { margin: 2px 0 0; }
 
 /* Spielmodi als Kacheln */
 .mode-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -532,6 +533,7 @@ button.link {
 }
 .rankup-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 800; }
 .rankup-rank { font-size: 1.6rem; font-weight: 800; }
+.rankup-unlock { max-width: 260px; margin: 0; text-align: center; color: var(--accent); }
 .rankup-confetti { position: absolute; inset: 0; pointer-events: none; }
 .confetto { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; animation: confetti-fall linear forwards; }
 @keyframes rankup-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
@@ -1069,6 +1071,12 @@ button.link {
 .lane-map-hero .ring { fill: #120f0b; stroke: var(--lane); stroke-width: 6; }
 .lane-map-hero text { fill: var(--text); font-weight: 800; }
 .lane-hero-line { display: flex; align-items: center; gap: 8px; margin: 0; }
+.lane-swap p { margin: 4px 0 8px; }
+.lane-swap > button { width: 100%; }
+.lane-swap-why { color: var(--muted); }
+.lane-swap-confirm { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.lane-swap-confirm p { margin: 0 0 10px; }
+.lane-swap-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lane-boss-panel h2 { color: var(--boss); }
 .lane-trophies { display: flex; flex-direction: column; gap: 2px; }
 /* Statistik */

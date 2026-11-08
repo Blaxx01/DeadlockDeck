@@ -231,6 +231,8 @@ interface MissionsProps {
   daily: DailyStatus
   reviewed: number
   goal: number
+  /** Rang-Namen (nächste Freischaltung) */
+  assets: RankAsset[]
   laneShown: LaneShown | null
   onLane: () => void
   onHeroLearn: () => void
@@ -238,8 +240,9 @@ interface MissionsProps {
   onWeak: () => void
 }
 
-function Missions({ daily, reviewed, goal, laneShown, onLane, onHeroLearn, onHeroBuild, onWeak }: MissionsProps) {
+function Missions({ daily, reviewed, goal, assets, laneShown, onLane, onHeroLearn, onHeroBuild, onWeak }: MissionsProps) {
   const boss = daily.midBoss
+  const unlock = daily.nextUnlock
   const goalPct = Math.min(100, Math.round((reviewed / goal) * 100))
   return (
     <div className="panel today">
@@ -283,6 +286,12 @@ function Missions({ daily, reviewed, goal, laneShown, onLane, onHeroLearn, onHer
           <p className="muted small mission-bonus">
             {daily.bonus ? `🎉 Alle Missionen geschafft – +${ALL_MISSIONS_BONUS} ◆ Bonus` : `Alle drei: +${ALL_MISSIONS_BONUS} ◆ Bonus`}
           </p>
+          {/* Missions-Stufen: was der nächste Rang freischaltet */}
+          {unlock && (
+            <p className="muted small mission-unlock">
+              🔓 Ab {rankLabel({ tier: unlock.tier, sub: 1 }, assets)}: {unlock.text} · noch {unlock.missing.toLocaleString('de-DE')} ◆
+            </p>
+          )}
         </>
       )}
     </div>
@@ -455,7 +464,7 @@ export function Home({
 
       <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
 
-      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} laneShown={s.laneShown} onLane={onLane}
+      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} assets={s.ranks} laneShown={s.laneShown} onLane={onLane}
         onHeroLearn={onHeroLearn} onHeroBuild={onHeroBuild} onWeak={onWeak} />
 
       <div className="panel">

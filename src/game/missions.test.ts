@@ -430,6 +430,21 @@ describe('Lane tauschen', () => {
     trackLane(null)
   })
 
+  it('tauscht nicht in heute schon geschaffte Missionen (sonst ließe sich der Tausch auszahlen)', async () => {
+    const database = await swapSetup()
+    // heute schon gespielt: Überleben mit 12 Fragen, Sprint mit 16 – beide Missionen wären sofort geschafft
+    await awardRound('survival', 60, { score: 12 }, now, database)
+    await awardRound('sprint', 80, { score: 16 }, now, database)
+    const swapped = (await swapLane(now, database))!
+    expect(swapped.ids[0]).toBe('learn-new')
+    expect(swapped.ids).not.toContain('survival-10')
+    expect(swapped.ids).not.toContain('sprint-15')
+    // übrig: Quiz mit Punkten (offen) und eine Lern-Mission zum Auffüllen
+    expect(swapped.ids[1]).toBe('quiz-1000')
+    expect(missionById(swapped.ids[2])?.kind).toBe('learn')
+    trackLane(null)
+  })
+
   it('geht nicht ohne genug Souls, ohne offene Spiel-Mission oder wenn der Patron schon gefallen ist', async () => {
     const poor = await swapSetup(150)
     expect((await dailyStatus(now, poor)).swap).toMatchObject({ possible: false, reason: 'Dir fehlen 50 ◆' })

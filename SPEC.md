@@ -367,7 +367,8 @@ richten sich die Tagesmissionen nach einer **Stufe aus dem Rang**:
     nicht); reicht der Kontostand nicht, ist der Tausch gesperrt
   - nur, solange der Patron steht und mindestens eine Spiel-Mission offen ist; vorher eine **Bestätigung** mit Preis
     und neuem Kontostand
-  - die neue Auslosung meidet die getauschten Missionen; gibt die Stufe zu wenige Modi her, füllen Lern-Missionen auf
+  - die neue Auslosung meidet die getauschten Missionen und heute schon geschaffte (sonst ließe sich der Tausch mit
+    Erledigtem auszahlen – Teilfortschritt zählt); gibt die Stufe zu wenige Modi her, füllen Lern-Missionen auf
     (z. B. „10 Item-Karten lernen“)
   - im Souls-Verlauf als „Lane getauscht“ (zählt nicht als Lerntag und nicht als gespielter Tag im Lane-Angriff); ein
     Sieg merkt sich die getauschte Lane

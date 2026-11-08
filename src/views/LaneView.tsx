@@ -1,11 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { MAP_UNITS, MapCanvas, MapSymbolIcon } from '../components/MapCanvas'
+import { getMeta } from '../data/db'
 import { getMapData } from '../data/mapSync'
 import {
   getLaneSummary, hpPercent, LANE_NAME, LANE_TARGETS, laneTargetPoints, PATRON_LABEL, PATRONS, targetLabel, TROPHY_WINS, type LaneState,
 } from '../game/laneAttack'
-import { dailyStatus, type MissionStatus } from '../game/missions'
+import { dailyStatus, swapLane, type MissionStatus, type SwapInfo } from '../game/missions'
+import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import type { MapData, MapPoint } from '../map/mapData'
 import { LANE_COLOR } from '../map/mapSymbols'
 
@@ -127,11 +129,56 @@ function MissionList({ missions }: { missions: readonly MissionStatus[] }) {
   )
 }
 
+/** Lane tauschen: 1× am Tag gegen Souls – mit Bestätigung (Preis, neuer Kontostand, ggf. Rang) */
+function SwapPanel({ swap, lane, assets }: { swap: SwapInfo; lane: LaneState; assets: readonly RankAsset[] }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const after = swap.balance - swap.price
+  const rankNow = rankForSouls(swap.balance)
+  const rankAfter = rankForSouls(after)
+
+  async function confirm() {
+    setBusy(true)
+    await swapLane()
+    setBusy(false)
+    setAsking(false)
+  }
+
+  return (
+    <div className="panel lane-swap">
+      <div className="row">
+        <h2>Lane tauschen</h2>
+        {!swap.used && <span className="small"><b>{fmt(swap.price)} ◆</b></span>}
+      </div>
+      <p className="muted small">
+        Andere Lane, gleicher Gegner{lane.revenge ? ' (die Revanche bleibt)' : ''}: deine offenen Spiel-Missionen werden neu
+        ausgelost, geschaffte bleiben. Einmal am Tag – und bewusst teuer.
+      </p>
+      {!swap.possible ? (
+        <p className="small lane-swap-why">{swap.reason}</p>
+      ) : asking ? (
+        <div className="lane-swap-confirm" role="group" aria-label="Lane tauschen bestätigen">
+          <p className="small">
+            Für <b>{fmt(swap.price)} ◆</b> tauschen? Dein Kontostand sinkt auf <b>{fmt(after)} ◆</b>
+            {rankAfter.index < rankNow.index ? <> – dein Rang auf <b>{rankLabel(rankAfter, assets)}</b> (Freischaltungen bleiben)</> : ''}.
+          </p>
+          <div className="lane-swap-buttons">
+            <button className="primary" disabled={busy} onClick={() => void confirm()}>Tauschen</button>
+            <button disabled={busy} onClick={() => setAsking(false)}>Abbrechen</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAsking(true)}>Lane tauschen – {fmt(swap.price)} ◆</button>
+      )}
+    </div>
+  )
+}
+
 /** Lane-Angriff des Tages: Map mit Lane und Zielen, Leben je Ziel, Missionen, Bilanz */
 export function LaneView({ onBack, onStats }: Props) {
   const s = useLiveQuery(async () => {
-    const [daily, map, summary] = await Promise.all([dailyStatus(), getMapData(), getLaneSummary()])
-    return { daily, map, summary }
+    const [daily, map, summary, ranks] = await Promise.all([dailyStatus(), getMapData(), getLaneSummary(), getMeta<RankAsset[]>('ranks', [])])
+    return { daily, map, summary, ranks }
   }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onBack() }
@@ -206,6 +253,8 @@ export function LaneView({ onBack, onStats }: Props) {
             )}
             <MissionList missions={s.daily.missions} />
           </div>
+
+          {s.daily.swap && !lane.won && <SwapPanel swap={s.daily.swap} lane={lane} assets={s.ranks} />}
 
           {s.daily.midBoss && (
             <div className="panel lane-boss-panel">
