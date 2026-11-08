@@ -18,11 +18,24 @@ function hint(choice: HeroChoice): string {
 /** Held des Tages im Feld „Heute“: drei Vorschläge zur Wahl, danach der Held mit seiner Mission */
 export function HeroOfDay({ daily, onLearn, onBuild }: Props) {
   const [picking, setPicking] = useState(false)
+  /** Gerade gewählt – die Auswahl bleibt offen, bis der neue Held in den Daten steht (kein Aufblitzen des alten) */
+  const [chosen, setChosen] = useState<string | null>(null)
   const { hero, heroOffer } = daily
   const mission = daily.missions.find(m => m.def.id === HERO_MISSION_ID)
   if (!mission) return null
 
-  if ((!hero || picking) && heroOffer?.length) {
+  function choose(id: string) {
+    setChosen(id)
+    void chooseHero(id).then(ok => {
+      if (!ok) {
+        setChosen(null)
+        setPicking(false)
+      }
+    })
+  }
+
+  const settled = !!chosen && hero?.id === chosen
+  if ((!hero || (picking && !settled)) && heroOffer?.length) {
     return (
       <div className="hero-day pick" role="group" aria-label="Held des Tages wählen">
         <div className="hero-day-head">
@@ -31,15 +44,15 @@ export function HeroOfDay({ daily, onLearn, onBuild }: Props) {
         </div>
         <div className="hero-choices">
           {heroOffer.map(c => (
-            <button key={c.id} className={`hero-choice${hero?.id === c.id ? ' on' : ''}`} aria-pressed={hero?.id === c.id}
-              onClick={() => void chooseHero(c.id).then(() => setPicking(false))}>
+            <button key={c.id} className={`hero-choice${(chosen ?? hero?.id) === c.id ? ' on' : ''}`} aria-pressed={(chosen ?? hero?.id) === c.id}
+              disabled={!!chosen} onClick={() => choose(c.id)}>
               <span className="hero-portrait">{c.image && <img src={c.image} alt="" draggable={false} />}</span>
               <span className="hero-choice-name">{c.name}</span>
               <span className="muted small">{hint(c)}</span>
             </button>
           ))}
         </div>
-        {hero && <button className="link small" onClick={() => setPicking(false)}>Doch {hero.name}</button>}
+        {hero && !chosen && <button className="link small" onClick={() => setPicking(false)}>Doch {hero.name}</button>}
       </div>
     )
   }
@@ -52,7 +65,7 @@ export function HeroOfDay({ daily, onLearn, onBuild }: Props) {
         <span><b>{hero.name}</b> <span className="muted small">greift mit dir an</span></span>
         <span className="muted small">
           {mission.done ? 'Seine Mission ist geschafft ✓' : mission.def.title}
-          {hero.canChange && <> · <button className="link small" onClick={() => setPicking(true)}>Wechseln</button></>}
+          {hero.canChange && <> · <button className="link small" onClick={() => { setChosen(null); setPicking(true) }}>Wechseln</button></>}
         </span>
       </span>
       {!mission.done && (
