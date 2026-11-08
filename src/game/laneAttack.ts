@@ -1,8 +1,8 @@
 /**
  * Lane-Angriff: Die Tagesmissionen greifen jeden Tag auf einer Lane an – Guardian → Walker → Patron.
- * Jede geschaffte Mission zerstört das vorderste Ziel (in der Reihenfolge, in der sie geschafft werden),
- * bis dahin macht die am weitesten fortgeschrittene offene Mission Schaden.
- * Siege und Niederlagen ergeben sich aus dem Souls-Verlauf (Bonus für alle drei Missionen = Sieg).
+ * Schaden ist der Gesamtfortschritt aller drei Missionen: je eine volle Mission an Fortschritt zerstört ein Ziel,
+ * der Patron fällt, wenn alle drei geschafft sind. Dazu Held des Tages, Mid Boss (Rejuvenator), Revanche.
+ * Siege, Niederlagen, Revanchen, Rejuvenator, Trophäen und Siege je Held ergeben sich aus dem Souls-Verlauf.
  */
 import { localDate } from '../data/dates'
 import { db, getMeta, setMeta, type DeckDB } from '../data/db'
@@ -47,19 +47,45 @@ export interface LaneMission {
   def: { id: string; title: string; target: number }
   progress: number
   done: boolean
-  /** Reihenfolge des Schaffens (ID des Souls-Eintrags der Belohnung); fehlt = gerade erst geschafft */
-  doneSeq?: number
 }
 
 export interface LaneTarget {
   kind: LaneTargetKind
   /** Leben 0–1 */
   hp: number
-  /** Titel der Mission, die es zerstört hat */
-  by?: string
 }
 
-export interface LaneState extends LaneDayInfo {
+/** Held des Tages (Hero-Karte) */
+export interface LaneHero {
+  id: string
+  name: string
+  image?: string
+}
+
+/** Mid Boss: freiwilliges Bonusziel des Tages */
+export interface LaneBoss {
+  title: string
+  progress: number
+  target: number
+  done: boolean
+}
+
+/** Was der Stand außer den Missionen braucht (aus dem Verlauf und der Wahl des Tages) */
+export interface LaneContext {
+  patron: Patron
+  /** Derselbe Patron wie bei der letzten Niederlage */
+  revenge: boolean
+  /** Rejuvenator auf Vorrat (schützt die Siegesserie einmal) */
+  rejuvenator: boolean
+  /** Siegesserie bis jetzt (mit heute, wenn schon gewonnen) */
+  streak: number
+  /** Heute gewonnen und damit eine Trophäe erreicht: Siege gegen diesen Patron */
+  trophy?: number
+  hero?: LaneHero
+  midBoss?: LaneBoss
+}
+
+export interface LaneState extends LaneDayInfo, Omit<LaneContext, 'patron'> {
   date: string
   targets: LaneTarget[]
   /** Index des vordersten Ziels (3 = alle zerstört) */
@@ -67,18 +93,30 @@ export interface LaneState extends LaneDayInfo {
   won: boolean
 }
 
+/** Gesamtfortschritt der Missionen: je geschaffte Mission 1, sonst der Anteil (0–3) */
+export function missionsProgress(missions: readonly LaneMission[]): number {
+  return missions.reduce((sum, m) => sum + (m.done ? 1 : m.def.target > 0 ? Math.min(1, m.progress / m.def.target) : 0), 0)
+}
+
 /** Stand des Tages – nur mit genau drei Missionen (sonst kein Lane-Angriff) */
-export function laneState(date: string, missions: readonly LaneMission[]): LaneState | null {
+export function laneState(date: string, missions: readonly LaneMission[], context?: Partial<LaneContext>): LaneState | null {
   if (missions.length !== LANE_TARGETS.length) return null
-  const done = missions
-    .map((m, i) => ({ m, i }))
-    .filter(x => x.m.done)
-    .sort((a, b) => (a.m.doneSeq ?? Infinity) - (b.m.doneSeq ?? Infinity) || a.i - b.i)
-    .map(x => x.m)
-  const best = Math.max(0, ...missions.filter(m => !m.done).map(m => (m.def.target > 0 ? Math.min(1, m.progress / m.def.target) : 0)))
-  const targets = LANE_TARGETS.map((kind, i): LaneTarget =>
-    i < done.length ? { kind, hp: 0, by: done[i].def.title } : { kind, hp: i === done.length ? 1 - best : 1 })
-  return { date, ...laneForDay(date), targets, front: done.length, won: done.length >= LANE_TARGETS.length }
+  const won = missions.every(m => m.done)
+  const total = missionsProgress(missions)
+  const targets = LANE_TARGETS.map((kind, i): LaneTarget => ({
+    kind,
+    // je volle Mission ein Ziel; gerundet gegen Rechenfehler (0,1 + 0,2 …)
+    hp: won ? 0 : Math.min(1, Math.max(0, Math.round((1 - (total - i)) * 1e9) / 1e9)),
+  }))
+  const front = targets.findIndex(t => t.hp > 0)
+  const day = laneForDay(date)
+  return {
+    date, lane: day.lane, patron: context?.patron ?? day.patron, targets, front: front < 0 ? LANE_TARGETS.length : front, won,
+    revenge: context?.revenge ?? false, rejuvenator: context?.rejuvenator ?? false, streak: context?.streak ?? 0,
+    ...(context?.trophy ? { trophy: context.trophy } : {}),
+    ...(context?.hero ? { hero: context.hero } : {}),
+    ...(context?.midBoss ? { midBoss: context.midBoss } : {}),
+  }
 }
 
 /** Leben in Prozent – aufgerundet, damit „0 %“ nur bei zerstörten Zielen steht */
@@ -95,8 +133,10 @@ export interface LaneChange {
   damage?: { kind: LaneTargetKind; before: number; after: number }
   /** Gerade zerstörte Ziele, in Reihenfolge */
   destroyed: LaneTargetKind[]
-  /** Gerade gewonnen (Patron gefallen) */
+  /** Gerade gewonnen (Patron gefallen) – Revanche und Trophäe stehen im Stand */
   won: boolean
+  /** Mid Boss gerade besiegt (Rejuvenator) */
+  midBoss: boolean
 }
 
 /** Was sich seit dem letzten Stand getan hat (gleicher Tag), sonst null */
@@ -108,8 +148,9 @@ export function laneChange(prev: LaneState | null | undefined, next: LaneState |
   const before = front ? hpPercent(prev.targets[next.front].hp) : 0
   const after = front ? hpPercent(front.hp) : 0
   const damage = front && after < before ? { kind: front.kind, before, after } : undefined
-  if (!destroyed.length && !damage && !won) return null
-  return { state: next, damage, destroyed, won }
+  const midBoss = !!next.midBoss?.done && !!prev.midBoss && !prev.midBoss.done
+  if (!destroyed.length && !damage && !won && !midBoss) return null
+  return { state: next, damage, destroyed, won, midBoss }
 }
 
 /** Für Einblendungen in Sessions und Spielen */
@@ -163,25 +204,26 @@ export async function markLaneShown(state: LaneState, database: DeckDB = db): Pr
 /** Kein Lernen oder Spielen: Verfall, Nachträge, Meilensteine */
 const NOT_PLAYED: ReadonlySet<SoulsReason> = new Set<SoulsReason>(['decay', 'history', 'milestone', 'star'])
 
+/** Trophäen je Patron bei so vielen Siegen */
+export const TROPHY_WINS = [1, 5, 10, 25, 50]
+
+/** Serien-Bonus beim Sieg: je Tag der Siegesserie, höchstens … (Revanche: doppelt) */
+export const STREAK_BONUS_PER_DAY = 10
+export const STREAK_BONUS_MAX = 100
+
+export function streakBonus(streak: number, revenge: boolean): number {
+  return Math.min(STREAK_BONUS_MAX, STREAK_BONUS_PER_DAY * streak) * (revenge ? 2 : 1)
+}
+
 export interface LaneDay extends LaneDayInfo {
   date: string
   won: boolean
-}
-
-/**
- * Gezählte Tage ab dem ersten Tag mit Lane-Angriff: Sieg = Bonus für alle drei Missionen; Niederlage = gelernt oder
- * gespielt, ohne zu gewinnen – heute erst, wenn der Tag vorbei ist. Tage ohne Lernen und Spielen zählen nicht.
- */
-export function laneDays(entries: readonly Pick<SoulsEntry, 'date' | 'reason'>[], start: string | null | undefined, today: string): LaneDay[] {
-  if (!start) return []
-  const won = new Set<string>()
-  const played = new Set<string>()
-  for (const e of entries) {
-    if (e.date < start || e.date > today) continue
-    if (e.reason === 'missions') won.add(e.date)
-    else if (!NOT_PLAYED.has(e.reason) && e.date < today) played.add(e.date)
-  }
-  return [...new Set([...won, ...played])].sort().map(date => ({ date, ...laneForDay(date), won: won.has(date) }))
+  /** Derselbe Patron wie bei der Niederlage davor */
+  revenge: boolean
+  /** Held des Tages beim Sieg (Hero-Karten-ID) */
+  hero?: string
+  /** Niederlage, bei der der Rejuvenator die Siegesserie geschützt hat */
+  saved?: boolean
 }
 
 export interface LaneRecord {
@@ -195,30 +237,103 @@ export interface LaneSummary extends LaneRecord {
   /** Längste Siegesserie */
   best: number
   byPatron: Record<Patron, LaneRecord>
+  /** Siege je Held des Tages (Hero-Karten-ID) */
+  byHero: Record<string, number>
+  /** Wie oft der Rejuvenator die Serie gerettet hat */
+  saves: number
 }
 
-export function summarizeLanes(days: readonly LaneDay[]): LaneSummary {
+export interface LaneHistory {
+  days: LaneDay[]
+  summary: LaneSummary
+  /** Heute: Gegner (Revanche) und Rejuvenator auf Vorrat */
+  today: { patron: Patron; revenge: boolean; rejuvenator: boolean }
+}
+
+type HistoryEntry = Pick<SoulsEntry, 'date' | 'reason'> & { data?: SoulsEntry['data'] }
+
+/**
+ * Gezählte Tage ab dem ersten Tag mit Lane-Angriff: Sieg = Bonus für alle drei Missionen; Niederlage = gelernt oder
+ * gespielt, ohne zu gewinnen – heute erst, wenn der Tag vorbei ist. Tage ohne Lernen und Spielen zählen nicht.
+ * Nach einer Niederlage kommt derselbe Patron wieder (Revanche). Ein besiegter Mid Boss legt einen Rejuvenator auf
+ * Vorrat (höchstens einen), der die Serie bei der nächsten Niederlage schützt.
+ */
+export function laneHistory(entries: readonly HistoryEntry[], start: string | null | undefined, today: string): LaneHistory {
   const byPatron: Record<Patron, LaneRecord> = { hiddenKing: { wins: 0, losses: 0 }, archmother: { wins: 0, losses: 0 } }
-  let streak = 0
-  let best = 0
-  for (const day of days) {
-    if (day.won) {
-      streak++
-      best = Math.max(best, streak)
-      byPatron[day.patron].wins++
-    } else {
-      streak = 0
-      byPatron[day.patron].losses++
+  const summary: LaneSummary = { wins: 0, losses: 0, streak: 0, best: 0, byPatron, byHero: {}, saves: 0 }
+  const days: LaneDay[] = []
+  const won = new Map<string, HistoryEntry['data']>()
+  const played = new Set<string>()
+  const boss = new Set<string>()
+  if (start) {
+    for (const e of entries) {
+      if (e.date < start || e.date > today) continue
+      if (e.reason === 'missions') won.set(e.date, e.data)
+      else if (!NOT_PLAYED.has(e.reason) && e.date < today) played.add(e.date)
+      if (e.reason === 'midboss') boss.add(e.date)
     }
   }
-  const wins = byPatron.hiddenKing.wins + byPatron.archmother.wins
-  const losses = byPatron.hiddenKing.losses + byPatron.archmother.losses
-  return { wins, losses, streak, best, byPatron }
+  let stock = false
+  let previous: LaneDay | undefined
+  for (const date of [...new Set([...won.keys(), ...played])].sort()) {
+    const base = laneForDay(date)
+    const revenge = !!previous && !previous.won
+    const patron = revenge ? previous!.patron : base.patron
+    if (boss.has(date)) stock = true
+    const day: LaneDay = { date, lane: base.lane, patron, won: won.has(date), revenge }
+    if (day.won) {
+      summary.streak++
+      summary.best = Math.max(summary.best, summary.streak)
+      byPatron[patron].wins++
+      const hero = won.get(date)?.hero
+      if (typeof hero === 'string') {
+        day.hero = hero
+        summary.byHero[hero] = (summary.byHero[hero] ?? 0) + 1
+      }
+    } else {
+      byPatron[patron].losses++
+      if (stock) {
+        stock = false
+        day.saved = true
+        summary.saves++
+      } else {
+        summary.streak = 0
+      }
+    }
+    days.push(day)
+    previous = day
+  }
+  summary.wins = byPatron.hiddenKing.wins + byPatron.archmother.wins
+  summary.losses = byPatron.hiddenKing.losses + byPatron.archmother.losses
+  const last = days.at(-1)
+  const todayInfo = last?.date === today
+    ? { patron: last.patron, revenge: last.revenge, rejuvenator: stock }
+    : {
+        patron: last && !last.won ? last.patron : laneForDay(today).patron,
+        revenge: !!last && !last.won,
+        rejuvenator: stock || boss.has(today),
+      }
+  return { days, summary, today: todayInfo }
+}
+
+/** Stand-Angaben für heute aus dem Verlauf (Gegner, Revanche, Rejuvenator, Serie, Trophäe) */
+export function laneContextOf(history: LaneHistory, today: string): Omit<LaneContext, 'hero' | 'midBoss'> {
+  const wonToday = history.days.at(-1)?.date === today && history.days.at(-1)!.won
+  const wins = history.summary.byPatron[history.today.patron].wins
+  return {
+    ...history.today,
+    streak: history.summary.streak,
+    ...(wonToday && TROPHY_WINS.includes(wins) ? { trophy: wins } : {}),
+  }
+}
+
+export async function loadLaneHistory(now = new Date(), database: DeckDB = db): Promise<LaneHistory> {
+  const [entries, start] = await Promise.all([database.souls.toArray(), getMeta<string | null>('laneStart', null, database)])
+  return laneHistory(entries, start, localDate(now))
 }
 
 export async function getLaneSummary(now = new Date(), database: DeckDB = db): Promise<LaneSummary> {
-  const [entries, start] = await Promise.all([database.souls.toArray(), getMeta<string | null>('laneStart', null, database)])
-  return summarizeLanes(laneDays(entries, start, localDate(now)))
+  return (await loadLaneHistory(now, database)).summary
 }
 
 // ---------- Map ----------

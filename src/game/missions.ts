@@ -1,6 +1,7 @@
 /**
- * Tagesmissionen: jeden Tag 3 Aufgaben (eine Lern-, zwei Spiel-Missionen), fest pro Tag ausgelost.
- * Je +100 Souls, alle drei +150 Bonus. Dazu der Tagesziel-Bonus (+100).
+ * Tagesmissionen: jeden Tag 3 Aufgaben – die Mission des Helden des Tages (ohne Hero-Daten: eine Lern-Mission) und zwei
+ * Spiel-Missionen, fest pro Tag ausgelost. Je +100 Souls, alle drei +150 Bonus, dazu der Tagesziel-Bonus (+100).
+ * Freiwillig: der Mid Boss (Schwächen-Training bzw. eine schwere Spiel-Aufgabe). Der Lane-Angriff zeigt das als Kampf.
  */
 import { localDate } from '../data/dates'
 import { db, getMeta, getSettings, setMeta, type DayRecord, type DeckDB } from '../data/db'
@@ -8,7 +9,8 @@ import { LEARNED_ONLY_MIN } from '../data/model'
 import { isReverseId, type DeckId } from '../decks'
 import { loadLearnedCards } from '../quiz/load'
 import { shuffle } from '../quiz/quiz'
-import { laneState, trackLane, type LaneState } from './laneAttack'
+import { heroKnowledge, heroOffer, HERO_OFFER_SIZE, makeHeroPick, type HeroMissionMode, type HeroPick } from './dayHero'
+import { laneContextOf, laneForDay, laneHistory, laneState, loadLaneHistory, streakBonus, trackLane, type LaneState } from './laneAttack'
 import { hashString, seededRng } from './random'
 import { addSoulsInTx, announceGain, awardRound, GOAL_SOULS, type RoundAward, type RoundMode, type SoulsEntry, type SoulsGain } from './souls'
 import { weakCardCount } from './weakness'
@@ -87,14 +89,74 @@ export const MISSIONS: readonly MissionDef[] = [
     available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'survival', 'score') },
 ]
 
+/** Mid Boss bei zu wenigen Schwächen: schwere Spiel-Aufgaben */
+export const HARD_MISSIONS: readonly MissionDef[] = [
+  { id: 'quiz-9', kind: 'play', group: 'quiz', title: 'Quiz mit mindestens 9 richtigen Antworten', target: 9,
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'quiz', 'correct') },
+  { id: 'sprint-25', kind: 'play', group: 'sprint', title: '60-Sekunden-Sprint mit mindestens 25 richtigen', target: 25,
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items', 'abilities', 'heroes'), progress: c => bestOf(c, 'sprint', 'score') },
+  { id: 'map-9', kind: 'play', group: 'map', title: 'Map-Quiz mit mindestens 9 richtigen Antworten', target: 9,
+    available: c => !!c.mapReady, progress: c => bestOf(c, 'map', 'correct') },
+  { id: 'survival-20', kind: 'play', group: 'survival', title: 'Überleben: mindestens 20 Fragen', target: 20,
+    available: c => deck(c, 'items') >= 4 && learned(c, 'items'), progress: c => bestOf(c, 'survival', 'score') },
+]
+
 const byId = new Map(MISSIONS.map(m => [m.id, m]))
+const hardById = new Map(HARD_MISSIONS.map(m => [m.id, m]))
+
+/** Mission des Helden des Tages (ID in der Auslosung) */
+export const HERO_MISSION_ID = 'hero'
+/** Hero-Mission im Build-Quiz: so viele Fehler sind erlaubt */
+export const HERO_BUILD_MAX_ERRORS = 2
+
+/** Hero-Mission – je nach Wahl: seine Karten lernen bzw. wiederholen, Build-Quiz mit ihm; ohne Wahl kein Fortschritt */
+export function heroMissionDef(pick?: HeroPick): MissionDef {
+  const base = { id: HERO_MISSION_ID, kind: 'learn' as const, group: 'hero', available: () => true }
+  if (!pick) return { ...base, title: 'Held des Tages wählen', target: 1, progress: () => 0 }
+  if (pick.mode === 'build') {
+    return {
+      ...base, title: `Build-Quiz mit ${pick.name}: höchstens ${HERO_BUILD_MAX_ERRORS} Fehler`, target: 1,
+      progress: c => (c.entries.some(e => e.reason === 'build' && Number(e.data?.heroId) === pick.heroId
+        && Number(e.data?.errors ?? Infinity) <= HERO_BUILD_MAX_ERRORS) ? 1 : 0),
+    }
+  }
+  return {
+    ...base, title: `Karten von ${pick.name} ${pick.mode === 'learn' ? 'lernen' : 'wiederholen'}`, target: pick.cards.length,
+    progress: c => pick.cards.filter(id => c.day?.cards?.includes(id)).length,
+  }
+}
+
+/** Mid Boss des Tages: Schwächen-Training, bei zu wenigen Schwächen eine schwere Spiel-Aufgabe */
+export type MidBossTask = { kind: 'weak'; target: number } | { kind: 'play'; id: string }
+
+export const MID_BOSS_WEAK = 10
+export const MID_BOSS_WEAK_MIN = 5
+
+export function pickMidBoss(date: string, ctx: MissionContext): MidBossTask | undefined {
+  if (ctx.weakCount >= MID_BOSS_WEAK_MIN) return { kind: 'weak', target: Math.min(MID_BOSS_WEAK, ctx.weakCount) }
+  const options = HARD_MISSIONS.filter(m => m.available(ctx))
+  if (!options.length) return undefined
+  const rng = seededRng(hashString(`boss:${date}`))
+  return { kind: 'play', id: options[Math.floor(rng() * options.length)].id }
+}
+
+export function midBossDef(task: MidBossTask): MissionDef | undefined {
+  if (task.kind === 'play') return hardById.get(task.id)
+  return {
+    id: 'midboss', kind: 'learn', group: 'midboss', title: `${task.target} Schwächen-Karten üben`, target: task.target,
+    available: () => true, progress: c => c.day?.weak?.length ?? 0,
+  }
+}
 
 export function missionById(id: string): MissionDef | undefined {
   return byId.get(id)
 }
 
-/** Eine Lern- und zwei Spiel-Missionen aus verschiedenen Gruppen; fehlt etwas, wird aufgefüllt */
-export function pickMissions(date: string, available: readonly MissionDef[]): string[] {
+/**
+ * Eine Lern- und zwei Spiel-Missionen aus verschiedenen Gruppen; fehlt etwas, wird aufgefüllt.
+ * `withHero`: statt der Lern-Mission die Mission des Helden des Tages (an erster Stelle).
+ */
+export function pickMissions(date: string, available: readonly MissionDef[], withHero = false): string[] {
   const rng = seededRng(hashString(date))
   const learn = shuffle(available.filter(m => m.kind === 'learn'), rng)
   const play = shuffle(available.filter(m => m.kind === 'play'), rng)
@@ -107,15 +169,17 @@ export function pickMissions(date: string, available: readonly MissionDef[]): st
       groups.add(m.group)
     }
   }
-  take(learn)
+  const wanted = withHero ? MISSIONS_PER_DAY - 1 : MISSIONS_PER_DAY
+  if (!withHero) take(learn)
   take(play)
   take(play)
   // zu wenige Spiel-Modi (z. B. noch keine Hero-Daten): mit weiteren Missionen auffüllen
   for (const m of [...play, ...learn]) {
-    if (picked.length >= MISSIONS_PER_DAY) break
+    if (picked.length >= wanted) break
     if (!picked.includes(m)) picked.push(m)
   }
-  return picked.slice(0, MISSIONS_PER_DAY).map(m => m.id)
+  const ids = picked.slice(0, wanted).map(m => m.id)
+  return withHero ? [HERO_MISSION_ID, ...ids] : ids
 }
 
 /**
@@ -148,30 +212,68 @@ export async function missionContext(now: Date, database: DeckDB = db): Promise<
   }
 }
 
-interface StoredMissions {
+/** Missionen des Tages (meta 'missions'): Auslosung, Held des Tages, Mid Boss */
+export interface StoredMissions {
   date: string
+  /** 3 Missionen; 'hero' = Mission des Helden des Tages */
   ids: string[]
+  /** Vorschläge für den Helden des Tages (Hero-Karten-IDs) */
+  heroOffer?: string[]
+  /** Gewählter Held und seine Mission */
+  hero?: HeroPick
+  midBoss?: MidBossTask
 }
 
 /** Missionen von heute (gespeichert bzw. frisch ausgelost). `store`: neue Auslosung festhalten */
-export async function todayMissionIds(now: Date, database: DeckDB = db, store = false): Promise<string[]> {
+export async function todayMissions(now: Date, database: DeckDB = db, store = false): Promise<StoredMissions> {
   const date = localDate(now)
   const stored = await getMeta<StoredMissions | null>('missions', null, database)
-  if (stored?.date === date) return stored.ids
+  if (stored?.date === date) return stored
   // „Nur Gelerntes“: Spiel-Missionen nur, wenn die Runden dafür lang genug sind
   const ctx: MissionContext = { ...(await missionContext(now, database)), learnedOnly: await learnedOnlyCounts(database) }
-  const ids = pickMissions(date, MISSIONS.filter(m => m.available(ctx)))
+  const offer = ctx.heroCount >= HERO_OFFER_SIZE ? heroOffer(date, await heroKnowledge(database)) : []
+  const withHero = offer.length >= HERO_OFFER_SIZE
+  const ids = pickMissions(date, MISSIONS.filter(m => m.available(ctx)), withHero)
+  const midBoss = pickMidBoss(date, ctx)
+  const record: StoredMissions = { date, ids, ...(withHero ? { heroOffer: offer } : {}), ...(midBoss ? { midBoss } : {}) }
   // Erst festhalten, wenn es genug gibt (z. B. noch keine Daten beim allerersten Start)
-  if (store && ids.length === MISSIONS_PER_DAY) await setMeta('missions', { date, ids }, database)
-  return ids
+  if (store && ids.length === MISSIONS_PER_DAY) await setMeta('missions', record, database)
+  return record
+}
+
+export async function todayMissionIds(now: Date, database: DeckDB = db, store = false): Promise<string[]> {
+  return (await todayMissions(now, database, store)).ids
+}
+
+/** Missionen der Auslosung (unbekannte IDs, z. B. nach einem Update, fallen weg) */
+function missionDefs(stored: StoredMissions): MissionDef[] {
+  return stored.ids
+    .map(id => (id === HERO_MISSION_ID ? heroMissionDef(stored.hero) : byId.get(id)))
+    .filter((m): m is MissionDef => !!m)
 }
 
 export interface MissionStatus {
   def: MissionDef
   progress: number
   done: boolean
-  /** Reihenfolge des Schaffens (ID des Souls-Eintrags der Belohnung) – für den Lane-Angriff */
-  doneSeq?: number
+  /** Schon gutgeschrieben */
+  rewarded: boolean
+}
+
+/** Held des Tages mit seiner Mission */
+export interface DayHero extends HeroPick {
+  /** Wechseln geht, solange seine Mission noch bei 0 steht */
+  canChange: boolean
+}
+
+/** Vorschlag für den Helden des Tages – mit der Mission, die er bekäme */
+export interface HeroChoice {
+  id: string
+  name: string
+  image?: string
+  mode: HeroMissionMode
+  /** learn/review: Anzahl Karten */
+  cards: number
 }
 
 export interface DailyStatus {
@@ -181,38 +283,100 @@ export interface DailyStatus {
   goalReached: boolean
   /** Lane-Angriff des Tages (nur mit drei Missionen) */
   lane: LaneState | null
+  /** Gewählter Held des Tages */
+  hero?: DayHero
+  /** Vorschläge, solange (noch) gewählt werden kann */
+  heroOffer?: HeroChoice[]
+  /** Mid Boss (freiwillig) */
+  midBoss?: MissionStatus
 }
 
 /** Stand einer Mission – geschafft, sobald belohnt oder das Ziel erreicht ist */
 function missionStatus(def: MissionDef, ctx: MissionContext): MissionStatus {
   const progress = def.progress(ctx)
-  const reward = ctx.entries.find(e => e.reason === 'mission' && e.data?.id === def.id)
-  return { def, progress: Math.min(progress, def.target), done: !!reward || progress >= def.target, doneSeq: reward?.id }
+  const rewarded = ctx.entries.some(e => e.reason === 'mission' && e.data?.id === def.id)
+  return { def, progress: Math.min(progress, def.target), done: rewarded || progress >= def.target, rewarded }
+}
+
+function midBossStatus(stored: StoredMissions, ctx: MissionContext): MissionStatus | undefined {
+  const def = stored.midBoss && midBossDef(stored.midBoss)
+  if (!def) return undefined
+  const progress = def.progress(ctx)
+  const rewarded = ctx.entries.some(e => e.reason === 'midboss')
+  return { def, progress: Math.min(progress, def.target), done: rewarded || progress >= def.target, rewarded }
+}
+
+async function describeOffer(ids: readonly string[], database: DeckDB): Promise<HeroChoice[]> {
+  const picks = await Promise.all(ids.map(id => makeHeroPick(id, database)))
+  return picks
+    .filter((p): p is HeroPick => !!p)
+    .map(p => ({ id: p.id, name: p.name, ...(p.image ? { image: p.image } : {}), mode: p.mode, cards: p.cards.length }))
 }
 
 /** Nur lesen (für die Startseite) */
 export async function dailyStatus(now = new Date(), database: DeckDB = db): Promise<DailyStatus> {
-  const ids = await todayMissionIds(now, database)
+  const date = localDate(now)
+  const stored = await todayMissions(now, database)
   const ctx = await missionContext(now, database)
-  const missions = ids
-    .map(id => byId.get(id))
-    .filter((m): m is MissionDef => !!m)
-    .map(def => missionStatus(def, ctx))
+  const missions = missionDefs(stored).map(def => missionStatus(def, ctx))
+  const midBoss = midBossStatus(stored, ctx)
+  const heroMission = missions.find(m => m.def.id === HERO_MISSION_ID)
+  const canChange = !!heroMission && heroMission.progress === 0 && !heroMission.done
+  const hero = stored.hero && heroMission ? { ...stored.hero, canChange } : undefined
+  const heroOffer = heroMission && stored.heroOffer && (!stored.hero || canChange) ? await describeOffer(stored.heroOffer, database) : undefined
+  const history = await loadLaneHistory(now, database)
+  const lane = laneState(date, missions, {
+    ...laneContextOf(history, date),
+    ...(hero ? { hero: { id: hero.id, name: hero.name, ...(hero.image ? { image: hero.image } : {}) } } : {}),
+    ...(midBoss ? { midBoss: { title: midBoss.def.title, progress: midBoss.progress, target: midBoss.def.target, done: midBoss.done } } : {}),
+  })
   return {
     missions,
     bonus: ctx.entries.some(e => e.reason === 'missions'),
     goalReached: ctx.entries.some(e => e.reason === 'goal'),
-    lane: laneState(localDate(now), missions),
+    lane,
+    ...(hero ? { hero } : {}),
+    ...(heroOffer?.length ? { heroOffer } : {}),
+    ...(midBoss ? { midBoss } : {}),
   }
 }
 
-/** Tagesziel-Bonus und geschaffte Missionen gutschreiben (jeweils einmal pro Tag) */
+/**
+ * Held des Tages wählen (aus den Vorschlägen) – wechseln nur, solange seine Mission noch bei 0 steht.
+ * Die Mission wird jetzt festgelegt (seine noch nicht gelernten Karten, sonst Build-Quiz, sonst Wiederholen).
+ */
+export async function chooseHero(heroCardId: string, now = new Date(), database: DeckDB = db): Promise<boolean> {
+  const stored = await todayMissions(now, database, true)
+  if (stored.ids.length !== MISSIONS_PER_DAY || !stored.ids.includes(HERO_MISSION_ID) || !stored.heroOffer?.includes(heroCardId)) return false
+  if (stored.hero?.id === heroCardId) return true
+  if (stored.hero) {
+    const current = missionStatus(heroMissionDef(stored.hero), await missionContext(now, database))
+    if (current.progress > 0 || current.done) return false
+  }
+  const pick = await makeHeroPick(heroCardId, database)
+  if (!pick) return false
+  await setMeta('missions', { ...stored, hero: pick }, database)
+  return true
+}
+
+/** Hero-Session: die Karten seiner Mission, die heute noch nicht dran waren */
+export async function heroSessionCards(now = new Date(), database: DeckDB = db): Promise<{ hero: HeroPick; ids: string[] } | null> {
+  const stored = await todayMissions(now, database)
+  if (!stored.hero || stored.hero.mode === 'build') return null
+  const day = await database.days.get(localDate(now))
+  return { hero: stored.hero, ids: stored.hero.cards.filter(id => !day?.cards?.includes(id)) }
+}
+
+/**
+ * Tagesziel-Bonus, geschaffte Missionen, Mid Boss und Sieg (mit Serien-Bonus) gutschreiben – jeweils einmal pro Tag.
+ * Danach den Lane-Angriff melden (Einblendungen in Sessions und Spielen).
+ */
 export async function checkDailyBonuses(now = new Date(), database: DeckDB = db): Promise<SoulsGain[]> {
   const date = localDate(now)
-  const ids = await todayMissionIds(now, database, true)
+  const stored = await todayMissions(now, database, true)
   const settings = await getSettings(database)
   const tables = [database.souls, database.meta, database.days, database.items, database.abilities, database.heroes, database.counters, database.builds, database.mistakes]
-  const { gains, missions } = await database.transaction('rw', tables, async () => {
+  const gains = await database.transaction('rw', tables, async () => {
     const ctx = await missionContext(now, database)
     const has = (pred: (e: SoulsEntry) => boolean) => ctx.entries.some(pred)
     const at = now.getTime()
@@ -220,30 +384,38 @@ export async function checkDailyBonuses(now = new Date(), database: DeckDB = db)
     if ((ctx.day?.reviewed ?? 0) >= settings.dailyGoal && !has(e => e.reason === 'goal')) {
       out.push(await addSoulsInTx(database, { at, date, amount: GOAL_SOULS, reason: 'goal' }))
     }
-    const statuses: MissionStatus[] = []
-    for (const id of ids) {
-      const def = byId.get(id)
-      if (!def) continue
-      const status = missionStatus(def, ctx)
-      // geschafft, aber noch nicht belohnt (zählt beim Lane-Angriff nach den schon belohnten)
-      if (status.done && status.doneSeq === undefined) {
-        out.push(await addSoulsInTx(database, { at, date, amount: MISSION_SOULS, reason: 'mission', data: { id } }))
+    const statuses = missionDefs(stored).map(def => missionStatus(def, ctx))
+    for (const status of statuses) {
+      if (status.done && !status.rewarded) {
+        out.push(await addSoulsInTx(database, { at, date, amount: MISSION_SOULS, reason: 'mission', data: { id: status.def.id } }))
       }
-      statuses.push(status)
-    }
-    const done = statuses.filter(m => m.done).length
-    if (ids.length === MISSIONS_PER_DAY && done === MISSIONS_PER_DAY && !has(e => e.reason === 'missions')) {
-      out.push(await addSoulsInTx(database, { at, date, amount: ALL_MISSIONS_BONUS, reason: 'missions' }))
     }
     // Lane-Angriff: Siege und Niederlagen zählen ab dem ersten Tag mit drei Missionen
     if (statuses.length === MISSIONS_PER_DAY && !(await getMeta<string | null>('laneStart', null, database))) {
       await setMeta('laneStart', date, database)
     }
-    return { gains: out, missions: statuses }
+    // Mid Boss besiegt: Eintrag ohne Souls (der Rejuvenator ergibt sich daraus)
+    const boss = midBossStatus(stored, ctx)
+    if (boss?.done && !boss.rewarded) {
+      await addSoulsInTx(database, { at, date, amount: 0, reason: 'midboss', data: { task: boss.def.title } })
+    }
+    if (statuses.length === MISSIONS_PER_DAY && statuses.every(m => m.done) && !has(e => e.reason === 'missions')) {
+      // Sieg: Gegner und Serie aus dem Verlauf (heute zählt noch nicht mit)
+      const history = laneHistory(await database.souls.toArray(), await getMeta<string | null>('laneStart', null, database), date)
+      const { patron, revenge } = history.today
+      out.push(await addSoulsInTx(database, {
+        at, date, amount: ALL_MISSIONS_BONUS, reason: 'missions',
+        data: { lane: laneForDay(date).lane, patron, revenge, ...(stored.hero ? { hero: stored.hero.id } : {}) },
+      }))
+      const streak = history.summary.streak + 1
+      const gain = await addSoulsInTx(database, { at, date, amount: streakBonus(streak, revenge), reason: 'streak', data: { streak, revenge } })
+      out.push({ ...gain, label: revenge ? `⚔ Revanche · Serie ${streak}` : `🔥 Serie ${streak}` })
+    }
+    return out
   })
   for (const gain of gains) announceGain(gain)
-  // Schaden, zerstörte Ziele, Sieg → kurze Einblendung
-  trackLane(laneState(date, missions))
+  // Schaden, zerstörte Ziele, Mid Boss, Sieg → kurze Einblendung
+  trackLane((await dailyStatus(now, database)).lane)
   return gains
 }
 

@@ -134,9 +134,11 @@ export function LaneView({ onBack, onStats }: Props) {
                         <span className="small">{down ? '💥 zerstört' : `${pct} % Leben`}</span>
                       </span>
                       {!down && <span className="lane-hp"><span style={{ width: `${pct}%` }} /></span>}
-                      <span className="muted small">
-                        {down ? `durch: ${t.by}` : i === lane.front ? 'Nächstes Ziel – die Mission, die am weitesten ist, macht Schaden' : 'Danach'}
-                      </span>
+                      {!down && (
+                        <span className="muted small">
+                          {i === lane.front ? 'Nächstes Ziel – jeder Fortschritt in einer Mission macht Schaden' : 'Danach'}
+                        </span>
+                      )}
                     </span>
                   </li>
                 )

@@ -11,6 +11,10 @@ export type SoulsReason =
   | 'milestone'
   /** Neuer Hero-Stern (milestones.ts) */
   | 'star'
+  /** Lane-Angriff: Serien-Bonus beim Sieg */
+  | 'streak'
+  /** Lane-Angriff: Mid Boss besiegt (ohne Souls – der Rejuvenator ist die Belohnung) */
+  | 'midboss'
 
 /**
  * Zählen nicht als Lerntag (Rang-Verfall): Verfall und Meilensteine. Meilensteine kommen sonst immer mit
