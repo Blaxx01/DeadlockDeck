@@ -57,15 +57,25 @@ export function LaneBar({ lane, shown, onOpen }: Props) {
   const won = start ? from.won : lane.won && (!victory || revealed)
   const front = hp.findIndex(h => h > 0)
   const patron = PATRON_LABEL[lane.patron]
-  const label = `Lane-Angriff: ${LANE_NAME[lane.lane]} gegen ${patron}${lane.won ? ' – Sieg' : ''}. `
+  const boss = lane.midBoss
+  const label = `Lane-Angriff: ${LANE_NAME[lane.lane]} gegen ${patron}${lane.revenge ? ' (Revanche)' : ''}${lane.won ? ' – Sieg' : ''}. `
     + lane.targets.map(t => `${targetLabel(t.kind, lane.patron)} ${t.hp <= 0 ? 'zerstört' : `${hpPercent(t.hp)} % Leben`}`).join(', ')
+    + (lane.hero ? `. Held des Tages: ${lane.hero.name}` : '')
+    + (boss ? `. Mid Boss: ${boss.done ? 'besiegt' : `${boss.progress} von ${boss.target}`}` : '')
+    + (lane.rejuvenator ? '. Rejuvenator bereit' : '')
     + '. Auf der Map zeigen'
+  const title = won
+    ? `${lane.revenge ? '⚔ Revanche' : '🏆 Sieg'} gegen ${patron}!${lane.streak > 1 ? ` · Serie ${lane.streak}` : ''}`
+    : `⚔ ${LANE_NAME[lane.lane]} gegen ${patron}`
 
   return (
     <>
       <button className={`lane-bar${won ? ' won' : ''}`} style={{ '--lane': LANE_COLOR[lane.lane] } as CSSProperties} onClick={onOpen} aria-label={label}>
         <span className="lane-head">
-          <span className="lane-title">{won ? `🏆 Sieg gegen ${patron}!` : `⚔ ${LANE_NAME[lane.lane]} gegen ${patron}`}</span>
+          <span className="lane-title">
+            {title}
+            {lane.revenge && !won && <span className="lane-badge">Revanche</span>}
+          </span>
           <span className="lane-more">Map ›</span>
         </span>
         <span className="lane-targets">
@@ -86,7 +96,30 @@ export function LaneBar({ lane, shown, onOpen }: Props) {
             )
           })}
         </span>
-        {victory && running && <span className="lane-victory" style={{ '--delay': `${total}s` } as CSSProperties} aria-hidden="true">Sieg!</span>}
+        {(lane.hero || boss || lane.rejuvenator) && (
+          <span className="lane-foot">
+            {lane.hero
+              ? (
+                <span className="lane-hero">
+                  <span className="hero-portrait small">{lane.hero.image && <img src={lane.hero.image} alt="" draggable={false} />}</span>
+                  <span>{lane.hero.name} greift an</span>
+                </span>
+              )
+              : <span className="muted">Held des Tages wählen ↓</span>}
+            <span className="lane-extras">
+              {boss && (
+                <span className={`lane-boss${boss.done ? ' done' : ''}`}>
+                  <MapSymbolIcon kind="midBoss" size={18} />
+                  {boss.done ? 'besiegt' : <><span className="lane-boss-bar"><span style={{ width: `${(boss.progress / boss.target) * 100}%` }} /></span>{boss.progress}/{boss.target}</>}
+                </span>
+              )}
+              {lane.rejuvenator && <span className="lane-rejuv" title="Rejuvenator: schützt die Siegesserie einmal vor einer Niederlage">✚ Rejuvenator</span>}
+            </span>
+          </span>
+        )}
+        {victory && running && (
+          <span className="lane-victory" style={{ '--delay': `${total}s` } as CSSProperties} aria-hidden="true">{lane.revenge ? 'Revanche!' : 'Sieg!'}</span>
+        )}
       </button>
       {confetti.length > 0 && (
         <div className="lane-confetti" aria-hidden="true">

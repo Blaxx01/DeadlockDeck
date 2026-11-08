@@ -4,6 +4,7 @@ import { formatDuration } from '../builds/buildQuiz'
 import { Medal, Stars } from '../components/Mastery'
 import { db, type ReviewRecord } from '../data/db'
 import { allHeroMastery, counterCardId, heroCardIds, MAX_STARS, STAR_IDS, STAR_LABEL, type HeroMastery, type StarId } from '../game/heroMastery'
+import { getLaneSummary } from '../game/laneAttack'
 import { STAR_SOULS } from '../game/milestones'
 import { atLeast, MASTERY_LABEL, MASTERY_MEDAL, type Mastery } from '../game/mastery'
 import { currentNav, pushNav, type NavState } from '../nav'
@@ -67,6 +68,8 @@ function HeroDetail({ mastery, onBack }: { mastery: HeroMastery; onBack: () => v
   )
   const toRequest = unlearned.filter(id => !requested?.has(id))
   const pending = unlearned.length - toRequest.length
+  // Lane-Angriff: Siege mit diesem Helden des Tages
+  const laneWins = useLiveQuery(async () => (await getLaneSummary()).byHero[hero.id] ?? 0, [hero.id])
 
   async function learnFresh() {
     for (const id of toRequest) await requestLearn(id)
@@ -87,6 +90,7 @@ function HeroDetail({ mastery, onBack }: { mastery: HeroMastery; onBack: () => v
             <h1>{hero.name}</h1>
             <Stars count={stars.length} max={MAX_STARS} />
             <span className="muted small">{stars.length} von {MAX_STARS} Sternen</span>
+            {!!laneWins && <span className="small hm-lane">🏆 {laneWins} {laneWins === 1 ? 'Sieg' : 'Siege'} als Held des Tages</span>}
           </div>
         </div>
 

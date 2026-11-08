@@ -34,6 +34,8 @@ interface Props {
   extraNew?: number
   /** Schwächen-Training: genau diese Karten (aus allen Decks), in dieser Reihenfolge */
   weakIds?: string[]
+  /** Feste Auswahl (z. B. Held des Tages): genau diese Karten, normal bewertet */
+  cardIds?: string[]
   /** Ansicht für den Verlaufseintrag der Item-Detailseite (Standard: diese Lernsession) */
   navView?: View
 }
@@ -220,7 +222,7 @@ function ItemFront({ card, answer }: { card: ItemCard; answer?: ReactNode }) {
   )
 }
 
-export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
+export function Learn({ deck, onExit, extraNew = 0, weakIds, cardIds, navView }: Props) {
   const [cards, setCards] = useState<Map<string, LearnEntry> | null>(null)
   const [queue, setQueue] = useState<string[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -294,9 +296,10 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       const reviews = new Map((await db.reviews.toArray()).map(r => [r.id, r]))
       let entries: LearnEntry[]
       let q: string[]
-      if (weakIds) {
-        // Schwächen-Training: feste Auswahl, unabhängig von Fälligkeit und Neu-Limit
-        entries = await withPatches(await entriesForIds(weakIds, onItemClick), reviews)
+      const fixed = weakIds ?? cardIds
+      if (fixed) {
+        // Schwächen-Training bzw. Held des Tages: feste Auswahl, unabhängig von Fälligkeit und Neu-Limit
+        entries = await withPatches(await entriesForIds(fixed, onItemClick), reviews)
         q = entries.map(e => e.id)
       } else if (deck === 'all') {
         // Alles lernen: alle Decks mit ihren eigenen Limits in einer Session
@@ -325,7 +328,7 @@ export function Learn({ deck, onExit, extraNew = 0, weakIds, navView }: Props) {
       setQueue(q)
     })()
     return () => { cancelled = true }
-  }, [deck, extraNew, onItemClick, weakIds])
+  }, [deck, extraNew, onItemClick, weakIds, cardIds])
 
   const current = cards && queue.length ? cards.get(queue[0]) : undefined
   const next = cards && queue.length > 1 ? cards.get(queue[1]) : undefined

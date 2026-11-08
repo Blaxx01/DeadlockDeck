@@ -27,6 +27,7 @@ import { Survival } from './views/Survival'
 import { MapView } from './views/MapView'
 import { MapQuiz } from './views/MapQuiz'
 import { LaneView } from './views/LaneView'
+import { HeroLearn } from './views/HeroLearn'
 
 /**
  * Welche Bilder offline vorgeladen werden – erhöhen, wenn neue dazukommen, damit auch bestehende
@@ -182,6 +183,8 @@ export default function App() {
           onMap={() => navigate({ name: 'map' })}
           onMapQuiz={() => navigate({ name: 'mapquiz' })}
           onLane={() => navigate({ name: 'lane' })}
+          onHeroLearn={() => navigate({ name: 'herolearn' })}
+          onHeroBuild={hero => navigate({ name: 'builds', hero })}
           onSettings={() => navigate({ name: 'settings' })}
           syncing={syncing}
           syncError={syncError}
@@ -192,7 +195,7 @@ export default function App() {
       {view.name === 'learn' && <Learn key={view.deck ?? 'items'} deck={view.deck ?? 'items'} onExit={goBack} extraNew={view.extraNew} />}
       {view.name === 'quiz' && <Quiz onExit={goBack} />}
       {view.name === 'guess' && <Guess onExit={goBack} />}
-      {view.name === 'builds' && <BuildQuiz onExit={goBack} />}
+      {view.name === 'builds' && <BuildQuiz onExit={goBack} heroId={view.hero} />}
       {view.name === 'sprint' && <Sprint onExit={goBack} />}
       {view.name === 'survival' && <Survival onExit={goBack} />}
       {view.name === 'weak' && <Weakness onExit={goBack} />}
@@ -202,6 +205,7 @@ export default function App() {
       {view.name === 'map' && <MapView key={view.focus ?? ''} onBack={goBack} focus={view.focus} />}
       {view.name === 'mapquiz' && <MapQuiz onExit={goBack} />}
       {view.name === 'lane' && <LaneView onBack={goBack} onStats={() => navigate({ name: 'stats' })} />}
+      {view.name === 'herolearn' && <HeroLearn onExit={goBack} />}
       {view.name === 'settings' && (
         <SettingsView onBack={goBack} onSync={sync} onCacheImages={cacheImages} syncing={syncing} />
       )}

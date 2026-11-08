@@ -25,7 +25,12 @@ function laneFloats(change: LaneChange): Omit<Float, 'id'>[] {
   for (const kind of change.destroyed) {
     if (kind !== 'patron' || !change.won) out.push({ text: `💥 ${targetLabel(kind, state.patron)} zerstört!`, long: true })
   }
-  if (change.won) out.push({ text: `🏆 Sieg gegen ${PATRON_LABEL[state.patron]}!`, long: true })
+  if (change.won) {
+    const patron = PATRON_LABEL[state.patron]
+    out.push({ text: state.revenge ? `⚔ Revanche gegen ${patron}!` : `🏆 Sieg gegen ${patron}!`, long: true })
+    if (state.trophy) out.push({ text: `🏅 Trophäe: ${state.trophy} ${state.trophy === 1 ? 'Sieg' : 'Siege'} gegen ${patron}`, long: true })
+  }
+  if (change.midBoss) out.push({ text: '💜 Mid Boss besiegt – Rejuvenator!', long: true })
   if (change.damage) {
     const { kind, before, after } = change.damage
     out.push({

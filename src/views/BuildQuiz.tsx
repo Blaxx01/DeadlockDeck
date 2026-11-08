@@ -18,6 +18,8 @@ import { ItemDetail } from './ItemDetail'
 
 interface Props {
   onExit: () => void
+  /** Gleich mit diesem Hero starten (Held des Tages); fehlt sein Build in der gewählten Quelle, der typische */
+  heroId?: number
 }
 
 type Phase =
@@ -304,7 +306,7 @@ function ResultView({ round, progress, ms, newBest, earned, stars, best, onOpenI
   )
 }
 
-export function BuildQuiz({ onExit }: Props) {
+export function BuildQuiz({ onExit, heroId }: Props) {
   const [source, setSource] = useState<BuildSource | null>(null)
   useEffect(() => { void getMeta<BuildSource>('buildSource', 'typical').then(setSource) }, [])
   const builds = useLiveQuery(
@@ -316,6 +318,8 @@ export function BuildQuiz({ onExit }: Props) {
   const bests = useLiveQuery(() => getBuildBests(), [])
   const [phase, setPhase] = useState<Phase>({ name: 'start' })
   const rounds = useRef(0)
+  /** Held des Tages: einmal direkt starten */
+  const autoStarted = useRef(false)
 
   // Item-Detailseite über dem Quiz – als Verlaufseintrag, damit „Zurück“ hierher führt
   const [detailId, setDetailId] = useState<string | null>(() => currentNav().item ?? null)
@@ -355,6 +359,18 @@ export function BuildQuiz({ onExit }: Props) {
     const round = makeBuildRound(build, items)
     if (round) setPhase({ name: 'round', round, no: ++rounds.current })
   }
+
+  // Held des Tages: sobald Builds und Items da sind, gleich mit ihm starten
+  useEffect(() => {
+    if (heroId === undefined || autoStarted.current || !builds || !allItems?.length) return
+    autoStarted.current = true
+    void (async () => {
+      const own = builds.find(b => b.heroId === heroId)
+        ?? (await db.builds.where('source').equals('typical').filter(b => b.heroId === heroId).first())
+      const round = own && makeBuildRound(own, new Map(allItems.map(i => [i.id, i])))
+      if (round) setPhase({ name: 'round', round, no: ++rounds.current })
+    })()
+  }, [heroId, builds, allItems])
 
   async function finish(round: BuildRound, progress: BuildProgress, ms: number) {
     const key = buildBestKey(round.build.source, round.build.heroId)

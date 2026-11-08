@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { State } from 'ts-fsrs'
+import { HeroOfDay } from '../components/HeroOfDay'
 import { LaneBar } from '../components/LaneBar'
 import { RankBadge } from '../components/RankBadge'
 import { daysAgoText, exportBackup, getBackupStatus, prefersShare, snoozeBackupReminder, BACKUP_EVERY_DAYS, type BackupStatus } from '../data/backup'
@@ -12,7 +13,7 @@ import {
 import { DECKS, newIntroducedToday, REVERSE_NEW_PER_DAY, reverseIdsFor, reverseIntroducedToday, type DeckId, type LearnDeck } from '../decks'
 import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import type { LaneShown } from '../game/laneAttack'
-import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, MISSION_SOULS, type DailyStatus } from '../game/missions'
+import { ALL_MISSIONS_BONUS, checkDailyBonuses, dailyStatus, HERO_MISSION_ID, MISSION_SOULS, type DailyStatus } from '../game/missions'
 import { rankForSouls, rankLabel, type RankAsset } from '../game/ranks'
 import { DECAY_GRACE_DAYS, DECAY_SOULS, daysWithoutLearning, getSoulsTotal, lastActiveDate } from '../game/souls'
 import { getWeaknesses, WEAK_DAYS, type Weakness } from '../game/weakness'
@@ -32,6 +33,8 @@ interface Props {
   onMap: () => void
   onMapQuiz: () => void
   onLane: () => void
+  onHeroLearn: () => void
+  onHeroBuild: (heroId: number) => void
   onSettings: () => void
   syncing: boolean
   syncError: string | null
@@ -230,9 +233,13 @@ interface MissionsProps {
   goal: number
   laneShown: LaneShown | null
   onLane: () => void
+  onHeroLearn: () => void
+  onHeroBuild: (heroId: number) => void
+  onWeak: () => void
 }
 
-function Missions({ daily, reviewed, goal, laneShown, onLane }: MissionsProps) {
+function Missions({ daily, reviewed, goal, laneShown, onLane, onHeroLearn, onHeroBuild, onWeak }: MissionsProps) {
+  const boss = daily.midBoss
   const goalPct = Math.min(100, Math.round((reviewed / goal) * 100))
   return (
     <div className="panel today">
@@ -243,6 +250,7 @@ function Missions({ daily, reviewed, goal, laneShown, onLane }: MissionsProps) {
       <div className="goal-bar"><div style={{ width: `${goalPct}%` }} /></div>
       {/* Lane-Angriff (nur mit drei Missionen): jede geschaffte Mission zerstört das vorderste Ziel */}
       {daily.lane && <LaneBar lane={daily.lane} shown={laneShown} onOpen={onLane} />}
+      <HeroOfDay daily={daily} onLearn={onHeroLearn} onBuild={onHeroBuild} />
       {daily.missions.length > 0 && (
         <>
           <ul className="missions">
@@ -251,11 +259,26 @@ function Missions({ daily, reviewed, goal, laneShown, onLane }: MissionsProps) {
                 <span className="mission-check" aria-hidden="true">{m.done ? '✓' : '○'}</span>
                 <span className="mission-title">{m.def.title}</span>
                 <span className="mission-progress muted small">
-                  {m.done ? '' : `${m.progress.toLocaleString('de-DE')} / ${m.def.target.toLocaleString('de-DE')}`}
+                  {m.done || (m.def.id === HERO_MISSION_ID && !daily.hero) ? '' : `${m.progress.toLocaleString('de-DE')} / ${m.def.target.toLocaleString('de-DE')}`}
                 </span>
                 <span className="mission-reward">+{MISSION_SOULS} ◆</span>
               </li>
             ))}
+            {boss && (
+              <li className={`mission-boss${boss.done ? ' done' : ''}`}>
+                <span className="mission-check" aria-hidden="true">{boss.done ? '✓' : '○'}</span>
+                <span className="mission-title">
+                  <span className="boss-tag">Mid Boss</span>{' '}
+                  {boss.def.id === 'midboss' && !boss.done
+                    ? <button className="link" onClick={onWeak}>{boss.def.title}</button>
+                    : boss.def.title}
+                </span>
+                <span className="mission-progress muted small">
+                  {boss.done ? '' : `${boss.progress.toLocaleString('de-DE')} / ${boss.def.target.toLocaleString('de-DE')}`}
+                </span>
+                <span className="mission-reward boss" title="Rejuvenator: schützt die Siegesserie einmal vor einer Niederlage">✚ Rejuv.</span>
+              </li>
+            )}
           </ul>
           <p className="muted small mission-bonus">
             {daily.bonus ? `🎉 Alle Missionen geschafft – +${ALL_MISSIONS_BONUS} ◆ Bonus` : `Alle drei: +${ALL_MISSIONS_BONUS} ◆ Bonus`}
@@ -390,7 +413,8 @@ function DeckRow({ deck, onLearn, primary }: { deck: DeckStats; onLearn: Props['
 }
 
 export function Home({
-  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onLane, onSettings,
+  onLearn, onQuiz, onGuess, onBuilds, onSprint, onSurvival, onWeak, onShop, onHeroes, onStats, onMap, onMapQuiz, onLane, onHeroLearn,
+  onHeroBuild, onSettings,
   syncing, syncError, imageProgress, onSync,
 }: Props) {
   const s = useHomeStats()
@@ -431,7 +455,8 @@ export function Home({
 
       <RankCard souls={s.souls} assets={s.ranks} streak={s.streak} warning={s.decayWarning} onStats={onStats} />
 
-      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} laneShown={s.laneShown} onLane={onLane} />
+      <Missions daily={s.daily} reviewed={s.reviewedToday} goal={s.settings.dailyGoal} laneShown={s.laneShown} onLane={onLane}
+        onHeroLearn={onHeroLearn} onHeroBuild={onHeroBuild} onWeak={onWeak} />
 
       <div className="panel">
         <h2>Karteikarten</h2>

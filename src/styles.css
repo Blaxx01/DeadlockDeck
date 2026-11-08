@@ -1018,3 +1018,69 @@ button.link {
   .lane-target.front .lane-icon::after, .lane-list li.front .lane-icon::after, .lane-float-bar > span { animation: none; }
   .lane-victory, .lane-confetti { display: none; }
 }
+
+/* ---------- Lane-Angriff 2.0: Held des Tages, Mid Boss, Trophäen ---------- */
+:root { --boss: #c174f0; }
+.hero-portrait {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  background: var(--panel-2); border: 2px solid color-mix(in srgb, var(--lane, var(--accent)) 60%, var(--line));
+}
+.hero-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.hero-portrait.small { width: 24px; height: 24px; border-width: 1.5px; }
+.hero-day {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2);
+}
+.hero-day.done { opacity: 0.8; }
+.hero-day-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hero-day-text .link { padding: 0; }
+.hero-go { padding: 8px 14px; font-size: 0.9rem; white-space: nowrap; }
+.hero-day.pick { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.hero-day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hero-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hero-choice { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; text-align: center; }
+.hero-choice .hero-portrait { width: 52px; height: 52px; }
+.hero-choice.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel-2)); }
+.hero-choice-name { font-weight: 700; font-size: 0.9rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Leiste: Revanche, Held, Mid Boss, Rejuvenator */
+.lane-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 99px; vertical-align: 0.1em;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #1b1408; background: var(--bad);
+}
+.lane-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.78rem; }
+.lane-hero { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lane-hero > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane-extras { display: flex; align-items: center; gap: 8px; flex: none; }
+.lane-boss { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lane-boss.done { color: var(--boss); font-weight: 700; }
+.lane-boss-bar { display: inline-block; width: 34px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.lane-boss-bar > span { display: block; height: 100%; background: var(--boss); }
+.lane-rejuv {
+  padding: 1px 7px; border-radius: 99px; font-weight: 700; white-space: nowrap;
+  color: var(--boss); border: 1px solid color-mix(in srgb, var(--boss) 60%, var(--line));
+}
+/* Missionen: Mid Boss als Bonus */
+.boss-tag {
+  display: inline-block; padding: 0 6px; margin-right: 2px; border-radius: 99px; font-size: 0.66rem; font-weight: 800;
+  letter-spacing: 0.04em; text-transform: uppercase; color: #1b1408; background: var(--boss); vertical-align: 0.1em;
+}
+.mission-boss .mission-title .link { padding: 0; font-size: inherit; text-align: left; }
+.mission-reward.boss { color: var(--boss); }
+.missions li.mission-boss.done .mission-reward { color: var(--boss); }
+/* Lane-Map */
+.lane-map-ring.boss .hp { stroke: var(--boss); }
+.lane-map-hero .ring { fill: #120f0b; stroke: var(--lane); stroke-width: 6; }
+.lane-map-hero text { fill: var(--text); font-weight: 800; }
+.lane-hero-line { display: flex; align-items: center; gap: 8px; margin: 0; }
+.lane-boss-panel h2 { color: var(--boss); }
+.lane-trophies { display: flex; flex-direction: column; gap: 2px; }
+/* Statistik */
+.lane-trophy-row { grid-column: 2 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+.lane-trophy { display: inline-flex; align-items: baseline; gap: 1px; font-size: 0.9rem; opacity: 0.25; filter: grayscale(1); }
+.lane-trophy.on { opacity: 1; filter: none; }
+.lane-trophy small { font-size: 0.66rem; font-weight: 700; color: var(--muted); }
+.lane-trophy.on small { color: var(--text); }
+.lane-sub-head { font-size: 0.85rem; margin: 4px 0 0; color: var(--muted); }
+.lane-heroes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lane-heroes li { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px; font-size: 0.9rem; }
+.hm-lane { display: block; margin-top: 2px; color: var(--accent); }

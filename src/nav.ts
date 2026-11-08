@@ -12,7 +12,8 @@ export type View =
   | { name: 'learn'; deck?: LearnDeck; extraNew?: number }
   | { name: 'quiz' }
   | { name: 'guess' }
-  | { name: 'builds' }
+  /** Build-Quiz; `hero`: gleich mit diesem Hero starten (Held des Tages) */
+  | { name: 'builds'; hero?: number }
   /** 60-Sekunden-Sprint */
   | { name: 'sprint' }
   /** Überleben (3 Leben) */
@@ -29,6 +30,8 @@ export type View =
   | { name: 'mapquiz' }
   /** Lane-Angriff des Tages auf der Map (über die Leiste im Feld „Heute“) */
   | { name: 'lane' }
+  /** Held des Tages: Session mit seinen Karten */
+  | { name: 'herolearn' }
   | { name: 'settings' }
 
 export interface NavState {

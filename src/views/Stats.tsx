@@ -11,7 +11,8 @@ import { allHeroMastery, MAX_STARS } from '../game/heroMastery'
 import { atLeast, countMastery, MASTERY_MEDAL, masteryText } from '../game/mastery'
 import { describeCards, getLeeches, LEECH_LAPSES } from '../game/weakness'
 import { InlineNote } from '../components/Notes'
-import { getLaneSummary, PATRON_LABEL, PATRONS, type LaneSummary } from '../game/laneAttack'
+import { getLaneSummary, PATRON_LABEL, PATRONS, TROPHY_WINS, type LaneSummary } from '../game/laneAttack'
+import type { HeroCard } from '../data/model'
 import { getSoulsTotal } from '../game/souls'
 import { calendarWeeks, learningTotals, soulsSeries } from '../game/stats'
 import { computeStreakState } from '../srs/srs'
@@ -60,14 +61,17 @@ async function loadStats() {
     leeches,
     leechCards: await describeCards(leeches.map(l => l.cardId)),
     lanes,
+    // Siege je Held: Name und Bild der Heroes
+    heroCards: new Map(heroes.map(m => [m.hero.id, m.hero])),
   }
 }
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString('de-DE')} ${n === 1 ? one : many}`
 
-/** Lane-Angriff: Siege, Niederlagen, Serie, je Patron */
-function LaneStats({ lanes }: { lanes: LaneSummary }) {
+/** Lane-Angriff: Siege, Niederlagen, Serie, je Patron mit Trophäen, Siege je Held */
+function LaneStats({ lanes, heroCards }: { lanes: LaneSummary; heroCards: ReadonlyMap<string, HeroCard> }) {
   const played = lanes.wins + lanes.losses
+  const byHero = Object.entries(lanes.byHero).sort((a, b) => b[1] - a[1]).slice(0, 6)
   return (
     <section className="panel">
       <h2>Lane-Angriff</h2>
@@ -94,11 +98,35 @@ function LaneStats({ lanes }: { lanes: LaneSummary }) {
                     aria-label={total ? `${Math.round((r.wins / total) * 100)} % gewonnen` : 'noch nicht gekämpft'}>
                     <span style={{ width: total ? `${(r.wins / total) * 100}%` : 0 }} />
                   </span>
+                  <span className="lane-trophy-row" role="img"
+                    aria-label={`Trophäen: ${TROPHY_WINS.filter(t => r.wins >= t).join(', ') || 'noch keine'}`}>
+                    {TROPHY_WINS.map(t => <span key={t} className={`lane-trophy${r.wins >= t ? ' on' : ''}`}>🏅<small>{t}</small></span>)}
+                  </span>
                 </li>
               )
             })}
           </ul>
-          <p className="muted small">Gezählt werden Tage, an denen du gelernt oder gespielt hast. Ein Tag ohne Lernen unterbricht die Serie nicht.</p>
+          {byHero.length > 0 && (
+            <>
+              <h3 className="lane-sub-head">Siege je Held des Tages</h3>
+              <ul className="lane-heroes">
+                {byHero.map(([id, wins]) => {
+                  const hero = heroCards.get(id)
+                  return (
+                    <li key={id}>
+                      <span className="hero-portrait small">{hero?.smallImage && <img src={hero.smallImage} alt="" draggable={false} />}</span>
+                      <span>{hero?.name ?? id}</span>
+                      <b>{plural(wins, 'Sieg', 'Siege')}</b>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+          <p className="muted small">
+            Gezählt werden Tage, an denen du gelernt oder gespielt hast. Ein Tag ohne Lernen unterbricht die Serie nicht.
+            {lanes.saves > 0 && ` Der Rejuvenator hat deine Serie ${lanes.saves}× gerettet.`}
+          </p>
         </>
       )}
     </section>
@@ -151,7 +179,7 @@ export function Stats({ onBack, onHeroes }: Props) {
         <LearnCalendar weeks={s.weeks} goal={s.goal} />
       </section>
 
-      <LaneStats lanes={s.lanes} />
+      <LaneStats lanes={s.lanes} heroCards={s.heroCards} />
 
       <section className="panel">
         <div className="row">

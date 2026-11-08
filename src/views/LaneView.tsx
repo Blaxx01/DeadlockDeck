@@ -3,7 +3,7 @@ import { useEffect, type CSSProperties } from 'react'
 import { MAP_UNITS, MapCanvas, MapSymbolIcon } from '../components/MapCanvas'
 import { getMapData } from '../data/mapSync'
 import {
-  getLaneSummary, hpPercent, LANE_NAME, LANE_TARGETS, laneTargetPoints, PATRON_LABEL, targetLabel, type LaneState,
+  getLaneSummary, hpPercent, LANE_NAME, LANE_TARGETS, laneTargetPoints, PATRON_LABEL, PATRONS, targetLabel, TROPHY_WINS, type LaneState,
 } from '../game/laneAttack'
 import { dailyStatus, type MissionStatus } from '../game/missions'
 import type { MapData, MapPoint } from '../map/mapData'
@@ -49,18 +49,65 @@ function TargetMarks({ lane, points }: { lane: LaneState; points: Partial<Record
   )
 }
 
+/** Mid Boss in der Kartenmitte: Lebensring (Fortschritt der Aufgabe) bzw. ✕ */
+function BossMark({ point, boss }: { point: MapPoint; boss: NonNullable<LaneState['midBoss']> }) {
+  const x = point.x * MAP_UNITS
+  const y = point.y * MAP_UNITS
+  if (boss.done) {
+    const r = 19
+    return (
+      <g className="lane-map-x" aria-hidden="true">
+        <path d={`M${x - r} ${y - r}L${x + r} ${y + r}M${x - r} ${y + r}L${x + r} ${y - r}`} className="under" />
+        <path d={`M${x - r} ${y - r}L${x + r} ${y + r}M${x - r} ${y + r}L${x + r} ${y - r}`} />
+      </g>
+    )
+  }
+  const r = 38
+  const c = 2 * Math.PI * r
+  const left = 1 - boss.progress / boss.target
+  return (
+    <g className="lane-map-ring boss" aria-hidden="true">
+      <circle cx={x} cy={y} r={r} className="track" />
+      <circle cx={x} cy={y} r={r} className="hp" strokeDasharray={`${c * left} ${c}`} transform={`rotate(-90 ${x} ${y})`} />
+    </g>
+  )
+}
+
+/** Held des Tages auf der Lane: vor dem nächsten Ziel (Richtung eigene Basis) */
+function HeroMark({ point, image, name }: { point: MapPoint; image?: string; name: string }) {
+  const x = point.x * MAP_UNITS
+  const y = (point.y + 0.06) * MAP_UNITS
+  const r = 27
+  return (
+    <g className="lane-map-hero" aria-hidden="true">
+      <clipPath id="lane-hero-clip"><circle cx={x} cy={y} r={r} /></clipPath>
+      <circle cx={x} cy={y} r={r + 4} className="ring" />
+      {image
+        ? <image href={image} x={x - r} y={y - r} width={2 * r} height={2 * r} clipPath="url(#lane-hero-clip)" preserveAspectRatio="xMidYMid slice" />
+        : <text x={x} y={y} dy="0.36em" textAnchor="middle" fontSize={26}>{name.slice(0, 1)}</text>}
+    </g>
+  )
+}
+
 function LaneMap({ map, lane }: { map: MapData; lane: LaneState }) {
   const points = laneTargetPoints(map, lane.lane)
-  const shown = LANE_TARGETS.map(k => points[k]).filter((p): p is MapPoint => !!p)
-  const destroyed = lane.targets.filter(t => t.hp <= 0).map(t => points[t.kind]).filter((p): p is MapPoint => !!p)
+  const bossPoint = lane.midBoss ? map.points.find(p => p.kind === 'midBoss') : undefined
+  const shown = [...LANE_TARGETS.map(k => points[k]), bossPoint].filter((p): p is MapPoint => !!p)
+  const destroyed = [
+    ...lane.targets.filter(t => t.hp <= 0).map(t => points[t.kind]),
+    lane.midBoss?.done ? bossPoint : undefined,
+  ].filter((p): p is MapPoint => !!p)
   const front = lane.won ? null : lane.targets[lane.front].kind
+  const heroAt = points[lane.targets[Math.min(lane.front, LANE_TARGETS.length - 1)].kind]
   // nur die Lane des Tages
   const data = { ...map, ziplines: map.ziplines.filter(z => z.lane === lane.lane) }
   return (
     <div className="map-frame">
       <MapCanvas data={data} points={shown} highlight={front} dimmed={destroyed}
-        label={`Deadlock-Map: ${LANE_NAME[lane.lane]} mit Guardian, Walker und Patron der gegnerischen Basis`}>
+        label={`Deadlock-Map: ${LANE_NAME[lane.lane]} mit Guardian, Walker und Patron der gegnerischen Basis${lane.hero ? ` – ${lane.hero.name} greift an` : ''}`}>
         <TargetMarks lane={lane} points={points} />
+        {bossPoint && lane.midBoss && <BossMark point={bossPoint} boss={lane.midBoss} />}
+        {heroAt && lane.hero && <HeroMark point={heroAt} image={lane.hero.image} name={lane.hero.name} />}
       </MapCanvas>
     </div>
   )
@@ -112,7 +159,10 @@ export function LaneView({ onBack, onStats }: Props) {
       ) : (
         <>
           <p className={`lane-sub${lane.won ? ' won' : ''}`}>
-            {lane.won ? `🏆 Sieg gegen ${PATRON_LABEL[lane.patron]}!` : `⚔ ${LANE_NAME[lane.lane]} gegen ${PATRON_LABEL[lane.patron]}`}
+            {lane.won
+              ? `${lane.revenge ? '⚔ Revanche' : '🏆 Sieg'} gegen ${PATRON_LABEL[lane.patron]}!`
+              : `⚔ ${LANE_NAME[lane.lane]} gegen ${PATRON_LABEL[lane.patron]}`}
+            {lane.revenge && !lane.won && <span className="lane-badge">Revanche</span>}
           </p>
 
           {s.map ? <LaneMap map={s.map} lane={lane} /> : (
@@ -148,8 +198,28 @@ export function LaneView({ onBack, onStats }: Props) {
 
           <div className="panel">
             <h2>Missionen</h2>
+            {s.daily.hero && (
+              <p className="lane-hero-line small">
+                <span className="hero-portrait small">{s.daily.hero.image && <img src={s.daily.hero.image} alt="" draggable={false} />}</span>
+                <span><b>{s.daily.hero.name}</b> greift heute mit dir an</span>
+              </p>
+            )}
             <MissionList missions={s.daily.missions} />
           </div>
+
+          {s.daily.midBoss && (
+            <div className="panel lane-boss-panel">
+              <div className="row">
+                <h2>Mid Boss</h2>
+                <span className="small">{s.daily.midBoss.done ? '💜 besiegt' : `${fmt(s.daily.midBoss.progress)} / ${fmt(s.daily.midBoss.def.target)}`}</span>
+              </div>
+              <p className="small">{s.daily.midBoss.def.title}</p>
+              <p className="muted small">
+                Freiwilliges Bonusziel. Besiegt bringt er den Rejuvenator: Er schützt deine Siegesserie einmal vor einer
+                Niederlage (höchstens einer auf Vorrat).{lane.rejuvenator ? ' ✚ Du hast gerade einen.' : ''}
+              </p>
+            </div>
+          )}
         </>
       )}
 
@@ -161,10 +231,17 @@ export function LaneView({ onBack, onStats }: Props) {
         <p className="small">
           <b>{plural(summary.wins, 'Sieg', 'Siege')}</b> · {plural(summary.losses, 'Niederlage', 'Niederlagen')} · Siegesserie {fmt(summary.streak)}
         </p>
+        <p className="small lane-trophies">
+          {PATRONS.map(p => {
+            const got = TROPHY_WINS.filter(t => summary.byPatron[p].wins >= t)
+            return <span key={p}>{PATRON_LABEL[p]}: {got.length ? got.map(t => `🏅${t}`).join(' ') : 'noch keine Trophäe'}</span>
+          })}
+        </p>
         <p className="muted small">
-          Jede geschaffte Tagesmission zerstört das vorderste Ziel – in der Reihenfolge, in der du sie schaffst. Fällt der Patron,
-          ist der Tag ein Sieg. Sonst zählt er nach Mitternacht als Niederlage, aber nur, wenn du an dem Tag gelernt oder gespielt
-          hast. Morgen gibt es eine neue Lane.
+          Jeder Fortschritt in einer Mission macht Schaden; je eine volle Mission an Fortschritt zerstört ein Ziel, der Patron
+          fällt mit der dritten. Ein Sieg bringt einen Serien-Bonus (+10 ◆ je Tag der Serie, höchstens +100). Steht der Patron
+          um Mitternacht noch, ist der Tag eine Niederlage (nur, wenn du gelernt oder gespielt hast) – und morgen gibt es Revanche
+          gegen ihn: Ein Sieg dann bringt den doppelten Serien-Bonus.
         </p>
       </div>
     </div>
