@@ -1031,7 +1031,7 @@ button.link {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2);
 }
-.hero-day.done { opacity: 0.8; }
+.hero-day.finished { opacity: 0.8; }
 .hero-day-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .hero-day-text .link { padding: 0; }
 .hero-go { padding: 8px 14px; font-size: 0.9rem; white-space: nowrap; }

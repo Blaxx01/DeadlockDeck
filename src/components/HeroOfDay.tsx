@@ -59,7 +59,7 @@ export function HeroOfDay({ daily, onLearn, onBuild }: Props) {
   if (!hero) return null
 
   return (
-    <div className={`hero-day${mission.done ? ' done' : ''}`}>
+    <div className={`hero-day${mission.done ? ' finished' : ''}`}>
       <span className="hero-portrait">{hero.image && <img src={hero.image} alt="" draggable={false} />}</span>
       <span className="hero-day-text">
         <span><b>{hero.name}</b> <span className="muted small">greift mit dir an</span></span>
