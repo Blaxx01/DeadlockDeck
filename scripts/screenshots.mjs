@@ -550,6 +550,8 @@ async function takePictures({ browser, context, page, url, watch }) {
     await page.evaluate(dbOp, { op: 'patchDay', date: today, cards: dayHero.cards.slice(HERO_DONE) })
     const p = await context.newPage()
     watch(p)
+    // das Porträt des Helden gleich beim Laden der Seite anfordern – sonst blitzt am Anfang ein leerer Rahmen auf
+    if (dayHero.image) await p.addInitScript(src => { window.__portrait = new Image(); window.__portrait.src = src }, dayHero.image)
     const t0 = Date.now()
     await p.goto(url)
     await p.locator('.lane-bar').waitFor()
