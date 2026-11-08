@@ -322,6 +322,9 @@ Zusätzlicher Ansporn für die Tagesmissionen: Jeden Tag greifst du auf einer La
 - Siege, Niederlagen, Revanchen, Rejuvenator, Trophäen und Siege je Held ergeben sich aus dem Souls-Verlauf (Bonus für
   alle drei Missionen = Sieg, mit Lane, Patron und Held; besiegter Mid Boss = Eintrag ohne Souls) – so sind sie im Backup
   und mit „Fortschritt löschen“ weg. Gezählt wird ab dem ersten Tag mit Lane-Angriff (der Tag ist im Backup)
+- Ein Sieg zählt immer gegen den Gegner, gegen den er errungen wurde (beim Sieg gespeichert), auch wenn der Verlauf
+  später anders aussieht (z. B. nach dem Einspielen eines älteren Backups); Siege aus der ersten Version ohne diese
+  Angabe zählen gegen den Patron des Tages (damals noch ohne Revanche)
 
 ## Lernen vertiefen
 Ziel: mehr Wissen abfragen (Upgrades, Item-Effekte) und Gelerntes besser behalten.

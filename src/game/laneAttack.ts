@@ -14,6 +14,10 @@ export type Patron = 'hiddenKing' | 'archmother'
 
 export const PATRONS: Patron[] = ['hiddenKing', 'archmother']
 
+function isPatron(value: unknown): value is Patron {
+  return PATRONS.includes(value as Patron)
+}
+
 export const PATRON_LABEL: Record<Patron, string> = { hiddenKing: 'Hidden King', archmother: 'Archmother' }
 
 /** Lanes der Map (links → rechts) */
@@ -277,10 +281,14 @@ export function laneHistory(entries: readonly HistoryEntry[], start: string | nu
   let previous: LaneDay | undefined
   for (const date of [...new Set([...won.keys(), ...played])].sort()) {
     const base = laneForDay(date)
-    const revenge = !!previous && !previous.won
-    const patron = revenge ? previous!.patron : base.patron
+    const isWon = won.has(date)
+    const record = won.get(date)
+    // Ein Sieg zählt gegen den Gegner, gegen den er errungen wurde (beim Sieg gespeichert –
+    // ältere Siege ohne Angabe: der Patron des Tages, damals noch ohne Revanche)
+    const revenge = isWon ? record?.revenge === true : !!previous && !previous.won
+    const patron = isWon ? (isPatron(record?.patron) ? record.patron : base.patron) : revenge ? previous!.patron : base.patron
     if (boss.has(date)) stock = true
-    const day: LaneDay = { date, lane: base.lane, patron, won: won.has(date), revenge }
+    const day: LaneDay = { date, lane: base.lane, patron, won: isWon, revenge }
     if (day.won) {
       summary.streak++
       summary.best = Math.max(summary.best, summary.streak)

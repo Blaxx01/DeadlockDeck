@@ -195,7 +195,7 @@ describe('Bilanz', () => {
     // Tage mit unterschiedlichem Patron suchen
     const lost = '2026-11-03'
     const next = ['2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].find(d => laneForDay(d).patron !== laneForDay(lost).patron)!
-    const entries = [entry(lost, 'card'), entry(next, 'quiz'), entry(next, 'missions'), entry('2026-11-09', 'card')]
+    const entries = [entry(lost, 'card'), entry(next, 'quiz'), entry(next, 'missions', { patron: laneForDay(lost).patron, revenge: true }), entry('2026-11-09', 'card')]
     const { days, today: now } = laneHistory(entries, '2026-11-01', today)
     expect(days[0]).toMatchObject({ date: lost, won: false, revenge: false, patron: laneForDay(lost).patron })
     expect(days[1]).toMatchObject({ date: next, won: true, revenge: true, patron: laneForDay(lost).patron })
@@ -203,6 +203,19 @@ describe('Bilanz', () => {
     expect(days[2]).toMatchObject({ date: '2026-11-09', won: false, revenge: false, patron: laneForDay('2026-11-09').patron })
     // heute: Revanche gegen den Patron vom 9.
     expect(now).toMatchObject({ revenge: true, patron: laneForDay('2026-11-09').patron })
+  })
+
+  it('ein Sieg zählt gegen den Gegner, gegen den er errungen wurde – auch wenn der Verlauf später anders aussieht', () => {
+    const lost = '2026-11-03'
+    const next = ['2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].find(d => laneForDay(d).patron !== laneForDay(lost).patron)!
+    const own = laneForDay(next).patron
+    // gewonnen, als der Verlauf erst an diesem Tag begann (keine Revanche); danach rückt der Start nach vorn
+    const recorded = laneHistory([entry(lost, 'card'), entry(next, 'missions', { patron: own, revenge: false })], '2026-11-01', today)
+    expect(recorded.days[1]).toMatchObject({ date: next, won: true, revenge: false, patron: own })
+    expect(recorded.summary.byPatron[own]).toEqual({ wins: 1, losses: 0 })
+    // ältere Siege ohne Angabe: Patron des Tages, ohne Revanche
+    const old = laneHistory([entry(lost, 'card'), entry(next, 'missions')], '2026-11-01', today)
+    expect(old.days[1]).toMatchObject({ won: true, revenge: false, patron: own })
   })
 
   it('Rejuvenator: ein besiegter Mid Boss schützt die Serie bei der nächsten Niederlage (höchstens einer)', () => {
