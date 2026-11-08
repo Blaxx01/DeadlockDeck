@@ -291,10 +291,11 @@ Zusätzlicher Ansporn für die Tagesmissionen: Jeden Tag greifst du auf einer La
   erst, wenn alle drei Missionen geschafft sind. Leben wird aufgerundet (1 % bis zum Fall)
 - **Held des Tages**: Die App schlägt jeden Tag drei Heroes vor – bevorzugt die, die du am wenigsten kennst (wenige
   Sterne, wenige gelernte Karten), dazu einer zufällig – und du wählst einen. Wechseln geht, solange seine Mission noch
-  bei 0 steht. Er steht mit Porträt in der Leiste und auf der Lane-Map vor dem nächsten Ziel
+  bei 0 steht. Er steht mit Porträt direkt unter der Leiste („Haze greift mit dir an“, Knopf „Angreifen“) und auf der
+  Lane-Map vor dem nächsten Ziel
   - seine Mission ersetzt die Lern-Mission (also Hero-Mission + 2 Spiel-Missionen), festgelegt bei der Wahl:
     - noch nicht gelernte Karten (Hero-Karte, 4 Fähigkeiten, Counter): **„Karten von Haze lernen“** – genau diese Karten,
-      über „Mit Haze angreifen“ in einer eigenen Session (neue werden kennengelernt; zählt fürs Tagesziel)
+      über „Angreifen“ in einer eigenen Session (neue werden kennengelernt; zählt fürs Tagesziel)
     - alle gelernt: **„Build-Quiz mit Haze: höchstens 2 Fehler“** – der Knopf startet das Build-Quiz mit ihm
     - alle gelernt, aber kein Build: **„Karten von Haze wiederholen“** (vorgezogene Wiederholung)
   - ohne Wahl macht seine Mission keinen Fortschritt – der Patron kann dann nicht fallen

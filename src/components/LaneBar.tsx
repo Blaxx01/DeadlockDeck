@@ -96,25 +96,19 @@ export function LaneBar({ lane, shown, onOpen }: Props) {
             )
           })}
         </span>
-        {(lane.hero || boss || lane.rejuvenator) && (
+        {/* Der Held des Tages steht gleich darunter (eigene Zeile) – hier nur Mid Boss und Rejuvenator */}
+        {(boss || lane.rejuvenator) && (
           <span className="lane-foot">
-            {lane.hero
-              ? (
-                <span className="lane-hero">
-                  <span className="hero-portrait small">{lane.hero.image && <img src={lane.hero.image} alt="" draggable={false} />}</span>
-                  <span>{lane.hero.name} greift an</span>
-                </span>
-              )
-              : <span className="muted">Held des Tages wählen ↓</span>}
-            <span className="lane-extras">
-              {boss && (
-                <span className={`lane-boss${boss.done ? ' done' : ''}`}>
-                  <MapSymbolIcon kind="midBoss" size={18} />
-                  {boss.done ? 'besiegt' : <><span className="lane-boss-bar"><span style={{ width: `${(boss.progress / boss.target) * 100}%` }} /></span>{boss.progress}/{boss.target}</>}
-                </span>
-              )}
-              {lane.rejuvenator && <span className="lane-rejuv" title="Rejuvenator: schützt die Siegesserie einmal vor einer Niederlage">✚ Rejuvenator</span>}
-            </span>
+            {boss && (
+              <span className={`lane-boss${boss.done ? ' done' : ''}`}>
+                <MapSymbolIcon kind="midBoss" size={18} />
+                <span>Mid Boss</span>
+                {boss.done
+                  ? <span>besiegt</span>
+                  : <><span className="lane-boss-bar"><span style={{ width: `${(boss.progress / boss.target) * 100}%` }} /></span>{boss.progress}/{boss.target}</>}
+              </span>
+            )}
+            {lane.rejuvenator && <span className="lane-rejuv" title="Rejuvenator: schützt die Siegesserie einmal vor einer Niederlage">✚ Rejuvenator</span>}
           </span>
         )}
         {victory && running && (

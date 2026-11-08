@@ -61,10 +61,11 @@ export function HeroOfDay({ daily, onLearn, onBuild }: Props) {
   return (
     <div className={`hero-day${mission.done ? ' finished' : ''}`}>
       <span className="hero-portrait">{hero.image && <img src={hero.image} alt="" draggable={false} />}</span>
+      {/* Was zu tun ist, steht gleich darunter in der Missionsliste */}
       <span className="hero-day-text">
-        <span><b>{hero.name}</b> <span className="muted small">greift mit dir an</span></span>
+        <b>{hero.name}</b>
         <span className="muted small">
-          {mission.done ? 'Seine Mission ist geschafft ✓' : mission.def.title}
+          {mission.done ? 'Mission geschafft ✓' : 'greift mit dir an'}
           {hero.canChange && <> · <button className="link small" onClick={() => { setChosen(null); setPicking(true) }}>Wechseln</button></>}
         </span>
       </span>

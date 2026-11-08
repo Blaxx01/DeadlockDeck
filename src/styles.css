@@ -1047,16 +1047,13 @@ button.link {
   display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 99px; vertical-align: 0.1em;
   font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #1b1408; background: var(--bad);
 }
-.lane-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.78rem; }
-.lane-hero { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.lane-hero > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lane-extras { display: flex; align-items: center; gap: 8px; flex: none; }
-.lane-boss { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lane-foot { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+.lane-boss { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lane-boss.done { color: var(--boss); font-weight: 700; }
-.lane-boss-bar { display: inline-block; width: 34px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.lane-boss-bar { display: inline-block; width: 56px; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; }
 .lane-boss-bar > span { display: block; height: 100%; background: var(--boss); }
 .lane-rejuv {
-  padding: 1px 7px; border-radius: 99px; font-weight: 700; white-space: nowrap;
+  margin-left: auto; padding: 1px 7px; border-radius: 99px; font-weight: 700; white-space: nowrap;
   color: var(--boss); border: 1px solid color-mix(in srgb, var(--boss) 60%, var(--line));
 }
 /* Missionen: Mid Boss als Bonus */
